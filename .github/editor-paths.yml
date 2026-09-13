@@ -1,5 +1,7 @@
 vscode:
   - 'Editors/VSCode/**'
+  - '.github/workflows/publish-vscode.yml'
+  - '.github/workflows/recover-release.yml'
   - '.github/editor-paths.yml'
   - '.github/workflows/ci.yml'
   - '.github/workflows/editors.yml'

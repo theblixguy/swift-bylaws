@@ -1,0 +1,81 @@
+name: Publish Homebrew formula
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      checkout_ref:
+        required: true
+        type: string
+    secrets:
+      RELEASE_APP_ID:
+        required: true
+      RELEASE_APP_PRIVATE_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_TAG: ${{ format('v{0}', inputs.version) }}
+
+jobs:
+  publish:
+    name: Update Homebrew formula
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.checkout_ref }}
+      - name: Build formula
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ARTIFACT_BUNDLE_URL=$(jq -er '.url | select(type == "string" and length > 0)' Distribution/PluginTool.json)
+          ARTIFACT_BUNDLE_SHA256=$(jq -er '.checksum | select(type == "string" and length > 0)' Distribution/PluginTool.json)
+          jq -e --arg version "${VERSION}" \
+            --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/bylaws.artifactbundle.zip" '
+            .mode == "remote" and .version == $version and .url == $url
+            and (.checksum | test("^[0-9a-f]{64}$"))
+          ' Distribution/PluginTool.json
+          gh release download "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
+            --pattern bylaws.artifactbundle.zip --dir saved
+          echo "${ARTIFACT_BUNDLE_SHA256}  saved/bylaws.artifactbundle.zip" | sha256sum --check -
+          export ARTIFACT_BUNDLE_URL ARTIFACT_BUNDLE_SHA256
+          ruby -pe '
+            gsub("{{ARTIFACT_BUNDLE_URL}}", ENV.fetch("ARTIFACT_BUNDLE_URL"))
+            gsub("{{ARTIFACT_BUNDLE_SHA256}}", ENV.fetch("ARTIFACT_BUNDLE_SHA256"))
+            gsub("{{VERSION}}", ENV.fetch("VERSION"))
+          ' Distribution/bylaws.rb > bylaws.rb
+      - name: Create Homebrew app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: theblixguy
+          repositories: homebrew-tap
+          permission-contents: write
+      - name: Publish formula
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          gh auth setup-git
+          gh repo clone theblixguy/homebrew-tap tap
+          mkdir -p tap/Formula
+          cp bylaws.rb tap/Formula/bylaws.rb
+          cd tap
+          app_user_id=$(gh api "users/${APP_SLUG}[bot]" --jq .id)
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${app_user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git add Formula/bylaws.rb
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "bylaws ${RELEASE_TAG}"
+          git push origin HEAD:main

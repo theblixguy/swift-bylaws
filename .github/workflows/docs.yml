@@ -91,3 +91,4 @@ jobs:
         if: inputs.upload_pages
         with:
           path: _site
+          retention-days: 30

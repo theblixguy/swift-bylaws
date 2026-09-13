@@ -1,0 +1,123 @@
+name: Recover release publication
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Publication to retry
+        required: true
+        type: choice
+        options:
+          - Documentation
+          - Homebrew
+          - VS Code and Cursor
+      release_tag:
+        description: Existing tag, such as v0.1.0 or vscode-v0.1.0
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ inputs.target == 'VS Code and Cursor' && 'editor-release-VS Code and Cursor' || 'release' }}
+  cancel-in-progress: false
+
+jobs:
+  source:
+    name: Check existing release
+    runs-on: ubuntu-latest
+    outputs:
+      revision: ${{ steps.source.outputs.revision }}
+      version: ${{ steps.source.outputs.version }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Check release
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          if [ "${GITHUB_REF}" != refs/heads/main ]; then
+            echo "::error::Run release recovery from the main branch."
+            exit 1
+          fi
+          case "${TARGET}" in
+            'VS Code and Cursor') prefix=vscode-v ;;
+            Documentation|Homebrew) prefix=v ;;
+            *) echo "::error::Choose Documentation, Homebrew or VS Code and Cursor."; exit 1 ;;
+          esac
+          if [[ ! "${RELEASE_TAG}" =~ ^${prefix}(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Use an existing ${prefix}0.1.0-style tag for this publication."
+            exit 1
+          fi
+          REVISION=$(git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}")
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" > release.json
+          test "$(jq -r .tag_name release.json)" = "${RELEASE_TAG}"
+          if [ "${TARGET}" != 'VS Code and Cursor' ]; then
+            jq -e '.draft == false and .prerelease == false' release.json
+            LATEST=$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '
+              add | map(select(.draft == false and .prerelease == false
+                and (.tag_name | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))))
+              | sort_by(.tag_name | ltrimstr("v") | split(".") | map(tonumber))
+              | last | .tag_name')
+            if [ "${LATEST}" != "${RELEASE_TAG}" ]; then
+              echo "::error::Use the latest stable package tag ${LATEST} for this publication."
+              exit 1
+            fi
+          fi
+          echo "revision=${REVISION}" >> "${GITHUB_OUTPUT}"
+          echo "version=${RELEASE_TAG#"${prefix}"}" >> "${GITHUB_OUTPUT}"
+
+  documentation:
+    name: Rebuild release documentation
+    needs: source
+    if: inputs.target == 'Documentation'
+    uses: ./.github/workflows/docs.yml
+    with:
+      checkout_ref: ${{ needs.source.outputs.revision }}
+      upload_pages: true
+
+  publish-documentation:
+    name: Publish release documentation
+    needs: documentation
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy documentation
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+
+  homebrew:
+    name: Republish Homebrew formula
+    needs: source
+    if: inputs.target == 'Homebrew'
+    uses: ./.github/workflows/publish-homebrew.yml
+    with:
+      checkout_ref: ${{ needs.source.outputs.revision }}
+      version: ${{ needs.source.outputs.version }}
+    secrets:
+      RELEASE_APP_ID: ${{ secrets.RELEASE_APP_ID }}
+      RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+  vscode:
+    name: Republish saved VS Code and Cursor package
+    needs: source
+    if: inputs.target == 'VS Code and Cursor'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/publish-vscode.yml
+    with:
+      release_tag: ${{ inputs.release_tag }}
+    secrets:
+      VS_MARKETPLACE_TOKEN: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+      OPEN_VSX_TOKEN: ${{ secrets.OPEN_VSX_TOKEN }}

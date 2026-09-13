@@ -34,4 +34,4 @@ cp bylaws-macos/bylaws-macos.tar.gz release-assets/
 cp bylaws-linux/bylaws-linux.tar.gz release-assets/
 tar -czf release-assets/bylaws-bazel-module.tar.gz -C "${MODULE_DIR}" .
 
-printf 'Bylaws %s\n' "${VERSION}"
+printf 'initial version\n'

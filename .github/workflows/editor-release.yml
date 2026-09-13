@@ -38,8 +38,8 @@ jobs:
       clients: ${{ inputs.client == 'Zed' && '["zed","zed-release"]' || '["vscode"]' }}
       upload_vscode: ${{ inputs.client == 'VS Code and Cursor' }}
 
-  release-vscode:
-    name: Release VS Code and Cursor client
+  prepare-vscode:
+    name: Save VS Code and Cursor package
     if: >-
       !cancelled()
       && needs.check.result == 'success'
@@ -48,104 +48,68 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      release_tag: ${{ steps.version.outputs.tag }}
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: Check publisher settings
-        env:
-          OPEN_VSX_PUBLISH_ENABLED: ${{ vars.OPEN_VSX_PUBLISH_ENABLED }}
-          OPEN_VSX_TOKEN: ${{ secrets.OPEN_VSX_TOKEN }}
-          VS_MARKETPLACE_PUBLISH_ENABLED: ${{ vars.VS_MARKETPLACE_PUBLISH_ENABLED }}
-          VS_MARKETPLACE_TOKEN: ${{ secrets.VS_MARKETPLACE_TOKEN }}
-        run: |
-          if [ "${VS_MARKETPLACE_PUBLISH_ENABLED}" = "true" ] && [ -z "${VS_MARKETPLACE_TOKEN}" ]; then
-            echo "::error::Add the VS_MARKETPLACE_TOKEN repository secret or set VS_MARKETPLACE_PUBLISH_ENABLED to false."
-            exit 1
-          fi
-          if [ "${OPEN_VSX_PUBLISH_ENABLED}" = "true" ] && [ -z "${OPEN_VSX_TOKEN}" ]; then
-            echo "::error::Add the OPEN_VSX_TOKEN repository secret or set OPEN_VSX_PUBLISH_ENABLED to false."
-            exit 1
-          fi
-      - name: Install Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: Editors/VSCode/package-lock.json
-      - name: Install publisher
-        working-directory: Editors/VSCode
-        run: npm ci
       - name: Download extension
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: bylaws-editor
-      - name: Read version
+      - name: Reserve release version
         id: version
-        working-directory: Editors/VSCode
-        run: >-
-          node --print
-          '"version=" + require("./package.json").version'
-          >> "${GITHUB_OUTPUT}"
-      - name: Check release version
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
         run: |
+          VERSION=$(jq -er .version Editors/VSCode/package.json)
+          if [[ ! "${VERSION}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Use an editor version such as 0.1.0."
+            exit 1
+          fi
           tag="vscode-v${VERSION}"
           if git rev-parse --verify --quiet "refs/tags/${tag}^{commit}" > /dev/null; then
-            tagged_revision=$(git rev-parse "refs/tags/${tag}^{commit}")
-            if [ "${tagged_revision}" != "${GITHUB_SHA}" ]; then
+            if [ "$(git rev-parse "refs/tags/${tag}^{commit}")" != "${GITHUB_SHA}" ]; then
               echo "::error::Version ${VERSION} was released from another commit. Increase the VS Code version."
               exit 1
             fi
-          fi
-      - name: Check Visual Studio Marketplace access
-        if: vars.VS_MARKETPLACE_PUBLISH_ENABLED == 'true'
-        working-directory: Editors/VSCode
-        env:
-          VSCE_PAT: ${{ secrets.VS_MARKETPLACE_TOKEN }}
-        run: npm exec -- vsce verify-pat theblixguy
-      - name: Check Open VSX access
-        if: vars.OPEN_VSX_PUBLISH_ENABLED == 'true'
-        working-directory: Editors/VSCode
-        env:
-          OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
-        run: npm exec -- ovsx verify-pat theblixguy
-      - name: Reserve release version
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          tag="vscode-v${VERSION}"
-          if ! git rev-parse --verify --quiet "refs/tags/${tag}^{commit}" > /dev/null; then
+          else
             git tag "${tag}" "${GITHUB_SHA}"
             git push origin "refs/tags/${tag}"
           fi
-      - name: Publish to Visual Studio Marketplace
-        if: vars.VS_MARKETPLACE_PUBLISH_ENABLED == 'true'
-        working-directory: Editors/VSCode
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+      - name: Save original package
         env:
-          VSCE_PAT: ${{ secrets.VS_MARKETPLACE_TOKEN }}
-        run: >-
-          npm exec -- vsce publish
-          --packagePath ../../bylaws.vsix
-          --skip-duplicate
-      - name: Publish to Open VSX
-        if: vars.OPEN_VSX_PUBLISH_ENABLED == 'true'
-        working-directory: Editors/VSCode
-        env:
-          OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
-        run: >-
-          npm exec -- ovsx publish ../../bylaws.vsix
-          --skip-duplicate
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
-        with:
-          tag_name: vscode-v${{ steps.version.outputs.version }}
-          name: VS Code and Cursor v${{ steps.version.outputs.version }}
-          target_commitish: ${{ github.sha }}
-          files: bylaws.vsix
-          fail_on_unmatched_files: true
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
+            --json isDraft,assets > release.json; then
+            if jq -e '.assets[] | select(.name == "bylaws.vsix")' release.json > /dev/null; then
+              gh release download "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
+                --pattern bylaws.vsix --dir saved
+              cmp bylaws.vsix saved/bylaws.vsix
+            else
+              test "$(jq -r .isDraft release.json)" = true
+              gh release upload "${RELEASE_TAG}" bylaws.vsix --repo "${GITHUB_REPOSITORY}"
+            fi
+          else
+            gh release create "${RELEASE_TAG}" bylaws.vsix --repo "${GITHUB_REPOSITORY}" \
+              --verify-tag --draft --title "VS Code and Cursor v${RELEASE_TAG#vscode-v}" --notes ""
+          fi
+
+  release-vscode:
+    name: Release VS Code and Cursor client
+    needs: prepare-vscode
+    if: ${{ !cancelled() && needs.prepare-vscode.result == 'success' }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/publish-vscode.yml
+    with:
+      release_tag: ${{ needs.prepare-vscode.outputs.release_tag }}
+    secrets:
+      VS_MARKETPLACE_TOKEN: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+      OPEN_VSX_TOKEN: ${{ secrets.OPEN_VSX_TOKEN }}
 
   release-zed:
     name: Release Zed client

@@ -1,0 +1,105 @@
+name: Publish saved VS Code package
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        required: true
+        type: string
+    secrets:
+      VS_MARKETPLACE_TOKEN:
+        required: false
+      OPEN_VSX_TOKEN:
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Publish saved VS Code and Cursor package
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+    steps:
+      - name: Check out publisher tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check release tag
+        run: |
+          if [[ ! "${RELEASE_TAG}" =~ ^vscode-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Use an editor release tag such as vscode-v0.1.0."
+            exit 1
+          fi
+      - name: Download saved package
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" > release.json
+          test "$(jq -r .tag_name release.json)" = "${RELEASE_TAG}"
+          DIGEST=$(jq -er '[.assets[] | select(.name == "bylaws.vsix" and .size > 0)]
+            | select(length == 1) | .[0].digest
+            | select(test("^sha256:[0-9a-f]{64}$"))' release.json)
+          gh release download "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
+            --pattern bylaws.vsix --dir release-files
+          echo "${DIGEST#sha256:}  release-files/bylaws.vsix" | sha256sum --check -
+          unzip -p release-files/bylaws.vsix extension/package.json > package.json
+          jq -e --arg version "${RELEASE_TAG#vscode-v}" '
+            .version == $version and .name == "bylaws" and .publisher == "theblixguy"
+          ' package.json
+      - name: Check publisher settings
+        env:
+          OPEN_VSX_PUBLISH_ENABLED: ${{ vars.OPEN_VSX_PUBLISH_ENABLED }}
+          OPEN_VSX_TOKEN: ${{ secrets.OPEN_VSX_TOKEN }}
+          VS_MARKETPLACE_PUBLISH_ENABLED: ${{ vars.VS_MARKETPLACE_PUBLISH_ENABLED }}
+          VS_MARKETPLACE_TOKEN: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+        run: |
+          if [ "${VS_MARKETPLACE_PUBLISH_ENABLED}" = "true" ] && [ -z "${VS_MARKETPLACE_TOKEN}" ]; then
+            echo "::error::Add the VS_MARKETPLACE_TOKEN repository secret or set VS_MARKETPLACE_PUBLISH_ENABLED to false."
+            exit 1
+          fi
+          if [ "${OPEN_VSX_PUBLISH_ENABLED}" = "true" ] && [ -z "${OPEN_VSX_TOKEN}" ]; then
+            echo "::error::Add the OPEN_VSX_TOKEN repository secret or set OPEN_VSX_PUBLISH_ENABLED to false."
+            exit 1
+          fi
+      - name: Install Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: Editors/VSCode/package-lock.json
+      - name: Install publisher
+        working-directory: Editors/VSCode
+        run: npm ci
+      - name: Check Visual Studio Marketplace access
+        if: vars.VS_MARKETPLACE_PUBLISH_ENABLED == 'true'
+        working-directory: Editors/VSCode
+        env:
+          VSCE_PAT: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+        run: npm exec -- vsce verify-pat theblixguy
+      - name: Check Open VSX access
+        if: vars.OPEN_VSX_PUBLISH_ENABLED == 'true'
+        working-directory: Editors/VSCode
+        env:
+          OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
+        run: npm exec -- ovsx verify-pat theblixguy
+      - name: Publish to Visual Studio Marketplace
+        if: vars.VS_MARKETPLACE_PUBLISH_ENABLED == 'true'
+        working-directory: Editors/VSCode
+        env:
+          VSCE_PAT: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+        run: >-
+          npm exec -- vsce publish
+          --packagePath ../../release-files/bylaws.vsix
+          --skip-duplicate
+      - name: Publish to Open VSX
+        if: vars.OPEN_VSX_PUBLISH_ENABLED == 'true'
+        working-directory: Editors/VSCode
+        env:
+          OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
+        run: >-
+          npm exec -- ovsx publish ../../release-files/bylaws.vsix
+          --skip-duplicate
+      - name: Publish GitHub release
+        run: |
+          if [ "$(jq -r .draft release.json)" = "true" ]; then
+            gh release edit "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --draft=false
+          fi
