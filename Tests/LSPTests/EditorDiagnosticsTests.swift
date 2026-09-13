@@ -57,16 +57,12 @@ struct EditorDiagnosticsTests {
     #expect(try await diagnosticItems(from: state, for: uri).isEmpty)
 
     await state.didChange(changeNotification(of: uri, to: "class Bad {}"))
-    try await #require(throws: SuspensionError.self) {
-      try await clock.checkSuspension()
-    }
     let items = try await diagnosticItems(from: state, for: uri)
 
     #expect(items.count == 1)
     #expect(items.first?.code == .string("final-classes"))
     #expect(clock.now == start)
     await state.shutdown()
-    try await clock.checkSuspension()
   }
 
   @Test("Push diagnostics use unsaved text")

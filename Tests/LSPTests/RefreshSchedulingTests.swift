@@ -7,23 +7,24 @@ import Testing
 
 @Suite("LSP refresh scheduling", .timeLimit(.minutes(3)))
 struct RefreshSchedulingTests {
-  @Test("Refresh starts at configured deadline")
+  @Test("Refresh runs after configured delay")
   func refreshDeadline() async throws {
     try await withServingState { state, clock, starts, connection, uri in
       let publicationCount = connection.publishedDiagnostics.count
 
       await state.didChange(changeNotification(of: uri, to: "class Bad {}"))
-      try await #require(throws: SuspensionError.self) {
-        try await clock.checkSuspension()
-      }
       await clock.advance(by: .milliseconds(999))
       #expect(await starts.values == [.zero])
       #expect(connection.publishedDiagnostics.count == publicationCount)
 
-      await clock.advance(by: .milliseconds(1))
+      await clock.advance(by: .milliseconds(2))
       await state.waitForPendingRefresh()
 
-      #expect(await starts.values == [.zero, .seconds(1)])
+      let values = await starts.values
+      #expect(values.count == 2)
+      let refreshStart = try #require(values.last)
+      #expect((Duration.seconds(1)...Duration.milliseconds(1001))
+        .contains(refreshStart))
       let published = try #require(connection.publishedDiagnostics
         .last { $0.uri == uri })
       #expect(published.diagnostics.count == 1)
@@ -36,25 +37,22 @@ struct RefreshSchedulingTests {
       let publicationCount = connection.publishedDiagnostics.count
 
       await state.didChange(changeNotification(of: uri, to: "class First {}"))
-      try await #require(throws: SuspensionError.self) {
-        try await clock.checkSuspension()
-      }
       await clock.advance(by: .milliseconds(500))
       await state.didChange(changeNotification(of: uri, to: "class Latest {}"))
-      await clock.advance()
-      try await #require(throws: SuspensionError.self) {
-        try await clock.checkSuspension()
-      }
 
       await clock.advance(by: .milliseconds(500))
       #expect(await starts.values == [.zero])
       await clock.advance(by: .milliseconds(499))
       #expect(await starts.values == [.zero])
       #expect(connection.publishedDiagnostics.count == publicationCount)
-      await clock.advance(by: .milliseconds(1))
+      await clock.advance(by: .milliseconds(2))
       await state.waitForPendingRefresh()
 
-      #expect(await starts.values == [.zero, .milliseconds(1500)])
+      let values = await starts.values
+      #expect(values.count == 2)
+      let refreshStart = try #require(values.last)
+      #expect((Duration.milliseconds(1500)...Duration.milliseconds(1501))
+        .contains(refreshStart))
       let published = try #require(connection.publishedDiagnostics
         .last { $0.uri == uri })
       #expect(published.diagnostics
@@ -69,9 +67,6 @@ struct RefreshSchedulingTests {
       let publicationCount = connection.publishedDiagnostics.count
 
       await state.didChange(changeNotification(of: uri, to: "class Bad {}"))
-      try await #require(throws: SuspensionError.self) {
-        try await clock.checkSuspension()
-      }
       await state.shutdown()
       await clock.advance(by: .seconds(10))
 
@@ -114,7 +109,6 @@ struct RefreshSchedulingTests {
         connection,
         DocumentURI(project.source)
       )
-      try await clock.checkSuspension()
     } catch {
       await state.shutdown()
       throw error

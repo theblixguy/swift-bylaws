@@ -163,13 +163,25 @@ actor BylawsLanguageServerState {
   }
 
   private func scheduleRefresh(after delay: Duration? = nil) {
+    let clock = clock
+    scheduleRefresh(using: clock, after: delay)
+  }
+
+  private func scheduleRefresh<C: Clock>(
+    using clock: C,
+    after delay: Duration?
+  ) where C.Duration == Duration {
     cancelPendingRefresh()
     let requestGeneration = generation
     let delay = delay ?? initializationOptions?.refreshDelay ?? .zero
-    let clock = clock
+    let deadline = delay > .zero ? clock.now.advanced(by: delay) : nil
     let task = Task { @concurrent in
-      if delay > .zero {
-        try? await clock.sleep(for: delay)
+      if let deadline {
+        do {
+          try await clock.sleep(until: deadline, tolerance: nil)
+        } catch {
+          return
+        }
       }
       guard !Task.isCancelled else { return }
       await self.updateDiagnostics(for: requestGeneration)
