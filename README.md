@@ -545,7 +545,7 @@ Use [GitHub Issues] for bugs, questions and proposed rules.
 
 Bylaws is available under the MIT licence. See [LICENSE].
 
-[documentation]: https://theblixguy.github.io/swift-bylaws/
+[documentation]: https://theblixguy.github.io/swift-bylaws/documentation/bylaws/
 [compiler index]:
   https://theblixguy.github.io/swift-bylaws/documentation/bylaws/architecturerules#Layers-inside-one-module
 [declaration guide]:
