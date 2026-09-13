@@ -45,7 +45,7 @@ jobs:
           echo "${DIGEST#sha256:}  release-files/bylaws.vsix" | sha256sum --check -
           unzip -p release-files/bylaws.vsix extension/package.json > package.json
           jq -e --arg version "${RELEASE_TAG#vscode-v}" '
-            .version == $version and .name == "bylaws" and .publisher == "theblixguy"
+            .version == $version and .name == "bylaws" and .publisher == "suyashsrijan"
           ' package.json
       - name: Check publisher settings
         env:
@@ -76,13 +76,13 @@ jobs:
         working-directory: Editors/VSCode
         env:
           VSCE_PAT: ${{ secrets.VS_MARKETPLACE_TOKEN }}
-        run: npm exec -- vsce verify-pat theblixguy
+        run: npm exec -- vsce verify-pat suyashsrijan
       - name: Check Open VSX access
         if: vars.OPEN_VSX_PUBLISH_ENABLED == 'true'
         working-directory: Editors/VSCode
         env:
           OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
-        run: npm exec -- ovsx verify-pat theblixguy
+        run: npm exec -- ovsx verify-pat suyashsrijan
       - name: Publish to Visual Studio Marketplace
         if: vars.VS_MARKETPLACE_PUBLISH_ENABLED == 'true'
         working-directory: Editors/VSCode

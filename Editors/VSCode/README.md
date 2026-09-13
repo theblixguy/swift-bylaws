@@ -10,7 +10,7 @@ Install Bylaws with Homebrew on macOS or Linux:
 brew install theblixguy/tap/bylaws
 ```
 
-In the Extensions view, search for `theblixguy.bylaws` and install **Bylaws**.
+In the Extensions view, search for `suyashsrijan.bylaws` and install **Bylaws**.
 
 If your editor's registry does not list Bylaws, you can download `bylaws.vsix`
 from the [GitHub editor release] and install it through **Extensions: Install
