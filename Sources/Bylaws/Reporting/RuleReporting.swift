@@ -10,6 +10,8 @@
     ///
     /// - Parameter enforcement: An override for this call, or `nil` to use the
     ///   rule's setting. Use `.enforced` to make advisory violations fail.
+    /// - Parameter sourceLocation: The location for warnings. Defaults to the
+    ///   call site.
     public func report(
       enforcement: Enforcement? = nil,
       sourceLocation: SourceLocation = #_sourceLocation
