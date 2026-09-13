@@ -422,18 +422,18 @@ enforce your project's architecture rules.
 
 ### Run and integrate rules
 
-| Feature                    | Bylaws                                                      | [Harmonize]                                                          | [SwiftLint]                                    |
-| -------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------- |
-| Run rules                  | Swift Testing or CLI                                        | Swift Testing, XCTest or Quick                                       | CLI                                            |
-| SwiftPM command plugin     | `swift package bylaws`                                      | None                                                                 | `swift package plugin swiftlint`               |
-| Build-tool plugin          | SwiftPM (build flag required)                               | None                                                                 | SwiftPM and Xcode                              |
-| Editor integration         | Xcode test diagnostics and live LSP checks in VS Code, Cursor, Zed, Neovim and Emacs | Test diagnostics in Xcode | Xcode build diagnostics and community editor extensions such as SwiftLint for VS Code |
-| Share rules                | Swift packages for tests and both plugins                   | Swift helpers in test dependencies                                   | Shared YAML or a custom binary for Swift rules |
-| Rules per folder or module | Rule files and overrides with a reason                      | Query filters and file exclusions                                    | Nested configuration files                     |
-| Accept existing violations | Recorded baseline, checked for entries that no longer apply | Hand-written list of names, checked for entries that no longer apply | Recorded JSON baseline                         |
-| Warning-only rules         | Advisory rules in tests and the CLI                         | Severity metadata with test failures by default                      | Configurable warning and error levels          |
-| Report results             | Test failures, Xcode, GitHub, JSON and SARIF                | Test failures and JSON                                               | Xcode, GitHub, JSON, SARIF and other formats   |
-| Automatic fixes            | None                                                        | None                                                                 | `--fix` for supported rules                    |
+| Feature                    | Bylaws                                                                               | [Harmonize]                                                          | [SwiftLint]                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Run rules                  | Swift Testing or CLI                                                                 | Swift Testing, XCTest or Quick                                       | CLI                                                                                   |
+| SwiftPM command plugin     | `swift package bylaws`                                                               | None                                                                 | `swift package plugin swiftlint`                                                      |
+| Build-tool plugin          | SwiftPM (build flag required)                                                        | None                                                                 | SwiftPM and Xcode                                                                     |
+| Editor integration         | Xcode test diagnostics and live LSP checks in VS Code, Cursor, Zed, Neovim and Emacs | Test diagnostics in Xcode                                            | Xcode build diagnostics and community editor extensions such as SwiftLint for VS Code |
+| Share rules                | Swift packages for tests and both plugins                                            | Swift helpers in test dependencies                                   | Shared YAML or a custom binary for Swift rules                                        |
+| Rules per folder or module | Rule files and overrides with a reason                                               | Query filters and file exclusions                                    | Nested configuration files                                                            |
+| Accept existing violations | Recorded baseline, checked for entries that no longer apply                          | Hand-written list of names, checked for entries that no longer apply | Recorded JSON baseline                                                                |
+| Warning-only rules         | Advisory rules in tests and the CLI                                                  | Severity metadata with test failures by default                      | Configurable warning and error levels                                                 |
+| Report results             | Test failures, Xcode, GitHub, JSON and SARIF                                         | Test failures and JSON                                               | Xcode, GitHub, JSON, SARIF and other formats                                          |
+| Automatic fixes            | None                                                                                 | None                                                                 | `--fix` for supported rules                                                           |
 
 ### What rules can check
 
@@ -547,39 +547,48 @@ Bylaws is available under the MIT licence. See [LICENSE].
 
 [documentation]: https://theblixguy.github.io/swift-bylaws/
 [compiler index]:
-  Sources/Bylaws/Bylaws.docc/ArchitectureRules.md#layers-inside-one-module
-[declaration guide]: Sources/Bylaws/Bylaws.docc/DeclarationRules.md
-[folder guide]: Sources/Bylaws/Bylaws.docc/FolderRules.md
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/architecturerules#Layers-inside-one-module
+[declaration guide]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/declarationrules
+[folder guide]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/folderrules
 [set permitted references and check cycles between file groups]:
-  Sources/Bylaws/Bylaws.docc/DependencyRules.md
-[require corresponding types]: Sources/Bylaws/Bylaws.docc/CorrespondingTypes.md
-[rule cookbook]: Sources/Bylaws/Bylaws.docc/RuleCookbook.md
-[What Bylaws reads]: Sources/Bylaws/Bylaws.docc/WhatBylawsReads.md
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/dependencyrules
+[require corresponding types]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/correspondingtypes
+[rule cookbook]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/rulecookbook
+[What Bylaws reads]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/whatbylawsreads
 [`bylaws` CLI]: #run-rules-from-the-command-line
 [Swift Testing]: #run-rules-with-swift-testing
-[getting started guide]: Sources/Bylaws/Bylaws.docc/GettingStarted.md
+[getting started guide]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/gettingstarted
 [SwiftPM plugins]: #use-the-swiftpm-plugins
 [Bazel target]: #run-checks-with-bazel
 [editor integrations]: #show-violations-in-an-editor
-[CLI setup guide]: Sources/Bylaws/Bylaws.docc/RunningRulesFromTheCLI.md
+[CLI setup guide]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesfromthecli
 [Running rules from the CLI]:
-  Sources/Bylaws/Bylaws.docc/RunningRulesFromTheCLI.md
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesfromthecli
 [test discovery]:
-  Sources/Bylaws/Bylaws.docc/RunningRulesFromTheCLI.md#run-a-rules-file-as-tests
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesfromthecli#Run-a-rules-file-as-tests
 [Build-tool plugin setup]:
-  Sources/Bylaws/Bylaws.docc/RunningRulesDuringBuilds.md
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesduringbuilds
 [VS Code or Cursor]: Editors/VSCode/README.md
 [Zed]: Editors/Zed/README.md
 [Neovim]: Editors/Neovim/README.md
 [Emacs]: Editors/Emacs/README.md
 [Harmonize]: https://github.com/perrystreetsoftware/Harmonize
 [SwiftLint]: https://github.com/realm/SwiftLint
-[Getting started]: Sources/Bylaws/Bylaws.docc/GettingStarted.md
+[Getting started]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/gettingstarted
 [Combine checks and match declaration members]:
-  Sources/Bylaws/Bylaws.docc/CombiningChecks.md
-[Inspect a rule's selections]: Sources/Bylaws/Bylaws.docc/InspectingRules.md
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/combiningchecks
+[Inspect a rule's selections]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/inspectingrules
 [Running rules during builds]:
-  Sources/Bylaws/Bylaws.docc/RunningRulesDuringBuilds.md
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesduringbuilds
 [Editor setup]: Editors/README.md
 [Frequently asked questions]: FAQ.md
 [GitHub Issues]: https://github.com/theblixguy/swift-bylaws/issues

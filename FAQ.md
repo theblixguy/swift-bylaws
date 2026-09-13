@@ -24,7 +24,7 @@ code examples. When the rules belong to a test target, you also get compiler
 type checks and editor support for completion and refactoring.
 
 You can run the same rules from the command line if they use the CLI's
-[supported Swift subset](Sources/Bylaws/Bylaws.docc/RunningRulesFromTheCLI.md).
+[supported Swift subset].
 
 ## Can rules enforce MVVM, MVP or another architecture?
 
@@ -41,7 +41,7 @@ Use import rules when layers are separate modules. If layers are folders inside
 one module, use compiler-index references to check dependencies between their
 types. The [README examples](README.md#practical-rules) show how to check base
 classes and protocol conformances. For dependencies between modules or folders,
-see [Architecture rules](Sources/Bylaws/Bylaws.docc/ArchitectureRules.md).
+see [Architecture rules].
 
 These rules check the code's structure, not behaviour. If a presenter must refer
 to a view protocol, Bylaws can check that requirement, but you need a regular
@@ -56,9 +56,8 @@ later.
 
 You can then select view models by name or conformance and use
 `violations(outsidePaths:)` to require them under `Sources/App/*/ViewModels/**`.
-Both checks run before a build. The
-[folder guide](Sources/Bylaws/Bylaws.docc/FolderRules.md) shows the complete
-rules and an example with shared folders for the whole module.
+Both checks run before a build. The [folder guide] shows the complete rules and
+an example with shared folders for the whole module.
 
 ## Which platforms does it run on?
 
@@ -75,8 +74,7 @@ across the app and its local packages. Rules don't need a root `Package.swift`
 or Bylaws dependency in those packages.
 
 If you prefer tests, add the `Bylaws` product to the app's test target and
-select the source folders that the rules should check. The
-[Xcode setup guide](Sources/Bylaws/Bylaws.docc/GettingStarted.md#set-up-an-xcode-project)
+select the source folders that the rules should check. The [Xcode setup guide]
 shows the configuration for it.
 
 ## Can Bylaws run during a build?
@@ -100,9 +98,9 @@ warning text. To see those warnings, run:
 swift package --allow-writing-to-package-directory bylaws
 ```
 
-[Build-tool plugin setup](Sources/Bylaws/Bylaws.docc/RunningRulesDuringBuilds.md)
-explains how to add the plugin and use shared rule packages. You can attach the
-plugin to SwiftPM targets, but not directly to an Xcode project target.
+[Build-tool plugin setup] explains how to add the plugin and use shared rule
+packages. You can attach the plugin to SwiftPM targets, but not directly to an
+Xcode project target.
 
 ## Why does the plugin need `--allow-writing-to-package-directory`?
 
@@ -127,7 +125,7 @@ baseline again to remove its entry.
 
 You can use the same baseline with the CLI and `Rule.report()`. For advisory
 test suites and baselines for declaration assertions, see
-[Adopting rules](Sources/Bylaws/Bylaws.docc/RuleAdoption.md).
+[Adopting rules].
 
 ## Can we share rules between projects?
 
@@ -146,8 +144,8 @@ inferring `String` from `let title = "Checkout"` needs the compiler.
 
 For resolved references and conformances across modules, you can use
 `BylawsIndex` after a build.
-[What Bylaws reads](Sources/Bylaws/Bylaws.docc/WhatBylawsReads.md) explains
-which information is available through the compiler's index.
+[What Bylaws reads] explains which information is available through the
+compiler's index.
 
 ## Can I check code inside `#if` blocks?
 
@@ -164,8 +162,7 @@ a rule uses an unsupported language feature or API, the CLI reports a load error
 and stops the run. You can run that rule in a test target to use the full Swift
 language.
 
-[Running rules from the CLI](Sources/Bylaws/Bylaws.docc/RunningRulesFromTheCLI.md)
-lists the supported types, properties and methods.
+[Running rules from the CLI] lists the supported types, properties and methods.
 
 ## Is it fast enough for a large repository?
 
@@ -188,4 +185,20 @@ bug, setup question or proposed rule. Include the Swift version, the command you
 ran and a reproducer for the rules you used.
 
 [Share rules through SwiftPM]:
-  Sources/Bylaws/Bylaws.docc/RunningRulesFromTheCLI.md#share-rules-through-swiftpm
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesfromthecli#Share-rules-through-SwiftPM
+[supported Swift subset]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesfromthecli#Supported-API
+[Architecture rules]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/architecturerules
+[folder guide]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/folderrules
+[Xcode setup guide]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/gettingstarted#Set-up-an-Xcode-project
+[Build-tool plugin setup]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesduringbuilds
+[Adopting rules]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/ruleadoption
+[What Bylaws reads]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/whatbylawsreads
+[Running rules from the CLI]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesfromthecli
