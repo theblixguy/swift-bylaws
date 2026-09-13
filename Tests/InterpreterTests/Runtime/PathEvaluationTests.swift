@@ -49,7 +49,8 @@ struct PathEvaluationTests {
           url.path == "\(url.path)"
             && url.lastPathComponent == "\(url.lastPathComponent)"
             && url.pathExtension == "\(url.pathExtension)"
-            && url.deletingLastPathComponent().path == "\(url.deletingLastPathComponent().path)"
+            && url.deletingLastPathComponent().path == "\(url
+        .deletingLastPathComponent().path)"
         }
         return try await app.classes.violations(of: matches)
       }]
