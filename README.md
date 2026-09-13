@@ -2,6 +2,8 @@
 
 Bylaws is an architectural linter for Swift.
 
+![Rules in Xcode and a violation in VS Code](.github/images/bylaws-editors.png)
+
 Read the [documentation] for guides and the API reference.
 
 ## Why Bylaws?
