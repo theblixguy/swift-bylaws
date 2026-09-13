@@ -1,7 +1,7 @@
 {
   "mode": "remote",
-  "version": "0.1.0",
-  "url": "https://github.com/theblixguy/swift-bylaws/releases/download/v0.1.0/bylaws.artifactbundle.zip",
-  "checksum": "bdd51bb7c08d7356459aaf5869d0933ca1511a3ba80deffc4e64f493f732db28",
-  "sourceRevision": "f7995063ce67570e1851785c80138b7d875df2b4"
+  "version": "0.1.1",
+  "url": "https://github.com/theblixguy/swift-bylaws/releases/download/v0.1.1/bylaws.artifactbundle.zip",
+  "checksum": "3a2bab905f41e07eadfa06167e48018cbcc3b92b43227484338ab323cd97beac",
+  "sourceRevision": "0ad387eb11789b315e2ae2656f2e5f76360583e3"
 }
