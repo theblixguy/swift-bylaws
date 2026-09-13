@@ -408,7 +408,8 @@ jobs:
       contents: write
       id-token: write
       attestations: write
-    uses: bazel-contrib/.github/.github/workflows/release_ruleset.yaml@1d798ff015ed0696433e01e2c3ccbb2abefadad7
+    # BCR's verifier requires a version tag for the reusable workflow.
+    uses: bazel-contrib/.github/.github/workflows/release_ruleset.yaml@v7.7.0
     with:
       tag_name: ${{ format('v{0}', inputs.version) }}
       draft: true
@@ -433,7 +434,8 @@ jobs:
       contents: write
       id-token: write
       attestations: write
-    uses: bazel-contrib/publish-to-bcr/.github/workflows/publish.yaml@ca23149e55cd4db07a6bcce69c02dea314c5a357 # v1.5.0
+    # BCR's verifier requires a version tag for the reusable workflow.
+    uses: bazel-contrib/publish-to-bcr/.github/workflows/publish.yaml@v1.5.0
     with:
       tag_name: ${{ format('v{0}', inputs.version) }}
       registry_fork: theblixguy/bazel-central-registry
@@ -475,6 +477,60 @@ jobs:
             | .tagName == $tag
               and (($required - [.assets[] | select(.size > 0) | .name]) | length == 0)
           ' release.json
+      - name: Check out generated Bazel entry
+        if: needs.bazel-registry.result == 'success'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: theblixguy/bazel-central-registry
+          ref: ${{ format('bylaws-v{0}', inputs.version) }}
+          path: bazel-registry
+          sparse-checkout: modules/bylaws
+          persist-credentials: false
+      - name: Install BCR verifier
+        if: needs.bazel-registry.result == 'success'
+        run: |
+          curl --fail --location --retry 3 --output slsa-verifier \
+            https://github.com/slsa-framework/slsa-verifier/releases/download/v2.7.1/slsa-verifier-linux-amd64
+          echo '946dbec729094195e88ef78e1734324a27869f03e2c6bd2f61cbc06bd5350339  slsa-verifier' | sha256sum --check
+          chmod +x slsa-verifier
+      - name: Verify Bazel attestations
+        if: needs.bazel-registry.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ENTRY="bazel-registry/modules/bylaws/${RELEASE_TAG#v}"
+          RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}"
+          ARCHIVE=bylaws-bazel-module.tar.gz
+          gh release download "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
+            --dir bcr-assets --pattern "${ARCHIVE}" --pattern '*.intoto.jsonl'
+          integrity() {
+            printf 'sha256-%s' "$(openssl dgst -sha256 -binary "$1" | openssl base64 -A)"
+          }
+          jq -e --arg url "${RELEASE_URL}/${ARCHIVE}" \
+            --arg integrity "$(integrity "bcr-assets/${ARCHIVE}")" \
+            '.url == $url and .integrity == $integrity' "${ENTRY}/source.json"
+          jq -e --arg archive "${ARCHIVE}" \
+            '.attestations | keys == (["source.json", "MODULE.bazel", $archive] | sort)' \
+            "${ENTRY}/attestations.json"
+          tar -xOf "bcr-assets/${ARCHIVE}" ./MODULE.bazel | cmp - "${ENTRY}/MODULE.bazel"
+          for file in source.json MODULE.bazel "${ARCHIVE}"; do
+            attestation="bcr-assets/${file}.intoto.jsonl"
+            jq -e --arg file "${file}" --arg url "${RELEASE_URL}/${file}.intoto.jsonl" \
+              --arg integrity "$(integrity "${attestation}")" \
+              '.attestations[$file] | .url == $url and .integrity == $integrity' \
+              "${ENTRY}/attestations.json"
+            if [ "${file}" = "${ARCHIVE}" ]; then
+              artifact="bcr-assets/${file}"
+              builder=https://github.com/bazel-contrib/.github/.github/workflows/release_ruleset.yaml
+            else
+              artifact="${ENTRY}/${file}"
+              builder=https://github.com/bazel-contrib/publish-to-bcr/.github/workflows/publish.yaml
+            fi
+            ./slsa-verifier verify-github-attestation \
+              --attestation-path "${attestation}" \
+              --source-uri "github.com/${GITHUB_REPOSITORY}" \
+              --builder-id "${builder}" "${artifact}"
+          done
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
