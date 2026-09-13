@@ -287,10 +287,11 @@ jobs:
           fi
           if [ "$EXPECTED_LANGUAGE_SERVER_TRAIT" = "true" ]; then
             grep -q '"LanguageServer"' dependency-graph.json
+            grep -q 'swift-tools-protocols' dependency-graph.json
           else
             absent '"LanguageServer"'
+            absent 'swift-tools-protocols'
           fi
-          absent 'swift-tools-protocols'
       - name: Check index dependencies
         if: matrix.low_level_index == 'true'
         run: |
