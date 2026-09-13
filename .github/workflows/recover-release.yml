@@ -56,9 +56,9 @@ jobs:
             exit 1
           fi
           REVISION=$(git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}")
-          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" > release.json
-          test "$(jq -r .tag_name release.json)" = "${RELEASE_TAG}"
           if [ "${TARGET}" != 'VS Code and Cursor' ]; then
+            gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" > release.json
+            test "$(jq -r .tag_name release.json)" = "${RELEASE_TAG}"
             jq -e '.draft == false and .prerelease == false' release.json
             LATEST=$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '
               add | map(select(.draft == false and .prerelease == false

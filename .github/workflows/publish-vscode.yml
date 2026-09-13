@@ -33,7 +33,9 @@ jobs:
           fi
       - name: Download saved package
         run: |
-          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" > release.json
+          RELEASE_ID=$(gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
+            --json databaseId --jq .databaseId)
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > release.json
           test "$(jq -r .tag_name release.json)" = "${RELEASE_TAG}"
           DIGEST=$(jq -er '[.assets[] | select(.name == "bylaws.vsix" and .size > 0)]
             | select(length == 1) | .[0].digest
