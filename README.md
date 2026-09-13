@@ -209,10 +209,8 @@ calls and compiler-resolved references.
 
 ## What a rule can check
 
-Rules can check names, type annotations and macro uses without a build,
-including code in every branch of an `#if`. They use what appears in the Swift
-file, so an explicit `: String` annotation is available to a rule, but a type
-inferred by the compiler is not.
+You can write rules for your project's structure, dependencies and
+declarations and most of it can run without a build.
 
 For checks that need compiler information, such as finding references between
 layers in one module, use the optional `BylawsIndex` product after a build.
