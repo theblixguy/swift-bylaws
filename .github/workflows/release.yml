@@ -117,6 +117,9 @@ jobs:
   verify:
     name: Run tests
     needs: prepare-source
+    permissions:
+      contents: read
+      pull-requests: read
     uses: ./.github/workflows/ci.yml
     with:
       checkout_ref: ${{ needs.prepare-source.outputs.source_revision }}
