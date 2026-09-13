@@ -129,6 +129,45 @@ described below. Package checks such as `checkPackageDependencies()` read one
 `Package.swift`, so give each local package its own codebase while keeping the
 rules in the central file.
 
+## Set up a Tuist project
+
+Add Bylaws to the dependencies in `Tuist/Package.swift` so Tuist manages it
+alongside the project's other packages:
+
+```swift
+.package(
+  url: "https://github.com/theblixguy/swift-bylaws.git",
+  from: "0.1.0"
+)
+```
+
+In the same file, enable testing search paths for the `Bylaws` target so
+Xcode can find Swift Testing's macro plugin:
+
+```swift
+#if TUIST
+  import struct ProjectDescription.PackageSettings
+
+  let packageSettings = PackageSettings(
+    targetSettings: [
+      "Bylaws": .settings(base: ["ENABLE_TESTING_SEARCH_PATHS": "YES"])
+    ]
+  )
+#endif
+```
+
+If the file has a `packageSettings` declaration, add the `Bylaws` entry to
+its `targetSettings`. In `Project.swift`, add the product to your test
+target's dependencies:
+
+```swift
+.external(name: "Bylaws")
+```
+
+Run `tuist install` and `tuist generate`, then open the workspace and run
+the tests. Use this setup instead of adding Bylaws through Xcode's package
+menu, which can create duplicate build targets for shared dependencies.
+
 ## Exclude generated files
 
 A rule can report violations in generated code. If the fix belongs in the
