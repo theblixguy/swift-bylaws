@@ -2,6 +2,8 @@
 
 Bylaws is an architectural linter for Swift.
 
+Read the [documentation] for guides and the API reference.
+
 ## Why Bylaws?
 
 In any small project, the same few people make most of the architectural
@@ -542,6 +544,7 @@ Use [GitHub Issues] for bugs, questions and proposed rules.
 
 Bylaws is available under the MIT licence. See [LICENSE].
 
+[documentation]: https://theblixguy.github.io/swift-bylaws/
 [compiler index]:
   Sources/Bylaws/Bylaws.docc/ArchitectureRules.md#layers-inside-one-module
 [declaration guide]: Sources/Bylaws/Bylaws.docc/DeclarationRules.md
