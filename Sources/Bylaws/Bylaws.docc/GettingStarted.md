@@ -1,0 +1,195 @@
+# Getting started
+
+Set up Bylaws to run with your tests or from the command line.
+
+## Overview
+
+You can run rules with your tests or from the command line. A test target
+supports the full Swift language, while rules shared with the CLI must use its
+supported subset as described in <doc:RunningRulesFromTheCLI>.
+
+## Requirements
+
+- Swift 6.2 or later, included with Xcode 26 or later
+- Libraries: iOS 13 or later, macOS 14 or later or Linux
+- Command-line tool: macOS 14 or later or x86-64 Linux
+
+## Choose a workflow
+
+| Workflow | Start here when | Main command |
+| --- | --- | --- |
+| Swift Testing | The rule belongs with the project's tests or needs the full Swift language | `swift test` |
+| Portable rules | The rule must run before a build or through the editor integration | `bylaws lint` |
+
+A portable rules file can also belong to a test target, so you can maintain
+one file for both workflows.
+
+## Add rules to a test target
+
+Add the package and the `Bylaws` product to a test target:
+
+```swift
+dependencies: [
+  .package(
+    url: "https://github.com/theblixguy/swift-bylaws.git",
+    from: "0.1.0"
+  )
+],
+targets: [
+  .testTarget(
+    name: "AppTests",
+    dependencies: [
+      .product(name: "Bylaws", package: "swift-bylaws")
+    ]
+  )
+]
+```
+
+The default `CLI` and `LanguageServer` package traits add the command-line and
+editor tools. If you only use Bylaws in tests, omit the default traits:
+
+```swift
+.package(
+  url: "https://github.com/theblixguy/swift-bylaws.git",
+  from: "0.1.0",
+  traits: []
+)
+```
+
+Use `traits: ["CLI"]` to keep the command-line product without the
+language-server dependency.
+
+Next, define the files that the rules check:
+
+```swift
+import Bylaws
+
+extension Codebase {
+  nonisolated static let app = Codebase(
+    root: .automatic(),
+    including: ["Sources/**"]
+  )
+}
+```
+
+`root: .automatic()` searches upwards from the rule's source file for the
+nearest Swift package, Xcode project, Git repository or Bazel workspace.
+The include and exclude patterns are relative to that directory.
+
+You can pass a query as a test's arguments to check each selected declaration.
+This rule checks that functions which call `UserDefaults` belong to
+`PreferencesStore`:
+
+```swift
+import Testing
+
+@Suite(.codebase(.app))
+struct PersistenceBoundaryRules {
+  @Test(
+    "Functions that call UserDefaults belong to PreferencesStore",
+    .annotatesViolations,
+    arguments: try await Codebase.app.functions.where(.calls("UserDefaults"))
+  )
+  func userDefaultsIsContained(_ function: Function) {
+    #expect(function.enclosingTypeName == "PreferencesStore")
+  }
+}
+```
+
+You can see each function's result in the test output and use the failure's
+file and line number to find the code to change. Swift Testing shows a skipped
+test when no functions match the query.
+<doc:DeclarationRules> includes checks for calls in property initialisers
+and accessors.
+
+## Set up an Xcode project
+
+Choose **File > Add Package Dependencies**, enter the repository URL and add
+the `Bylaws` product to the app's test target rather than the app target.
+
+You can check the app and its local packages from one test target. Select
+their source directories in the same codebase:
+
+```swift
+extension Codebase {
+  nonisolated static let app = Codebase(
+    root: .automatic(),
+    including: ["MyApp/**", "Packages/**/Sources/**"],
+    excluding: ["**/.build/**"]
+  )
+}
+```
+
+You can keep Bylaws in the app's test target without adding it to each local
+package. Place the shared rules near the Xcode project so `.automatic()` finds
+the project root rather than a local package's root.
+
+You can also keep `Bylaws.swift` at the repository root and run the CLI as
+described below. Package checks such as `checkPackageDependencies()` read one
+`Package.swift`, so give each local package its own codebase while keeping the
+rules in the central file.
+
+## Exclude generated files
+
+A rule can report violations in generated code. If the fix belongs in the
+generator, you can exclude its output from the checks:
+
+```swift
+let app = Codebase(
+  root: .automatic(),
+  including: ["Sources/**"],
+  excluding: ["**/*.generated.swift", "**/*.pb.swift"]
+)
+```
+
+An exclude pattern takes precedence when a file matches both lists. You can
+use these patterns in tests and CLI rules.
+
+## Run rules before a build
+
+Install Bylaws with Homebrew on macOS or Linux:
+
+```sh
+brew install theblixguy/tap/bylaws
+```
+
+You can also download the CLI from the
+[GitHub releases page](https://github.com/theblixguy/swift-bylaws/releases).
+
+Create a rules file and check it from the project root:
+
+```sh
+bylaws init
+bylaws lint
+```
+
+`bylaws init` creates advisory rules so you can see the current violations
+without failing the run. You can edit that file to add your own rules.
+
+For CLI-only rules, keep `Bylaws.swift` outside the app and test targets. In
+Xcode, clear its **Target Membership**. In a Swift package, place it beside
+`Package.swift`.
+
+The command returns status 0 when the selected rules pass, 1 when an enforced
+rule finds a violation and 2 when a rules file cannot load. You can select rules
+with `--only` and `--skip` or add `--strict` to make advisory violations fail
+the run too.
+
+See <doc:RunningRulesFromTheCLI> for output formats, rule discovery and CI
+setup.
+
+## Introduce a rule gradually
+
+An advisory rule reports issues without failing the run while you update the
+codebase. Change its enforcement to `.enforced` when the rule has no
+violations.
+
+A baseline records the existing violations so you can reject new ones while
+you fix the codebase.
+<doc:RuleAdoption> explains both approaches and how to test a custom rule.
+
+## Choose the next guide
+
+You can find more examples in <doc:RuleCookbook>. If a check depends on inferred
+types, generated code or a particular build configuration, read
+<doc:WhatBylawsReads> before choosing its query.

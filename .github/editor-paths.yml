@@ -1,0 +1,40 @@
+vscode:
+  - 'Editors/VSCode/**'
+  - '.github/editor-paths.yml'
+  - '.github/workflows/ci.yml'
+  - '.github/workflows/editors.yml'
+  - '.github/workflows/editor-release.yml'
+  - '!**/*.md'
+
+zed:
+  - 'Editors/Zed/**'
+  - '.github/editor-paths.yml'
+  - '.github/workflows/ci.yml'
+  - '.github/workflows/editors.yml'
+  - '.github/workflows/editor-release.yml'
+  - '!**/*.md'
+
+zed-release:
+  - 'Scripts/update_zed_registry.py'
+  - 'Tests/ReleaseScripts/**'
+  - '.github/editor-paths.yml'
+  - '.github/workflows/ci.yml'
+  - '.github/workflows/editors.yml'
+  - '.github/workflows/editor-release.yml'
+  - '!**/*.md'
+
+neovim:
+  - 'Editors/Neovim/**'
+  - 'after/plugin/bylaws.lua'
+  - 'lsp/bylaws.lua'
+  - '.github/editor-paths.yml'
+  - '.github/workflows/ci.yml'
+  - '.github/workflows/editors.yml'
+  - '!**/*.md'
+
+emacs:
+  - 'Editors/Emacs/**'
+  - '.github/editor-paths.yml'
+  - '.github/workflows/ci.yml'
+  - '.github/workflows/editors.yml'
+  - '!**/*.md'

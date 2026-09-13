@@ -1,0 +1,118 @@
+{
+  "name": "bylaws",
+  "displayName": "Bylaws",
+  "description": "Shows Bylaws architecture rule violations in Swift files.",
+  "version": "0.1.0",
+  "publisher": "theblixguy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/theblixguy/swift-bylaws.git"
+  },
+  "homepage": "https://github.com/theblixguy/swift-bylaws",
+  "bugs": {
+    "url": "https://github.com/theblixguy/swift-bylaws/issues"
+  },
+  "engines": {
+    "vscode": "^1.123.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "architecture",
+    "bylaws",
+    "linter",
+    "swift"
+  ],
+  "main": "./out/extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "onLanguage:swift"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": false,
+    "untrustedWorkspaces": {
+      "supported": false
+    }
+  },
+  "contributes": {
+    "configuration": {
+      "title": "Bylaws",
+      "properties": {
+        "bylaws.serverPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "order": 1,
+          "markdownDescription": "Path to the `bylaws-lsp` executable. An empty value searches `PATH` and the standard Homebrew locations. Reload the editor to apply a change."
+        },
+        "bylaws.rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "resource",
+          "order": 2,
+          "markdownDescription": "Rules files to load, as paths relative to the workspace folder. An empty list discovers the `Bylaws.swift` files. Reload the editor to apply a change."
+        },
+        "bylaws.only": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "resource",
+          "order": 3,
+          "description": "IDs of the rules to run. An empty list runs every rule. Reload the editor to apply a change."
+        },
+        "bylaws.skip": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "resource",
+          "order": 4,
+          "description": "IDs of the rules to skip. Reload the editor to apply a change."
+        },
+        "bylaws.baseline": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "order": 5,
+          "markdownDescription": "Recorded baseline file, as a path relative to the workspace folder. An empty value discovers the `Bylaws.baseline.swift` files. Reload the editor to apply a change."
+        },
+        "bylaws.refreshDelayMilliseconds": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "scope": "resource",
+          "order": 6,
+          "description": "Time to wait after the last keystroke before the rules run again. Raise it on a codebase where a run for each keystroke costs too much. Reload the editor to apply a change."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json && node esbuild.mjs",
+    "check": "npm run build && node --test out/*.test.js",
+    "package": "npm run check && vsce package",
+    "vscode:prepublish": "npm run build"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.4",
+    "@types/vscode": "~1.120.0",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.2",
+    "ovsx": "1.1.1",
+    "typescript": "^7.0.2"
+  }
+}

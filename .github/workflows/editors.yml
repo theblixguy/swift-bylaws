@@ -1,0 +1,122 @@
+name: Editor clients
+
+on:
+  workflow_call:
+    inputs:
+      skip_cache:
+        description: Build without restoring or saving cached files
+        default: false
+        type: boolean
+      clients:
+        description: JSON array of editor checks to run
+        required: true
+        type: string
+      upload_vscode:
+        description: Save the VS Code package for release
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  vscode:
+    name: Check VS Code and Cursor client
+    if: contains(fromJSON(inputs.clients), 'vscode')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Editors/VSCode
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: Editors/VSCode/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build, test and package
+        run: npm run package -- --out bylaws.vsix
+      - name: Upload extension
+        if: inputs.upload_vscode
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bylaws-editor
+          path: Editors/VSCode/bylaws.vsix
+
+  zed:
+    name: Check Zed client
+    if: contains(fromJSON(inputs.clients), 'zed')
+    runs-on: ubuntu-latest
+    container: rust:1.90-bookworm@sha256:3914072ca0c3b8aad871db9169a651ccfce30cf58303e5d6f2db16d1d8a7e58f
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Rust tools
+        run: |
+          rustup component add rustfmt
+          rustup target add wasm32-wasip2
+      - name: Check formatting
+        run: cargo fmt --check --manifest-path Editors/Zed/Cargo.toml
+      - name: Cache Rust dependencies
+        if: ${{ !inputs.skip_cache }}
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: Editors/Zed
+          cache-bin: false
+      - name: Compile extension
+        run: >-
+          cargo check --locked --target wasm32-wasip2
+          --manifest-path Editors/Zed/Cargo.toml
+
+  zed-release:
+    name: Check Zed release support
+    if: contains(fromJSON(inputs.clients), 'zed-release')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Test registry update
+        run: >-
+          python3 -m unittest
+          Tests/ReleaseScripts/test_update_zed_registry.py
+
+  neovim:
+    name: Check Neovim client
+    if: contains(fromJSON(inputs.clients), 'neovim')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Neovim
+        uses: rhysd/action-setup-vim@febef33995d6649302e9d88dda81e071b68f16a7 # v1.6.1
+        with:
+          neovim: true
+          version: v0.11.1
+      - name: Run client tests
+        run: >-
+          nvim --headless --clean -l
+          Editors/Neovim/tests/editor_client.lua "$PWD"
+
+  emacs:
+    name: Check Emacs client
+    if: contains(fromJSON(inputs.clients), 'emacs')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Emacs
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends emacs-nox
+      - name: Run client tests
+        run: >-
+          emacs -Q --batch
+          -l Editors/Emacs/tests/lsp-bylaws-test.el
+      - name: Compile package
+        run: >-
+          emacs -Q --batch -f batch-byte-compile
+          Editors/Emacs/lsp-bylaws.el

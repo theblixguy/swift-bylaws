@@ -1,0 +1,11 @@
+.github/**
+.gitignore
+node_modules/**
+src/**
+tsconfig.json
+esbuild.mjs
+out/*.js
+!out/extension.js
+**/*.map
+**/*.test.js
+.desloppify/**

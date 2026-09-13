@@ -1,0 +1,92 @@
+name: Performance
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      skip_cache:
+        description: Build without restoring or saving cached files
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    name: Measure performance
+    runs-on: macos-26
+    timeout-minutes: 20
+    env:
+      BYLAWS_BUILD_PLUGIN_FROM_SOURCE: "1"
+      BYLAWS_STRICT_BUILD: "1"
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Restore Swift builds
+        id: cache
+        uses: ./.github/actions/swift-cache
+        with:
+          scope: macos-tests
+          skip-cache: ${{ inputs.skip_cache }}
+      - name: Build tests
+        id: build
+        run: swift build --build-tests
+      - name: Save Swift build
+        if: steps.cache.outputs.save-needed == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build
+          key: ${{ steps.cache.outputs.primary-key }}
+      - name: Measure SwiftSyntax source files
+        env:
+          BYLAWS_PERF: "1"
+        run: |
+          set -o pipefail
+          swift test --skip-build --filter Performance 2>&1 | tee performance.txt
+      - name: Measure 10,000 generated classes
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env:
+          BYLAWS_SCALE: "10000"
+        run: |
+          set -o pipefail
+          swift test --skip-build --filter Scale 2>&1 | tee scale.txt
+      - name: Write summary
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo '## Performance'
+            echo
+            if [[ -f performance.txt ]]; then
+              sed -n '/\[perf\]/p' performance.txt
+            fi
+            if [[ -f scale.txt ]]; then
+              sed -n '/\[scale\]/p' scale.txt
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+      - name: Upload results
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: performance-results
+          if-no-files-found: error
+          path: |
+            performance.txt
+            scale.txt
+      - name: Restore benchmark build
+        id: benchmark-cache
+        uses: ./.github/actions/swift-cache
+        with:
+          scope: benchmarks
+          path: Benchmarks/.build
+          package-path: Benchmarks
+          skip-cache: ${{ inputs.skip_cache }}
+      - name: Build benchmarks
+        run: swift build --package-path Benchmarks
+      - name: Save benchmark build
+        if: steps.benchmark-cache.outputs.save-needed == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: Benchmarks/.build
+          key: ${{ steps.benchmark-cache.outputs.primary-key }}

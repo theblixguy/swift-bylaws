@@ -1,0 +1,450 @@
+name: CI
+
+on:
+  workflow_call:
+    inputs:
+      skip_cache:
+        description: Build without restoring or saving cached files
+        default: false
+        type: boolean
+      checkout_ref:
+        description: Git revision to check
+        required: false
+        default: ""
+        type: string
+      run_package_checks:
+        description: Run every package check
+        required: false
+        default: false
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      skip_cache:
+        description: Build without restoring or saving cached files
+        default: false
+        type: boolean
+      run_package_checks:
+        description: Run every package check
+        required: false
+        default: true
+        type: boolean
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "43 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BYLAWS_BUILD_PLUGIN_FROM_SOURCE: "1"
+  BYLAWS_STRICT_BUILD: "1"
+
+jobs:
+  changes:
+    name: Check changed files and formatting
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      ci: >-
+        ${{ inputs.run_package_checks
+        || github.event_name == 'schedule'
+        || steps.filter.outputs.ci == 'true' }}
+      consumers: >-
+        ${{ inputs.run_package_checks
+        || github.event_name == 'schedule'
+        || steps.filter.outputs.consumers == 'true' }}
+      benchmarks: >-
+        ${{ inputs.run_package_checks
+        || steps.filter.outputs.benchmarks == 'true' }}
+      documentation: >-
+        ${{ github.event_name == 'schedule'
+        || steps.filter.outputs.documentation == 'true' }}
+      editor_clients: >-
+        ${{ github.event_name == 'schedule'
+        && '["vscode","zed","zed-release","neovim","emacs"]'
+        || steps.editor_filter.outputs.changes || '[]' }}
+      linux_matrix: >-
+        ${{ (inputs.run_package_checks || github.event_name == 'schedule')
+        && '[{"swift":"6.2","swift_syntax":"602.0.0"},{"swift":"6.3","swift_syntax":"602.0.0"},{"swift":"6.3","swift_syntax":"603.0.2"}]'
+        || '[{"swift":"6.2","swift_syntax":"602.0.0"}]' }}
+    env:
+      SWIFTFORMAT_VERSION: "0.62.1"
+      SWIFTFORMAT_SHA256: "61ff55f3581e2144a4ad114831167102c38be853df75c1477d20b40a8e8120aa"
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+      - name: Check package files
+        if: ${{ !inputs.run_package_checks && github.event_name != 'schedule' }}
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          predicate-quantifier: some-with-excludes
+          filters: .github/ci-paths.yml
+      - name: Check editor files
+        if: ${{ !inputs.run_package_checks && github.event_name != 'schedule' }}
+        id: editor_filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          predicate-quantifier: some-with-excludes
+          filters: .github/editor-paths.yml
+      - name: Install SwiftFormat
+        if: >-
+          inputs.run_package_checks || github.event_name == 'schedule'
+          || steps.filter.outputs.ci == 'true'
+          || steps.filter.outputs.benchmarks == 'true'
+        run: |
+          curl -fsSL -o swiftformat.zip \
+            "https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat_linux.zip"
+          echo "${SWIFTFORMAT_SHA256}  swiftformat.zip" | sha256sum --check -
+          unzip -q swiftformat.zip
+          chmod +x swiftformat_linux
+      - name: Run SwiftFormat
+        if: >-
+          inputs.run_package_checks || github.event_name == 'schedule'
+          || steps.filter.outputs.ci == 'true'
+          || steps.filter.outputs.benchmarks == 'true'
+        run: ./swiftformat_linux --lint .
+
+  test-macos:
+    name: Run macOS tests
+    if: needs.changes.outputs.ci == 'true'
+    needs: changes
+    runs-on: macos-26
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+      - name: Restore Swift builds
+        id: cache
+        uses: ./.github/actions/swift-cache
+        with:
+          scope: macos-tests
+          skip-cache: ${{ inputs.skip_cache }}
+      - name: Build tests
+        run: swift build --build-tests
+      - name: Save Swift build
+        if: steps.cache.outputs.save-needed == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build
+          key: ${{ steps.cache.outputs.primary-key }}
+      - name: Run tests
+        env:
+          BYLAWS_REQUIRE_INDEX_STORE: "1"
+        run: swift test --skip-build
+      - name: Check optional package dependencies
+        if: needs.changes.outputs.consumers == 'true'
+        run: |
+          swift package --package-path Tests/PackageConsumer/DefaultTraits \
+            show-dependencies --format json > default-dependency-graph.json
+          grep -q 'swift-argument-parser' default-dependency-graph.json
+          grep -q 'swift-tools-protocols' default-dependency-graph.json
+          swift package --package-path Tests/PackageConsumer/NoTraits \
+            show-dependencies --format json > no-traits-dependency-graph.json
+          ! grep -q 'swift-argument-parser' no-traits-dependency-graph.json
+          ! grep -q 'swift-tools-protocols' no-traits-dependency-graph.json
+
+  test-linux:
+    name: Run Linux tests (Swift ${{ matrix.swift }}, SwiftSyntax ${{ matrix.swift_syntax }})
+    if: needs.changes.outputs.ci == 'true'
+    needs: changes
+    runs-on: ubuntu-latest
+    container: swift:${{ matrix.swift }}
+    strategy:
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.linux_matrix) }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+      - name: Restore Swift builds
+        id: cache
+        uses: ./.github/actions/swift-cache
+        with:
+          scope: linux-tests-${{ matrix.swift_syntax }}
+          skip-cache: ${{ inputs.skip_cache }}
+      - name: Resolve SwiftSyntax ${{ matrix.swift_syntax }}
+        env:
+          SWIFT_SYNTAX_VERSION: ${{ matrix.swift_syntax }}
+        run: |
+          swift package resolve
+          swift package resolve swift-syntax --version "$SWIFT_SYNTAX_VERSION"
+      - name: Build tests
+        run: swift build --build-tests
+      - name: Save Swift build
+        if: steps.cache.outputs.save-needed == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build
+          key: ${{ steps.cache.outputs.primary-key }}
+      - name: Run tests
+        env:
+          BYLAWS_REQUIRE_INDEX_STORE: "1"
+        run: swift test --skip-build
+      - name: Check Bylaws' own rules
+        if: matrix.swift == '6.2'
+        run: swift run --skip-build bylaws lint --format github
+
+  benchmarks:
+    name: Build benchmarks
+    if: needs.changes.outputs.benchmarks == 'true'
+    needs: changes
+    runs-on: macos-26
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+      - name: Restore Swift builds
+        id: cache
+        uses: ./.github/actions/swift-cache
+        with:
+          scope: benchmarks
+          path: Benchmarks/.build
+          package-path: Benchmarks
+          skip-cache: ${{ inputs.skip_cache }}
+      - name: Build benchmarks
+        run: swift build --package-path Benchmarks
+      - name: Save Swift build
+        if: steps.cache.outputs.save-needed == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: Benchmarks/.build
+          key: ${{ steps.cache.outputs.primary-key }}
+
+  library-consumers:
+    name: Test consumer (${{ matrix.name }})
+    if: needs.changes.outputs.consumers == 'true'
+    needs: changes
+    runs-on: ubuntu-latest
+    container: swift:6.3
+    env:
+      CONSUMER_PATH: ${{ matrix.path }}
+    strategy:
+      matrix:
+        include:
+          - name: Default traits
+            path: Tests/PackageConsumer/DefaultTraits
+            has_cli: "true"
+            has_language_server_trait: "true"
+            low_level_index: "false"
+          - name: No traits
+            path: Tests/PackageConsumer/NoTraits
+            has_cli: "false"
+            has_language_server_trait: "false"
+            low_level_index: "false"
+          - name: Low-level index
+            path: Tests/PackageConsumer/IndexStore
+            has_cli: "false"
+            has_language_server_trait: "false"
+            low_level_index: "true"
+          - name: Index adapter
+            path: Tests/PackageConsumer/Index
+            has_cli: "false"
+            has_language_server_trait: "false"
+            low_level_index: "false"
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+      - name: Build consumer
+        run: swift build --package-path "$CONSUMER_PATH"
+      - name: Read dependencies
+        run: >-
+          swift package --package-path "$CONSUMER_PATH"
+          show-dependencies --format json > dependency-graph.json
+      - name: Check package traits
+        env:
+          EXPECTED_CLI: ${{ matrix.has_cli }}
+          EXPECTED_LANGUAGE_SERVER_TRAIT: ${{ matrix.has_language_server_trait }}
+        run: |
+          absent() {
+            if grep -q "$1" dependency-graph.json; then
+              echo "::error::The dependency graph contains $1."
+              exit 1
+            fi
+          }
+          grep -q 'swift-bylaws' dependency-graph.json
+          if [ "$EXPECTED_CLI" = "true" ]; then
+            grep -q '"CLI"' dependency-graph.json
+            grep -q 'swift-argument-parser' dependency-graph.json
+          else
+            absent '"CLI"'
+            absent 'swift-argument-parser'
+          fi
+          if [ "$EXPECTED_LANGUAGE_SERVER_TRAIT" = "true" ]; then
+            grep -q '"LanguageServer"' dependency-graph.json
+          else
+            absent '"LanguageServer"'
+          fi
+          absent 'swift-tools-protocols'
+      - name: Check index dependencies
+        if: matrix.low_level_index == 'true'
+        run: |
+          built() {
+            find "$CONSUMER_PATH/.build" \
+              -path "*/debug/Modules/$1.swiftmodule" \
+              -print -quit | grep -q .
+          }
+          built BylawsIndexStore
+          for module in BylawsCore BylawsSemantics SwiftSyntax; do
+            if built "$module"; then
+              echo "::error::The consumer build contains $module."
+              exit 1
+            fi
+          done
+
+  plugin-consumer:
+    name: Test SwiftPM plugins
+    if: needs.changes.outputs.consumers == 'true'
+    needs: changes
+    runs-on: ubuntu-latest
+    container: swift:6.3
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+      - name: Restore Swift builds
+        id: cache
+        uses: ./.github/actions/swift-cache
+        with:
+          scope: plugin-release-static
+          skip-cache: ${{ inputs.skip_cache }}
+      - name: Build plugin tool
+        run: swift build -c release --product bylaws --static-swift-stdlib
+      - name: Save Swift build
+        if: steps.cache.outputs.save-needed == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build
+          key: ${{ steps.cache.outputs.primary-key }}
+      - name: Create plugin artifact
+        run: |
+          VERSION=$(.build/release/bylaws --version)
+          Scripts/make-plugin-artifact-bundle.swift \
+            "${VERSION}" \
+            BylawsPluginTool.artifactbundle \
+            "bylaws-cli::bylaws::linux::.build/release/bylaws::x86_64-unknown-linux-gnu"
+      - name: Smoke-test the release binary
+        run: |
+          Scripts/test-release.swift \
+            .build/release/bylaws \
+            "$(.build/release/bylaws --version)"
+      - name: Build reusable rules
+        env:
+          BYLAWS_PLUGIN_ARTIFACT_PATH: BylawsPluginTool.artifactbundle
+        run: swift build --package-path Tests/PackageConsumer/Plugin
+      - name: Run reusable rules
+        env:
+          BYLAWS_PLUGIN_ARTIFACT_PATH: BylawsPluginTool.artifactbundle
+        run: |
+          status=0
+          output=$(swift package --package-path Tests/PackageConsumer/Plugin \
+            --allow-writing-to-package-directory bylaws \
+            --rules Config/Architecture.swift) || status=$?
+          printf '%s\n' "$output"
+          test "$status" -eq 0
+          test "$output" = "Checked 2 rules: 0 violations."
+      - name: Record baseline
+        env:
+          BYLAWS_PLUGIN_ARTIFACT_PATH: BylawsPluginTool.artifactbundle
+        run: >-
+          swift package --package-path Tests/PackageConsumer/Plugin
+          --allow-writing-to-package-directory bylaws
+          --rules Config/Architecture.swift
+          --record-baseline Config/Bylaws.baseline.swift
+      - name: Check baseline
+        run: test -f Tests/PackageConsumer/Plugin/Config/Bylaws.baseline.swift
+      - name: Check binary tool
+        run: |
+          ! find Tests/PackageConsumer/Plugin/.build \
+            -path '*bylaws_cli-tool.build*' -print -quit | grep -q .
+          ! find Tests/PackageConsumer/Plugin/.build \
+            -path '*bylaws_cli.build/*.swift.o' -print -quit | grep -q .
+      - name: Check build-tool plugin
+        env:
+          BYLAWS_PLUGIN_ARTIFACT_PATH: BylawsPluginTool.artifactbundle
+        working-directory: Tests/PackageConsumer/BuildPlugin
+        run: |
+          trap 'rm -f Bylaws.swift Bylaws.baseline.swift Sources/Other/Added.swift' EXIT
+          cp Rules/BuildRules.swift Bylaws.swift
+          swift build --disable-build-manifest-caching --target App
+          printf 'class Added {}\n' > Sources/Other/Added.swift
+          if swift build --disable-build-manifest-caching --target App > .build/violation.log 2>&1; then
+            cat .build/violation.log
+            exit 1
+          fi
+          cat .build/violation.log
+          grep -F "Added violates 'Classes are final'" .build/violation.log
+          swift package --allow-writing-to-package-directory bylaws \
+            --record-baseline Bylaws.baseline.swift
+          swift build --disable-build-manifest-caching --target App
+          printf 'final class Added {}\n' > Sources/Other/Added.swift
+          if swift build --disable-build-manifest-caching --target App > .build/baseline.log 2>&1; then
+            cat .build/baseline.log
+            exit 1
+          fi
+          cat .build/baseline.log
+          grep -i stale .build/baseline.log
+          rm Sources/Other/Added.swift Bylaws.baseline.swift
+          swift build --disable-build-manifest-caching --target App
+          ! find .build -path '*bylaws_cli*.build/*.swift.o' -print -quit | grep -q .
+          ! find .build -path '*SwiftSyntax.build/*.swift.o' -print -quit | grep -q .
+
+  documentation:
+    name: Check documentation
+    if: needs.changes.outputs.documentation == 'true'
+    needs: changes
+    permissions:
+      contents: read
+    uses: ./.github/workflows/docs.yml
+    with:
+      checkout_ref: ${{ inputs.checkout_ref }}
+      skip_cache: ${{ inputs.skip_cache || false }}
+
+  editor-clients:
+    name: Check editor clients
+    if: needs.changes.outputs.editor_clients != '[]'
+    needs: changes
+    permissions:
+      contents: read
+    uses: ./.github/workflows/editors.yml
+    with:
+      clients: ${{ needs.changes.outputs.editor_clients }}
+      skip_cache: ${{ inputs.skip_cache || false }}
+
+  build-and-test:
+    name: build-and-test
+    if: always()
+    needs:
+      - changes
+      - test-macos
+      - test-linux
+      - benchmarks
+      - library-consumers
+      - plugin-consumer
+      - documentation
+      - editor-clients
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check jobs
+        uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
+        with:
+          allowed-skips: >-
+            test-macos, test-linux, benchmarks, library-consumers,
+            plugin-consumer, documentation, editor-clients
+          jobs: ${{ toJSON(needs) }}

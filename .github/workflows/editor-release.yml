@@ -1,0 +1,270 @@
+name: Release editor client
+
+on:
+  workflow_dispatch:
+    inputs:
+      client:
+        description: Editor client to release
+        required: true
+        type: choice
+        options:
+          - VS Code and Cursor
+          - Zed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: editor-release-${{ inputs.client }}
+  cancel-in-progress: false
+
+jobs:
+  source:
+    name: Check release source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch
+        run: |
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "::error::Run editor releases from the main branch."
+            exit 1
+          fi
+
+  check:
+    name: Check client
+    needs: source
+    uses: ./.github/workflows/editors.yml
+    with:
+      clients: ${{ inputs.client == 'Zed' && '["zed","zed-release"]' || '["vscode"]' }}
+      upload_vscode: ${{ inputs.client == 'VS Code and Cursor' }}
+
+  release-vscode:
+    name: Release VS Code and Cursor client
+    if: >-
+      !cancelled()
+      && needs.check.result == 'success'
+      && inputs.client == 'VS Code and Cursor'
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Check publisher settings
+        env:
+          OPEN_VSX_PUBLISH_ENABLED: ${{ vars.OPEN_VSX_PUBLISH_ENABLED }}
+          OPEN_VSX_TOKEN: ${{ secrets.OPEN_VSX_TOKEN }}
+          VS_MARKETPLACE_PUBLISH_ENABLED: ${{ vars.VS_MARKETPLACE_PUBLISH_ENABLED }}
+          VS_MARKETPLACE_TOKEN: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+        run: |
+          if [ "${VS_MARKETPLACE_PUBLISH_ENABLED}" = "true" ] && [ -z "${VS_MARKETPLACE_TOKEN}" ]; then
+            echo "::error::Add the VS_MARKETPLACE_TOKEN repository secret or set VS_MARKETPLACE_PUBLISH_ENABLED to false."
+            exit 1
+          fi
+          if [ "${OPEN_VSX_PUBLISH_ENABLED}" = "true" ] && [ -z "${OPEN_VSX_TOKEN}" ]; then
+            echo "::error::Add the OPEN_VSX_TOKEN repository secret or set OPEN_VSX_PUBLISH_ENABLED to false."
+            exit 1
+          fi
+      - name: Install Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: Editors/VSCode/package-lock.json
+      - name: Install publisher
+        working-directory: Editors/VSCode
+        run: npm ci
+      - name: Download extension
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: bylaws-editor
+      - name: Read version
+        id: version
+        working-directory: Editors/VSCode
+        run: >-
+          node --print
+          '"version=" + require("./package.json").version'
+          >> "${GITHUB_OUTPUT}"
+      - name: Check release version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          tag="vscode-v${VERSION}"
+          if git rev-parse --verify --quiet "refs/tags/${tag}^{commit}" > /dev/null; then
+            tagged_revision=$(git rev-parse "refs/tags/${tag}^{commit}")
+            if [ "${tagged_revision}" != "${GITHUB_SHA}" ]; then
+              echo "::error::Version ${VERSION} was released from another commit. Increase the VS Code version."
+              exit 1
+            fi
+          fi
+      - name: Check Visual Studio Marketplace access
+        if: vars.VS_MARKETPLACE_PUBLISH_ENABLED == 'true'
+        working-directory: Editors/VSCode
+        env:
+          VSCE_PAT: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+        run: npm exec -- vsce verify-pat theblixguy
+      - name: Check Open VSX access
+        if: vars.OPEN_VSX_PUBLISH_ENABLED == 'true'
+        working-directory: Editors/VSCode
+        env:
+          OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
+        run: npm exec -- ovsx verify-pat theblixguy
+      - name: Reserve release version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          tag="vscode-v${VERSION}"
+          if ! git rev-parse --verify --quiet "refs/tags/${tag}^{commit}" > /dev/null; then
+            git tag "${tag}" "${GITHUB_SHA}"
+            git push origin "refs/tags/${tag}"
+          fi
+      - name: Publish to Visual Studio Marketplace
+        if: vars.VS_MARKETPLACE_PUBLISH_ENABLED == 'true'
+        working-directory: Editors/VSCode
+        env:
+          VSCE_PAT: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+        run: >-
+          npm exec -- vsce publish
+          --packagePath ../../bylaws.vsix
+          --skip-duplicate
+      - name: Publish to Open VSX
+        if: vars.OPEN_VSX_PUBLISH_ENABLED == 'true'
+        working-directory: Editors/VSCode
+        env:
+          OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
+        run: >-
+          npm exec -- ovsx publish ../../bylaws.vsix
+          --skip-duplicate
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        with:
+          tag_name: vscode-v${{ steps.version.outputs.version }}
+          name: VS Code and Cursor v${{ steps.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          files: bylaws.vsix
+          fail_on_unmatched_files: true
+
+  release-zed:
+    name: Release Zed client
+    if: >-
+      !cancelled()
+      && needs.check.result == 'success'
+      && inputs.client == 'Zed'
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create release app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: read
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+      - name: Check publisher settings
+        env:
+          ZED_EXTENSIONS_FORK: ${{ vars.ZED_EXTENSIONS_FORK }}
+          ZED_PUBLISH_ENABLED: ${{ vars.ZED_PUBLISH_ENABLED }}
+          ZED_REGISTRY_TOKEN: ${{ secrets.ZED_REGISTRY_TOKEN }}
+        run: |
+          if [ "${ZED_PUBLISH_ENABLED}" != "true" ]; then
+            echo "::error::Set ZED_PUBLISH_ENABLED to true before you release the Zed client."
+            exit 1
+          fi
+          if [[ ! "${ZED_EXTENSIONS_FORK}" =~ ^[^/]+/[^/]+$ ]]; then
+            echo "::error::Set ZED_EXTENSIONS_FORK to the owner and name of your zed-industries/extensions fork."
+            exit 1
+          fi
+          if [ -z "${ZED_REGISTRY_TOKEN}" ]; then
+            echo "::error::Add the ZED_REGISTRY_TOKEN repository secret before you release the Zed client."
+            exit 1
+          fi
+      - name: Prepare registry update
+        id: registry
+        env:
+          GH_TOKEN: ${{ secrets.ZED_REGISTRY_TOKEN }}
+          ZED_EXTENSIONS_FORK: ${{ vars.ZED_EXTENSIONS_FORK }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          if [ "$(gh api "repos/${ZED_EXTENSIONS_FORK}" --jq '.parent.full_name // ""')" != "zed-industries/extensions" ]; then
+            echo "::error::ZED_EXTENSIONS_FORK must be a fork of zed-industries/extensions."
+            exit 1
+          fi
+
+          registry="${RUNNER_TEMP}/zed-extensions"
+          branch="update-bylaws-lsp-${GITHUB_SHA:0:12}"
+          fork_owner="${ZED_EXTENSIONS_FORK%%/*}"
+          gh repo clone zed-industries/extensions "${registry}"
+          git -C "${registry}" remote add fork "https://github.com/${ZED_EXTENSIONS_FORK}.git"
+          git -C "${registry}" checkout -b "${branch}" origin/main
+
+          if ! git -C "${registry}" ls-files --error-unmatch extensions/bylaws-lsp > /dev/null; then
+            echo "::error::Publish the first bylaws-lsp registry entry manually before you run this workflow."
+            exit 1
+          fi
+          git -C "${registry}" submodule update --init extensions/bylaws-lsp
+          git -C "${registry}/extensions/bylaws-lsp" fetch origin "${GITHUB_SHA}"
+          git -C "${registry}/extensions/bylaws-lsp" checkout --detach "${GITHUB_SHA}"
+          version=$(Scripts/update_zed_registry.py \
+            Editors/Zed/extension.toml \
+            "${registry}/extensions.toml")
+
+          git -C "${registry}" add extensions.toml extensions/bylaws-lsp
+          test "$(git -C "${registry}" diff --cached --name-only | wc -l | tr -d ' ')" = 2
+          git -C "${registry}" diff --cached --name-only | grep -Fxq extensions.toml
+          git -C "${registry}" diff --cached --name-only | grep -Fxq extensions/bylaws-lsp
+          test "$(git -C "${registry}" ls-files --stage extensions/bylaws-lsp | awk '{print $2}')" = "${GITHUB_SHA}"
+          git -C "${registry}" diff --cached --check
+
+          app_user_id=$(gh api "users/${APP_SLUG}[bot]" --jq .id)
+          git -C "${registry}" config user.name "${APP_SLUG}[bot]"
+          git -C "${registry}" config user.email "${app_user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git -C "${registry}" commit -m "Update bylaws-lsp to v${version}"
+          {
+            echo "path=${registry}"
+            echo "branch=${branch}"
+            echo "fork_owner=${fork_owner}"
+            echo "version=${version}"
+          } >> "${GITHUB_OUTPUT}"
+      - name: Open registry pull request
+        env:
+          BRANCH: ${{ steps.registry.outputs.branch }}
+          FORK_OWNER: ${{ steps.registry.outputs.fork_owner }}
+          GH_TOKEN: ${{ secrets.ZED_REGISTRY_TOKEN }}
+          REGISTRY: ${{ steps.registry.outputs.path }}
+          VERSION: ${{ steps.registry.outputs.version }}
+        run: |
+          gh auth setup-git
+          remote_revision=$(git -C "${REGISTRY}" ls-remote \
+            --heads fork "refs/heads/${BRANCH}" | awk '{print $1}')
+          if [ -n "${remote_revision}" ]; then
+            git -C "${REGISTRY}" push \
+              --force-with-lease="refs/heads/${BRANCH}:${remote_revision}" \
+              fork "HEAD:refs/heads/${BRANCH}"
+          else
+            git -C "${REGISTRY}" push fork "HEAD:refs/heads/${BRANCH}"
+          fi
+          existing_url=$(gh api \
+            --method GET \
+            repos/zed-industries/extensions/pulls \
+            -f state=open \
+            -f head="${FORK_OWNER}:${BRANCH}" \
+            --jq '.[0].html_url // ""')
+          if [ -n "${existing_url}" ]; then
+            echo "Registry pull request: ${existing_url}" >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
+          pull_request_url=$(gh pr create \
+            --repo zed-industries/extensions \
+            --base main \
+            --head "${FORK_OWNER}:${BRANCH}" \
+            --title "Update bylaws-lsp to v${VERSION}" \
+            --body "Updates bylaws-lsp to version ${VERSION}.")
+          echo "Registry pull request: ${pull_request_url}" >> "${GITHUB_STEP_SUMMARY}"

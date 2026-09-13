@@ -1,0 +1,14 @@
+.DS_Store
+.build/
+.desloppify/
+.swiftpm/
+DerivedData/
+*.xcodeproj
+.build-*/
+/_site/
+/Tests/PackageConsumer/**/Package.resolved
+/.vscode/
+__pycache__/
+/Benchmarks/SwiftLintComparison.md
+/AGENTS.md
+/docs/audit-fixes.md

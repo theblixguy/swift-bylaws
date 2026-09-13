@@ -1,0 +1,8 @@
+alias(
+    name = "bylaws",
+    actual = select({
+        "@platforms//os:macos": "@bylaws_macos//:bylaws",
+        "@platforms//os:linux": "@bylaws_linux//:bylaws",
+    }),
+    visibility = ["//visibility:public"],
+)

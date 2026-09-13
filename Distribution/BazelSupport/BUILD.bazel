@@ -1,0 +1,7 @@
+load("//bazel:prebuilt.bzl", "prebuilt_binary")
+
+prebuilt_binary(
+    name = "bylaws",
+    src = "//bin:bylaws",
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,93 @@
+name: Documentation
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_cache:
+        description: Build without restoring or saving cached files
+        default: false
+        type: boolean
+  workflow_call:
+    inputs:
+      skip_cache:
+        description: Build without restoring or saving cached files
+        default: false
+        type: boolean
+      checkout_ref:
+        description: Git revision to document
+        required: false
+        default: ""
+        type: string
+      upload_pages:
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  BYLAWS_BUILD_PLUGIN_FROM_SOURCE: "1"
+
+jobs:
+  build:
+    name: Build documentation
+    runs-on: ubuntu-latest
+    container: swift:6.3
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+      - name: Check package lock file
+        run: |
+          for package in swift-docc-plugin swift-docc-symbolkit; do
+            if grep -q "\"identity\" : \"$package\"" Package.resolved; then
+              echo "::error::Package.resolved contains $package."
+              exit 1
+            fi
+          done
+      - name: Prepare documentation package
+        shell: bash
+        run: |
+          DOCUMENTATION_PACKAGE="$RUNNER_TEMP/swift-bylaws-documentation"
+          mkdir "$DOCUMENTATION_PACKAGE"
+          git -c safe.directory="$GITHUB_WORKSPACE" archive HEAD | tar -x -C "$DOCUMENTATION_PACKAGE"
+          echo "DOCUMENTATION_PACKAGE=$DOCUMENTATION_PACKAGE" >> "$GITHUB_ENV"
+      - name: Restore Swift builds
+        id: cache
+        uses: ./.github/actions/swift-cache
+        with:
+          scope: documentation
+          path: ${{ env.DOCUMENTATION_PACKAGE }}/.build
+          skip-cache: ${{ inputs.skip_cache }}
+      - name: Build documentation
+        shell: bash
+        env:
+          BYLAWS_BUILD_DOCS: "1"
+        run: |
+          swift package --package-path "$DOCUMENTATION_PACKAGE" \
+            --allow-writing-to-directory "$GITHUB_WORKSPACE/_site" \
+            generate-documentation \
+            --enable-experimental-combined-documentation \
+            --target Bylaws --target BylawsCore --target BylawsSemantics \
+            --target BylawsIndexStore --target BylawsIndex \
+            --target BylawsInterpreter \
+            --disable-indexing \
+            --warnings-as-errors \
+            --transform-for-static-hosting \
+            --hosting-base-path swift-bylaws \
+            --output-path "$GITHUB_WORKSPACE/_site"
+      - name: Save Swift build
+        if: steps.cache.outputs.save-needed == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DOCUMENTATION_PACKAGE }}/.build
+          key: ${{ steps.cache.outputs.primary-key }}
+      - name: Upload documentation
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        if: inputs.upload_pages
+        with:
+          path: _site

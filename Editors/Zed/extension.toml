@@ -1,0 +1,14 @@
+id = "bylaws-lsp"
+name = "Bylaws"
+description = "Architecture rule diagnostics for Swift projects."
+version = "0.1.0"
+schema_version = 1
+authors = ["Suyash Srijan"]
+repository = "https://github.com/theblixguy/swift-bylaws"
+
+[language_servers.bylaws]
+name = "Bylaws"
+languages = ["Swift"]
+
+[language_servers.bylaws.language_ids]
+Swift = "swift"

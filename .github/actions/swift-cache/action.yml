@@ -1,0 +1,67 @@
+name: Restore Swift builds
+description: Reuse build files for the same toolchain and package dependencies.
+
+inputs:
+  scope:
+    description: Build configuration to keep separate from other caches
+    required: true
+  path:
+    description: Swift build directory
+    default: .build
+  package-path:
+    description: Package directory for dependency checks
+    default: .
+  skip-cache:
+    description: Build without restoring or saving cached files
+    default: "false"
+
+outputs:
+  primary-key:
+    description: Key to use when saving the build
+    value: ${{ steps.cache.outputs.cache-primary-key }}
+  save-needed:
+    description: Whether to save the build after compilation succeeds
+    value: ${{ steps.cache.outputs.cache-primary-key != '' && steps.cache.outputs.cache-hit != 'true' }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install cache compression tool
+      if: runner.os == 'Linux' && inputs.skip-cache != 'true'
+      shell: bash
+      run: |
+        if ! command -v zstd >/dev/null; then
+          apt-get update
+          apt-get install -y --no-install-recommends zstd
+        fi
+    - name: Read build settings
+      if: inputs.skip-cache != 'true'
+      id: key
+      shell: bash
+      env:
+        BUILD_SCOPE: ${{ inputs.scope }}
+        DEPENDENCY_HASH: ${{ hashFiles('Package.swift', 'Package.resolved', format('{0}/Package.swift', inputs.package-path), format('{0}/Package.resolved', inputs.package-path), '.github/actions/swift-cache/action.yml') }}
+      run: |
+        version=$(
+          {
+            swift --version
+            swift -print-target-info
+            if [[ "$RUNNER_OS" == macOS ]]; then
+              xcodebuild -version
+              xcrun --sdk macosx --show-sdk-version
+            else
+              cat /etc/os-release
+            fi
+          } | shasum -a 256 | cut -d ' ' -f 1
+        )
+        echo "prefix=swift-${RUNNER_OS}-${RUNNER_ARCH}-${BUILD_SCOPE}-${version}-${DEPENDENCY_HASH}" >> "$GITHUB_OUTPUT"
+        echo "revision=$(git -c safe.directory="$GITHUB_WORKSPACE" rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+    - name: Restore build files
+      if: inputs.skip-cache != 'true'
+      id: cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ inputs.path }}
+        key: ${{ steps.key.outputs.prefix }}-${{ steps.key.outputs.revision }}
+        restore-keys: |
+          ${{ steps.key.outputs.prefix }}-
