@@ -8,8 +8,8 @@ struct ParseCacheTests {
   @Test("Cache key uses a stable SHA-256 digest")
   func stableCacheKey() {
     #expect(
-      ParseCache.key(forSource: "class A {}", at: "/App/A.swift")
-        == "8ede1d21ad8f69f2f2fc1e35549b674960491faa0762df9ba0c60c0e1b70410a"
+      ParseCache.key(forSource: "class A {}")
+        == "3b13dc89849e48e74f0090addc423484f98f428099fa868191da813183108c6b"
     )
   }
 
@@ -17,7 +17,6 @@ struct ParseCacheTests {
   func writingAndReadingPreservesParse() throws {
     let testCache = try ParseCacheTestStorage()
     let cache = testCache.cache
-    defer { withExtendedLifetime(testCache) {} }
     let source = """
     public protocol Reloading {
       var state: Int { get }
@@ -37,7 +36,7 @@ struct ParseCacheTests {
     let path = "/App/HomeViewModel.swift"
     let parsed = try FileCollector.collect(source: source, path: path)
 
-    cache.store(parsed, forSource: source, at: path)
+    cache.store(parsed)
     let loaded = try #require(cache.sourceFile(forSource: source, at: path))
     #expect(cacheEntry(for: loaded) == cacheEntry(for: parsed))
     #expect(loaded.classes.first?.sourceText.hasPrefix("final class") == true)
@@ -55,12 +54,11 @@ struct ParseCacheTests {
   func writingAndReadingPreservesLineCount() throws {
     let testCache = try ParseCacheTestStorage()
     let cache = testCache.cache
-    defer { withExtendedLifetime(testCache) {} }
     let source = "struct One {}\nstruct Two {}\r\nstruct Three {}\r"
     let path = "/App/Lines.swift"
     let parsed = try FileCollector.collect(source: source, path: path)
 
-    cache.store(parsed, forSource: source, at: path)
+    cache.store(parsed)
     let loaded = try #require(cache.sourceFile(forSource: source, at: path))
 
     #expect(parsed.lineCount == 4)
@@ -71,68 +69,54 @@ struct ParseCacheTests {
   func missesOnChangedSource() throws {
     let testCache = try ParseCacheTestStorage()
     let cache = testCache.cache
-    defer { withExtendedLifetime(testCache) {} }
     let path = "/App/A.swift"
     let parsed = try FileCollector.collect(source: "class A {}", path: path)
 
-    cache.store(parsed, forSource: "class A {}", at: path)
+    cache.store(parsed)
     #expect(cache.sourceFile(forSource: "class B {}", at: path) == nil)
   }
 
-  @Test("The same source at another path returns no cache entry")
-  func missesOnChangedPath() throws {
+  @Test("Moved source reuses cache with current path")
+  func movedSource() throws {
     let testCache = try ParseCacheTestStorage()
     let cache = testCache.cache
-    defer { withExtendedLifetime(testCache) {} }
     let source = "class A {}"
     let parsed = try FileCollector.collect(source: source, path: "/App/A.swift")
 
-    cache.store(parsed, forSource: source, at: "/App/A.swift")
-    #expect(cache.sourceFile(forSource: source, at: "/Lib/A.swift") == nil)
+    cache.store(parsed)
+    let loaded = try #require(
+      cache.sourceFile(forSource: source, at: "/Lib/A.swift")
+    )
+    #expect(loaded.path == "/Lib/A.swift")
+    #expect(loaded.classes.first?.location.filePath == "/Lib/A.swift")
   }
 
   @Test("A corrupt entry is replaced after a miss")
   func toleratesCorruptEntries() throws {
     let testCache = try ParseCacheTestStorage()
     let cache = testCache.cache
-    defer { withExtendedLifetime(testCache) {} }
     let source = "class A {}"
     let path = "/App/A.swift"
-    let entry = cache.entry(forSource: source, at: path)
+    let entry = cache.entry(forSource: source)
     try Data("not an entry".utf8).write(to: entry)
 
     #expect(cache.sourceFile(forSource: source, at: path) == nil)
     let parsed = try FileCollector.collect(source: source, path: path)
-    cache.store(parsed, forSource: source, at: path)
+    cache.store(parsed)
     let loaded = try #require(cache.sourceFile(forSource: source, at: path))
     #expect(cacheEntry(for: loaded) == cacheEntry(for: parsed))
-  }
-
-  @Test("A project-scoped cache stores entries in the project's directory")
-  func scopesEntriesByProject() throws {
-    let testCache = try ParseCacheTestStorage()
-    let cache = try testCache.cache.opening(project: "MyApp")
-    defer { withExtendedLifetime(testCache) {} }
-    let entry = cache.entry(
-      forSource: "class A {}",
-      at: "/repo/MyApp/Sources/A.swift"
-    )
-    #expect(entry.pathComponents.contains("MyApp"))
-    #expect(entry.lastPathComponent.hasPrefix("A-"))
-    #expect(entry.lastPathComponent.hasSuffix(".bin"))
   }
 
   @Test("A cache entry name does not exceed the 255-byte filesystem limit")
   func unicodeEntryNameFits() throws {
     let testCache = try ParseCacheTestStorage()
     let cache = testCache.cache
-    defer { withExtendedLifetime(testCache) {} }
     let source = "struct Model {}"
     let path = "/App/\(String(repeating: "界", count: 64)).swift"
-    let entry = cache.entry(forSource: source, at: path)
+    let entry = cache.entry(forSource: source)
     let parsed = try FileCollector.collect(source: source, path: path)
 
-    cache.store(parsed, forSource: source, at: path)
+    cache.store(parsed)
 
     #expect(entry.lastPathComponent.utf8.count <= 255)
     #expect(cache.sourceFile(forSource: source, at: path) != nil)
@@ -142,7 +126,6 @@ struct ParseCacheTests {
   func toleratesInvalidRanges() throws {
     let testCache = try ParseCacheTestStorage()
     let cache = testCache.cache
-    defer { withExtendedLifetime(testCache) {} }
     let source = "short"
     let path = "/App/A.swift"
     let sourceBuffer = SourceBuffer(source)
@@ -164,7 +147,7 @@ struct ParseCacheTests {
       ]
     )
 
-    cache.store(file, forSource: source, at: path)
+    cache.store(file)
     #expect(cache.sourceFile(forSource: source, at: path) == nil)
   }
 
@@ -174,7 +157,6 @@ struct ParseCacheTests {
   func writingAndReadingPreservesEveryPackageFile() throws {
     let testCache = try ParseCacheTestStorage()
     let cache = testCache.cache
-    defer { withExtendedLifetime(testCache) {} }
     let root = URL(
       fileURLWithPath: try Codebase.automaticRoot(above: #filePath)
     )
@@ -192,7 +174,7 @@ struct ParseCacheTests {
       let source = try String(contentsOfFile: path, encoding: .utf8)
       let parsed = try FileCollector.collect(source: source, path: path)
 
-      cache.store(parsed, forSource: source, at: path)
+      cache.store(parsed)
       let loaded = try #require(cache.sourceFile(forSource: source, at: path))
       #expect(
         cacheEntry(for: loaded) == cacheEntry(for: parsed),

@@ -1,7 +1,7 @@
 import BylawsCore
 import Foundation
 
-final class ParseCacheTestStorage {
+struct ParseCacheTestStorage: ~Copyable {
   let cache: ParseCache
   let directory: URL
 

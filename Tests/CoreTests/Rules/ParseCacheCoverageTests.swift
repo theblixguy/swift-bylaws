@@ -3,7 +3,7 @@ import Testing
 
 @Suite("Bylaws' parse cache", .codebase(.bylaws), .tags(.layering))
 struct ParseCacheCoverageTests {
-  @Test("The cache encoders write every model field")
+  @Test("Cache encoders cover stored model fields")
   func encodersCoverEveryModelField() async throws {
     let initializers = try await Codebase.bylaws.initializers
     let encoders = try await Codebase.bylaws.functions
@@ -44,7 +44,6 @@ struct ParseCacheCoverageTests {
     }
   }
 
-  // A nominal type encodes its storage with the storage's own encoder.
   private static func fields(
     written encoder: Function,
     among encoders: [Function]
@@ -71,9 +70,7 @@ struct ParseCacheCoverageTests {
   private static let storageField = "storage"
   private static let storageTypeName = "NominalTypeStorage"
 
-  // The decoder rebuilds these from the entry's own path and text.
-  private static let rebuiltFields: Set<String> = ["source", "filePath"]
+  private static let rebuiltFields: Set<String> = ["source", "filePath", "path"]
 
-  // Visibility travels as the ordinal of its case.
   private static let typesWrittenAsOneValue: Set<String> = ["Visibility"]
 }

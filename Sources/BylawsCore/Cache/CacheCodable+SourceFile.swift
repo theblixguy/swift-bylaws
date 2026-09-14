@@ -22,7 +22,6 @@ extension SourceFile: CacheCodable {
   }
 
   package func encode(to encoder: CacheEncoder) {
-    encoder.encode(path)
     encoder.encode(sourceText)
     encoder.encode(swiftLanguageMode)
     encoder.encode(imports)
