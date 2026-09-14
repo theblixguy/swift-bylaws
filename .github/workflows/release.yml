@@ -482,9 +482,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: theblixguy/bazel-central-registry
-          ref: ${{ format('bylaws-v{0}', inputs.version) }}
+          ref: ${{ format('swift-bylaws-v{0}', inputs.version) }}
           path: bazel-registry
-          sparse-checkout: modules/bylaws
+          sparse-checkout: modules/swift-bylaws
           persist-credentials: false
       - name: Install BCR verifier
         if: needs.bazel-registry.result == 'success'
@@ -498,7 +498,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          ENTRY="bazel-registry/modules/bylaws/${RELEASE_TAG#v}"
+          ENTRY="bazel-registry/modules/swift-bylaws/${RELEASE_TAG#v}"
           RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}"
           ARCHIVE=bylaws-bazel-module.tar.gz
           gh release download "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \

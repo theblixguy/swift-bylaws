@@ -1,1 +1,1 @@
-bazel_dep(name = "bylaws", version = "{{VERSION}}")
+bazel_dep(name = "swift-bylaws", version = "{{VERSION}}")
