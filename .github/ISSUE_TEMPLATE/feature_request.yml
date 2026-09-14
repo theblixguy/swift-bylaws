@@ -1,0 +1,17 @@
+name: Feature request
+description: Suggest a feature or improvement.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-change
+    attributes:
+      label: Proposed change
+      description: Describe what you would like Bylaws to do. A short example can help.
+    validations:
+      required: true
