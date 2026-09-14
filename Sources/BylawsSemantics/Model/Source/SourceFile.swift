@@ -8,6 +8,9 @@ public struct SourceFile: Named, Located, Hashable {
   /// The absolute path of the file.
   public let path: String
 
+  /// The language mode used to parse this file and its syntax queries.
+  public let swiftLanguageMode: SwiftLanguageMode
+
   package let source: SourceBuffer
 
   /// The file's source text.
@@ -59,6 +62,7 @@ public struct SourceFile: Named, Located, Hashable {
   package init(
     path: String,
     source: SourceBuffer,
+    swiftLanguageMode: SwiftLanguageMode = .v6,
     imports: [Import] = [],
     classes: [Class] = [],
     actors: [Actor] = [],
@@ -74,6 +78,7 @@ public struct SourceFile: Named, Located, Hashable {
   ) {
     self.path = path
     self.source = source
+    self.swiftLanguageMode = swiftLanguageMode
     self.imports = imports
     let memberStorage = MemberStorage(
       functions: functions,

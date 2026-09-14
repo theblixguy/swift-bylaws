@@ -3,7 +3,8 @@ import Testing
 
 nonisolated let portableRulesCodebase = Codebase(
   root: .automatic(),
-  including: ["Tests/InterpreterTests/Support/PortableRulesSubject.swift"]
+  including: ["Tests/InterpreterTests/Support/PortableRulesSubject.swift"],
+  swiftLanguageMode: .v6
 )
 
 nonisolated func hasAtMostOnePortableFunction(

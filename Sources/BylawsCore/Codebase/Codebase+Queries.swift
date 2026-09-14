@@ -5,7 +5,7 @@ extension Codebase {
   ///
   /// - Throws: ``CodebaseError/unreadable(failures:)`` when the root
   ///   directory or one of its source files cannot be read, and
-  ///   ``CodebaseError/didNotParse(paths:)`` when a file's syntax carries
+  ///   ``CodebaseError/didNotParse(diagnostics:)`` when a file's syntax carries
   ///   an error.
   public var files: Selection<SourceFile> {
     get async throws(CodebaseError) {

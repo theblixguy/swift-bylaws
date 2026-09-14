@@ -44,6 +44,50 @@ let app = Codebase(
 )
 ```
 
+## Swift language mode
+
+`Codebase` defaults to `.automatic(.swiftPM)`, so each target uses its language
+settings or falls back to the package's declared modes or tools version. Local
+packages can use different modes within the same codebase.
+
+For an Xcode project, set the language mode on the codebase to match your build
+settings:
+
+```swift
+let app = Codebase(
+    including: ["App/**"],
+    swiftLanguageMode: .v5
+)
+```
+
+An explicit mode skips discovery and applies in tests, the CLI and the editor.
+You can define separate codebases for targets that use different modes.
+
+If you want Bylaws to read the mode from an Xcode project, select
+`.automatic(.xcode)`:
+
+```swift
+let app = Codebase(
+    including: ["App/**"],
+    swiftLanguageMode: .automatic(.xcode)
+)
+```
+
+This selection reads the root's Xcode project files and skips SwiftPM settings.
+If your app also has local packages, use `.automatic([.swiftPM, .xcode])` so
+Bylaws reads their SwiftPM settings and uses Xcode settings for the remaining
+files.
+
+Reading Xcode project files adds work each time Bylaws collects the source
+files. Bylaws uses `SWIFT_VERSION` when the targets and build configurations
+agree. If the settings use `.xcconfig` files or values Bylaws cannot resolve,
+set `swiftLanguageMode` explicitly instead.
+
+Without an explicit mode or applicable settings, Bylaws uses Swift 6 mode.
+Syntax errors include the selected mode and the parser's message at the file
+and line where they occur. Language mode affects parsing, while type checking
+and concurrency checks remain the compiler's responsibility.
+
 ## Written types
 
 `hasType("Repository")` matches an explicit `: Repository` annotation. To

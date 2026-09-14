@@ -68,6 +68,7 @@ package actor CodebaseCache {
     private let including: Set<Glob>
     private let excluding: Set<Glob>
     private let parseCachePolicy: ParseCachePolicy
+    private let swiftLanguageMode: Codebase.LanguageMode
 
     init(_ codebase: Codebase) throws(CodebaseError) {
       switch codebase.root.strategy {
@@ -79,6 +80,7 @@ package actor CodebaseCache {
       including = Set(codebase.including)
       excluding = Set(codebase.excluding)
       parseCachePolicy = codebase.parseCachePolicy
+      swiftLanguageMode = codebase.swiftLanguageMode
     }
 
     func hasDirectoryRoot(under directory: String) -> Bool {
@@ -98,6 +100,7 @@ package actor CodebaseCache {
     private let including: Set<Glob>
     private let excluding: Set<Glob>
     private let parseCachePolicy: ParseCachePolicy
+    private let swiftLanguageMode: Codebase.LanguageMode
 
     init(_ codebase: Codebase) {
       root = switch codebase.root.strategy {
@@ -111,6 +114,7 @@ package actor CodebaseCache {
       including = Set(codebase.including)
       excluding = Set(codebase.excluding)
       parseCachePolicy = codebase.parseCachePolicy
+      swiftLanguageMode = codebase.swiftLanguageMode
     }
   }
 

@@ -1,14 +1,16 @@
 import Bylaws
 
 let sourcesAndBenchmarks = Codebase(
-  including: ["Sources/**", "Benchmarks/Benchmarks/**"]
+  including: ["Sources/**", "Benchmarks/Benchmarks/**"],
+  swiftLanguageMode: .v6
 )
 
 let projectCode = Codebase(
   including: [
     "Sources/**", "Tests/**", "Plugins/**", "Benchmarks/Benchmarks/**",
   ],
-  excluding: ["**/.build/**", "Tests/SampleApp/**"]
+  excluding: ["**/.build/**", "Tests/SampleApp/**"],
+  swiftLanguageMode: .v6
 )
 
 let architecture = Layering(

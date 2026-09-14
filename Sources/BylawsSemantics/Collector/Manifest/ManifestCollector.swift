@@ -1,10 +1,10 @@
 import Foundation
-import SwiftParser
 import SwiftSyntax
 
 enum ManifestCollector {
   static func manifest(in source: String) -> PackageManifest {
-    let tree = Parser.parse(source: source)
+    let toolsVersion = toolsVersion(in: source)
+    let tree = SwiftLanguageMode(toolsVersion: toolsVersion).parse(source)
     let resolver = ManifestSyntaxResolver(tree: tree, source: source)
     guard let call = packageCall(in: tree) else {
       let issue = PackageManifest.UnresolvedValue(
@@ -35,7 +35,7 @@ enum ManifestCollector {
       ]
       : []
     return fields.manifest(
-      toolsVersion: toolsVersion(in: source),
+      toolsVersion: toolsVersion,
       syntaxIssues: syntaxIssues
     )
   }

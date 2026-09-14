@@ -48,6 +48,7 @@ package enum SupportedAPI {
     case including
     case excluding
     case root
+    case swiftLanguageMode
     case files
     case ignoring
     case modules

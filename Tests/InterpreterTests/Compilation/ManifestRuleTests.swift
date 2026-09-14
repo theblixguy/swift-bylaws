@@ -171,7 +171,7 @@ struct ManifestRuleTests {
       }
       """,
       "Bylaws.swift": """
-      let app = Codebase(including: ["Sources/**"])
+      let app = Codebase(including: ["Sources/**"], swiftLanguageMode: .v6)
       Rule("manifest", "Package dependencies match imports") {
         app.checkPackageDependencies()
       }

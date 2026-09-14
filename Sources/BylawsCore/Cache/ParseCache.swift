@@ -7,7 +7,7 @@ package struct ParseCache: Sendable {
   package static let defaultBudget = 1_000_000_000
 
   // Increase this when the model or a collector changes.
-  private static let schemaVersion = 7
+  private static let schemaVersion = 8
   private static let cacheEntryNameByteLimit = 255
   private static let maintenanceInterval: TimeInterval = 24 * 60 * 60
   private static let pathSourceSeparator: UInt8 = 0
@@ -55,9 +55,14 @@ package struct ParseCache: Sendable {
 
   package func sourceFile(
     forSource source: String,
-    at path: String
+    at path: String,
+    swiftLanguageMode: SwiftLanguageMode = .v6
   ) -> SourceFile? {
-    let entry = entry(forSource: source, at: path)
+    let entry = entry(
+      forSource: source,
+      at: path,
+      swiftLanguageMode: swiftLanguageMode
+    )
     guard let bytes = Self.readFile(at: entry) else { return nil }
     guard let file = Self.decodeSourceFile(bytes) else {
       Self.removeFile(at: entry)
@@ -73,7 +78,9 @@ package struct ParseCache: Sendable {
   ) {
     let encoder = CacheEncoder()
     encoder.encode(file)
-    Self.writeFile(Data(encoder.bytes), to: entry(forSource: source, at: path))
+    Self.writeFile(Data(encoder.bytes), to: entry(
+      forSource: source, at: path, swiftLanguageMode: file.swiftLanguageMode
+    ))
   }
 
   package func removeOldEntriesWhenDue() {
@@ -125,8 +132,16 @@ package struct ParseCache: Sendable {
     }
   }
 
-  package func entry(forSource source: String, at path: String) -> URL {
-    let key = Self.key(forSource: source, at: path)
+  package func entry(
+    forSource source: String,
+    at path: String,
+    swiftLanguageMode: SwiftLanguageMode = .v6
+  ) -> URL {
+    let key = Self.key(
+      forSource: source,
+      at: path,
+      swiftLanguageMode: swiftLanguageMode
+    )
     let suffix = "-\(key)\(Self.entryVersionMarker)\(Self.schemaVersion)"
       + Self.entryNameExtension
     let fileName = LexicalFilePath(path).lastComponent ?? "file"
@@ -155,8 +170,14 @@ package struct ParseCache: Sendable {
     )
   }
 
-  package static func key(forSource source: String, at path: String) -> String {
-    var bytes = Array(path.utf8)
+  package static func key(
+    forSource source: String,
+    at path: String,
+    swiftLanguageMode: SwiftLanguageMode = .v6
+  ) -> String {
+    var bytes = Array(swiftLanguageMode.rawValue.utf8)
+    bytes.append(pathSourceSeparator)
+    bytes.append(contentsOf: path.utf8)
     bytes.append(pathSourceSeparator)
     bytes.append(contentsOf: source.utf8)
     return SHA256.hash(data: Data(bytes))

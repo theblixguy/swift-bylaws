@@ -46,9 +46,19 @@ extension RuleProgramLoader {
         } else {
           compilation.pathsThatDidNotParse = nil
         }
-        compilation.diagnostics.append(
-          .error(error.message, at: error.location)
-        )
+        if let diagnostics = error.parseDiagnostics, !diagnostics.isEmpty {
+          compilation.diagnostics += diagnostics.map {
+            .error(
+              "\($0.message) (Swift \($0.swiftLanguageMode.rawValue) mode)",
+              at: $0.location
+            )
+          }
+        } else {
+          compilation.diagnostics.append(.error(
+            error.message,
+            at: error.location
+          ))
+        }
       }
     }
     return compilation

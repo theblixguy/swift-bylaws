@@ -179,7 +179,7 @@ struct EditorDiagnosticsTests {
     #expect(rules.isEmpty)
   }
 
-  @Test("Saved syntax error reports rule failure")
+  @Test("Saved syntax error reports source diagnostic")
   func savedSyntaxError() async throws {
     let project = try DiagnosticTestProject(source: "final class Good {}")
     let state = await makeServingState(project: project, supportsPull: true)
@@ -191,13 +191,16 @@ struct EditorDiagnosticsTests {
 
     await state.didSave(saveNotification(for: uri))
 
-    #expect(try await diagnosticItems(from: state, for: uri).isEmpty)
+    let sourceDiagnostics = try await diagnosticItems(from: state, for: uri)
+    let diagnostic = try #require(sourceDiagnostics.first)
+    #expect(diagnostic.message.contains("expected"))
+    #expect(diagnostic.message.contains("Swift 6 mode"))
+    #expect(diagnostic.range.lowerBound.line == 0)
     let rules = try await diagnosticItems(
       from: state,
       for: DocumentURI(project.rules)
     )
-    #expect(rules.count == 1)
-    #expect(rules.first?.message.contains("could not run") == true)
+    #expect(rules.isEmpty)
   }
 
   @Test("Unsaved rules replace disk rules")

@@ -17,8 +17,12 @@ enum CodebaseBuilder {
     let overlay: SourceOverlay
     let filesByPath: [String: SourceFile]
 
-    func file(at path: String, for overlay: SourceOverlay) -> SourceFile? {
-      guard self.overlay.text(forFileAt: path) == overlay.text(forFileAt: path)
+    func file(
+      at path: String, for overlay: SourceOverlay,
+      swiftLanguageMode: SwiftLanguageMode
+    ) -> SourceFile? {
+      guard self.overlay.text(forFileAt: path) == overlay.text(forFileAt: path),
+            filesByPath[path]?.swiftLanguageMode == swiftLanguageMode
       else { return nil }
       return filesByPath[path]
     }
@@ -57,18 +61,30 @@ enum CodebaseBuilder {
     )
     var filesByPath: [String: SourceFile] = [:]
     var readFailures = unopenableDirectories
-    var unparsedPaths: [String] = []
+    var parseDiagnostics: [SourceParseDiagnostic] = []
+
+    var settings = SourceLanguageModes(
+      root: rootPath,
+      overlay: codebase.overlay,
+      languageMode: codebase.swiftLanguageMode
+    )
+    var inputs: [(path: String, mode: SwiftLanguageMode)] = []
+    for path in paths {
+      let mode = try settings.mode(for: path)
+      inputs.append((path, mode))
+    }
 
     let results = await boundedConcurrentMap(
-      paths,
+      inputs,
       maximumConcurrentTasks: maximumConcurrentFileTasks
-    ) { path in
+    ) { input in
       Result { () throws(ParseError) in
         try collect(
-          path,
+          input.path,
           from: codebase.overlay,
           reusing: reusable,
-          through: parseCache
+          through: parseCache,
+          swiftLanguageMode: input.mode
         )
       }
     }
@@ -77,7 +93,8 @@ enum CodebaseBuilder {
       case let .success(file): filesByPath[file.path] = file
       case let .failure(.unreadable(path, reason)):
         readFailures.append(.init(path: path, reason: reason))
-      case let .failure(.didNotParse(path)): unparsedPaths.append(path)
+      case let .failure(.didNotParse(diagnostics)): parseDiagnostics +=
+        diagnostics
       }
     }
     parseCache?.removeOldEntriesWhenDue()
@@ -88,8 +105,11 @@ enum CodebaseBuilder {
       )
     }
 
-    guard unparsedPaths.isEmpty else {
-      throw CodebaseError.didNotParse(paths: unparsedPaths.sorted())
+    guard parseDiagnostics.isEmpty else {
+      throw CodebaseError.didNotParse(diagnostics: parseDiagnostics.sorted {
+        ($0.location.filePath, $0.location.line, $0.location.column)
+          < ($1.location.filePath, $1.location.line, $1.location.column)
+      })
     }
 
     let files = paths.compactMap { filesByPath[$0] }
@@ -105,13 +125,16 @@ enum CodebaseBuilder {
   ) throws(CodebaseError) -> PackageAnalysis {
     let root = LexicalFilePath(parsedCodebase.rootPath)
     let manifestPath = root.appending("Package.swift").string
-    let manifestFile: SourceFile
+    let manifest: PackageManifest
     do {
-      manifestFile = try collect(
-        manifestPath,
-        from: overlay,
-        reusing: nil,
-        through: nil
+      let source = if let overlaid = overlay
+        .text(forFileAt: manifestPath) { overlaid }
+      else { try FileCollector.readSource(atPath: manifestPath) }
+      manifest = PackageManifest(source: source)
+      let mode = SwiftLanguageMode(toolsVersion: manifest.toolsVersion)
+      _ = try FileCollector.collect(
+        source: source, path: manifestPath,
+        swiftLanguageMode: mode
       )
     } catch {
       switch error {
@@ -119,13 +142,13 @@ enum CodebaseBuilder {
         throw CodebaseError.unreadable(
           failures: [.init(path: path, reason: reason)]
         )
-      case let .didNotParse(path):
-        throw CodebaseError.didNotParse(paths: [path])
+      case let .didNotParse(diagnostics):
+        throw CodebaseError.didNotParse(diagnostics: diagnostics)
       }
     }
     return PackageAnalysis(
       parsedCodebase: parsedCodebase,
-      manifestSource: manifestFile.sourceText
+      manifest: manifest
     )
   }
 
@@ -134,26 +157,45 @@ enum CodebaseBuilder {
     in codebase: Codebase
   ) throws(CodebaseError) -> [SourceFile] {
     var files: [SourceFile] = []
-    var unparsedPaths: [String] = []
+    var parseDiagnostics: [SourceParseDiagnostic] = []
+    let root = LexicalFilePath(Codebase.sourcesRootPath)
+    let absoluteSources = Dictionary(
+      sources.map { (
+        root.appending(String($0.key.drop { $0 == "/" })).string,
+        $0.value
+      ) },
+      uniquingKeysWith: { _, latest in latest }
+    )
+    var settings = SourceLanguageModes(
+      root: root.string,
+      sources: absoluteSources,
+      languageMode: codebase.swiftLanguageMode
+    )
     for (path, source) in sources.sorted(by: { $0.key < $1.key }) {
       guard codebase.covers(Glob.Path(path)) else { continue }
 
       let rootRelativePath = path.drop { $0 == "/" }
       let fullPath = LexicalFilePath(Codebase.sourcesRootPath)
         .appending(String(rootRelativePath)).string
+      let mode = try settings.mode(for: fullPath)
       do {
         files.append(
           try FileCollector.collect(
             source: source,
-            path: fullPath
+            path: fullPath,
+            swiftLanguageMode: mode
           )
         )
       } catch {
-        unparsedPaths.append(fullPath)
+        switch error {
+        case let .didNotParse(diagnostics): parseDiagnostics += diagnostics
+        case let .unreadable(path, reason):
+          throw .unreadable(failures: [.init(path: path, reason: reason)])
+        }
       }
     }
-    guard unparsedPaths.isEmpty else {
-      throw CodebaseError.didNotParse(paths: unparsedPaths)
+    guard parseDiagnostics.isEmpty else {
+      throw CodebaseError.didNotParse(diagnostics: parseDiagnostics)
     }
     return files
   }
@@ -189,18 +231,37 @@ enum CodebaseBuilder {
     _ path: String,
     from overlay: SourceOverlay,
     reusing reusable: ReusableFiles?,
-    through parseCache: ParseCache?
+    through parseCache: ParseCache?,
+    swiftLanguageMode: SwiftLanguageMode
   ) throws(ParseError) -> SourceFile {
-    if let reused = reusable?.file(at: path, for: overlay) { return reused }
+    if let reused = reusable?.file(
+      at: path,
+      for: overlay,
+      swiftLanguageMode: swiftLanguageMode
+    ) {
+      return reused
+    }
     // Caching unsaved text would create disk entries for temporary edits.
     if let overlaid = overlay.text(forFileAt: path) {
-      return try FileCollector.collect(source: overlaid, path: path)
+      return try FileCollector.collect(
+        source: overlaid,
+        path: path,
+        swiftLanguageMode: swiftLanguageMode
+      )
     }
     let source = try FileCollector.readSource(atPath: path)
-    if let cached = parseCache?.sourceFile(forSource: source, at: path) {
+    if let cached = parseCache?.sourceFile(
+      forSource: source,
+      at: path,
+      swiftLanguageMode: swiftLanguageMode
+    ) {
       return cached
     }
-    let file = try FileCollector.collect(source: source, path: path)
+    let file = try FileCollector.collect(
+      source: source,
+      path: path,
+      swiftLanguageMode: swiftLanguageMode
+    )
     parseCache?.store(file, forSource: source, at: path)
     return file
   }

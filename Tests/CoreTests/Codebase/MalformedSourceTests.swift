@@ -20,8 +20,12 @@ struct MalformedSourceTests {
       encoding: .utf8
     )
 
-    await #expect(throws: CodebaseError.didNotParse(paths: [path])) {
+    await #expect {
       try await Codebase(root: .directory(root)).structs
+    } throws: { error in
+      guard case let CodebaseError.didNotParse(diagnostics) = error
+      else { return false }
+      return diagnostics.map(\.location.filePath) == [path]
     }
   }
 
