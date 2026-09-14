@@ -59,6 +59,9 @@ let projectRules: [Rule] = [
 ]
 ```
 
+The import restrictions apply between the layers listed here. Imports of other
+modules, such as Foundation, remain permitted.
+
 When you run `bylaws lint`, it points to the import that crossed the boundary:
 
 ```text
@@ -161,8 +164,8 @@ initialisers and accessors.
 
 ### Keep each feature's files in the right folders
 
-If every feature has `Models`, `ViewModels` and `Views` folders, one rule can
-check that layout for all feature names:
+You can require each feature to contain exactly `Models`, `ViewModels` and
+`Views` as child folders, with a violation for any missing or extra folder:
 
 ```swift
 Rule("feature-folders", "Features contain Models, ViewModels and Views") {
@@ -191,18 +194,30 @@ test type for each repository.
 
 ### Keep package dependencies consistent with imports
 
-You can check that the dependencies in Package.swift match what your targets
-import. This rule reports a missing dependency when a target imports a module it
-hasn't declared or an unused dependency when the target no longer imports it:
+You can check that dependencies between targets in the same `Package.swift`
+match their imports. This rule reports a missing dependency when a target
+imports a module it hasn't declared or an unused dependency when the target no
+longer imports it.
+
+Define a codebase beside `app` that includes both application and test sources:
+
+```swift
+let packageCodebase = Codebase(
+  root: .automatic(),
+  including: ["Sources/**", "Tests/**"]
+)
+```
+
+If your targets use other directories, add those paths to `including` so their
+imports are checked too. Then add this rule to `projectRules`:
 
 ```swift
 Rule("package-dependencies", "Package.swift matches source imports") {
-  try await app.checkPackageDependencies()
+  try await packageCodebase.checkPackageDependencies()
 }
 ```
 
-The check covers dependencies between targets in the same `Package.swift` and
-reports warnings for targets it cannot check.
+Bylaws reports warnings for targets it cannot check.
 
 The [rule cookbook] also covers protocol requirements, SwiftUI state, lifecycle
 calls and compiler-resolved references.
@@ -234,10 +249,10 @@ the compiler's index.
 
 > [!NOTE]
 >
-> You can run the same rules from the CLI or a test target when they use the
-> CLI's supported Swift subset, as shown in the [getting started guide]. These
-> portable rules also work with the [SwiftPM plugins], [Bazel target] and
-> [editor integrations].
+> You can run the same rules from the CLI and a test target if they use the
+> CLI's supported Swift subset. The [getting started guide] explains how to
+> share them, while the [SwiftPM plugins], [Bazel target] and
+> [editor integrations] sections cover the requirements for those workflows.
 
 ### Run rules from the command line
 
@@ -282,9 +297,8 @@ Set `traits: []` if you only use Bylaws in tests or omit it if you also use the
 plugins, CLI or language server.
 
 Save the module-boundary example and its `projectRules` array in
-`Tests/AppTests/Bylaws.swift` or move your existing `Bylaws.swift` file there if
-you started with the CLI setup. You can then run each rule by adding this test
-in `Tests/AppTests/ArchitectureTests.swift`:
+`Tests/AppTests/Bylaws.swift`, then add this test in
+`Tests/AppTests/ArchitectureTests.swift`:
 
 ```swift
 import Bylaws
@@ -302,10 +316,8 @@ Run the rules with the rest of the tests:
 swift test
 ```
 
-You can see each rule's result in the test output along with the file and line
-number for any violations it finds. Advisory violations appear as warnings, but
-you can use `rule.report(enforcement: .enforced)` if you want them to fail the
-test too.
+Rule violations fail the test and report the affected file and line. If you mark
+a rule as `.advisory`, its violations appear as warnings instead.
 
 To run the same rules from the CLI, pass the rules file to `bylaws lint`:
 
@@ -316,7 +328,8 @@ bylaws lint --rules Tests/AppTests/Bylaws.swift
 You can also create one test case per matching declaration, as shown in the
 [declaration guide]. To keep a shared rules file at the project root for plugins
 and editors, use [test discovery] instead of compiling the rules as part of the
-test target.
+test target. Use discovery for files created by `bylaws init` too, as those
+files use CLI syntax that cannot compile unchanged in a test target.
 
 ## Run checks during development
 
@@ -324,6 +337,8 @@ test target.
 
 You can use either plugin without installing `bylaws` separately, and your rules
 file can import shared rules from other package dependencies.
+Use the plugins for those imports, as the standalone CLI does not resolve the
+package dependencies.
 
 | Plugin                                 | Use it when                                                                                          | How it runs                                                 |
 | -------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
@@ -412,6 +427,10 @@ the `bylaws-lsp` executable as well as the editor settings.
 Open a project with a `Bylaws.swift` file to see violations as you edit Swift
 code, including changes you haven't saved. The editor uses the same rules and
 baseline as the CLI.
+
+Compiler-index rules check the code from a build rather than unsaved edits.
+After saving and rebuilding your project, restart the language server to
+refresh those results.
 
 ## How it compares
 
