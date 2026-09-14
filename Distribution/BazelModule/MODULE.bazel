@@ -1,5 +1,5 @@
 module(
-    name = "bylaws",
+    name = "swift-bylaws",
     version = "{{VERSION}}",
     compatibility_level = 1,
 )

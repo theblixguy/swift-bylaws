@@ -405,13 +405,13 @@ macOS and Linux.
 Add the dependency from the Bazel Central Registry to `MODULE.bazel`:
 
 ```starlark
-bazel_dep(name = "bylaws", version = "0.1.0")
+bazel_dep(name = "swift-bylaws", version = "0.1.2")
 ```
 
 Put `Bylaws.swift` at the workspace root, then run:
 
 ```sh
-bazel run @bylaws//:bylaws -- lint
+bazel run @swift-bylaws//:bylaws -- lint
 ```
 
 The command runs separately from `bazel build`, so add it as a CI step if
