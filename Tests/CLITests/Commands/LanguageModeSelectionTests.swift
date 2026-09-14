@@ -28,7 +28,9 @@ struct CLILanguageModeSelectionTests {
         targetSettings: "SWIFT_VERSION = \(xcodeVersion);"
       ),
       "Bylaws.swift": """
-      let app = Codebase(including: ["Sources/**"], swiftLanguageMode: \(selection))
+      let app = Codebase(including: ["Sources/**"], swiftLanguageMode: \(
+        selection
+      ))
       Rule("final-classes") { app.classes.violations(of: .isFinal) }
       """,
       "Sources/App/App.swift": "@available (swift, obsoleted: 1.0)\nfinal class App {}",

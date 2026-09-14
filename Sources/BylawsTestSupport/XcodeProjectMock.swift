@@ -10,7 +10,9 @@ package func xcodeProjectSource(
       app = { isa = PBXNativeTarget; buildConfigurationList = targetList; };
       projectList = { buildConfigurations = (projectDebug); };
       targetList = { buildConfigurations = (targetDebug); };
-      projectDebug = { name = Debug; buildSettings = { SWIFT_VERSION = \(projectMode); }; };
+      projectDebug = { name = Debug; buildSettings = { SWIFT_VERSION = \(
+        projectMode
+      ); }; };
       targetDebug = { name = Debug; buildSettings = { \(targetSettings) }; };
     };
   }

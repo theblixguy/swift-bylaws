@@ -13,7 +13,9 @@ struct EditorLanguageModeTests {
     let project = try DiagnosticTestProject(
       source: "@available (swift, obsoleted: 1.0)\nclass App {}",
       rules: """
-      let app = Codebase(including: ["Sources/**"], swiftLanguageMode: \(selection))
+      let app = Codebase(including: ["Sources/**"], swiftLanguageMode: \(
+        selection
+      ))
       Rule("final-classes", "Classes are final") {
         app.classes.violations(of: .isFinal)
       }
