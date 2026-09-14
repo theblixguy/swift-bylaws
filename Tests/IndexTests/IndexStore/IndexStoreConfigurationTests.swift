@@ -12,10 +12,44 @@ import Testing
   .tags(.indexStore)
 )
 struct IndexStoreConfigurationTests {
+  private let compiler: URL
+
+  init() throws {
+    compiler = URL(
+      fileURLWithPath: try #require(ToolchainPaths.activeCompilerPath())
+    )
+  }
+
+  @Test("Temporary project removes directory at scope exit")
+  func scopedCleanup() throws {
+    let root: URL
+    do {
+      let project = try IndexStoreTestProject(compiler: compiler)
+      root = project.root
+      try #require(FileManager.default.fileExists(atPath: project.source.path))
+    }
+
+    #expect(!FileManager.default.fileExists(atPath: root.path))
+  }
+
+  @Test("Thrown error removes temporary project")
+  func throwingCleanup() throws {
+    var root: URL?
+    #expect(throws: MockError.self) {
+      let project = try IndexStoreTestProject(compiler: compiler)
+      root = project.root
+      throw MockError()
+    }
+
+    let path = try #require(root).path
+    #expect(!FileManager.default.fileExists(atPath: path))
+  }
+
+  private struct MockError: Error {}
+
   @Test("A mixed store requires an exact build selection")
   func rejectsMixedBuildConfigurations() throws {
-    let project = try IndexStoreTestProject()
-    defer { project.remove() }
+    let project = try IndexStoreTestProject(compiler: compiler)
     let outputIdentities = try project.compileBothConfigurations()
 
     let store = try IndexStore(path: project.store.path)
@@ -75,8 +109,7 @@ struct IndexStoreConfigurationTests {
 
   @Test("An exact selection skips a deleted source")
   func skipsASelectedDeletedSource() throws {
-    let project = try IndexStoreTestProject()
-    defer { project.remove() }
+    let project = try IndexStoreTestProject(compiler: compiler)
     let outputIdentities = try project.compileBothConfigurations()
     try FileManager.default.removeItem(at: project.source)
 
@@ -93,8 +126,7 @@ struct IndexStoreConfigurationTests {
 
   @Test("A normal build takes precedence over its plugin tool build")
   func prefersTheNormalBuildOverAPluginTool() throws {
-    let project = try IndexStoreTestProject()
-    defer { project.remove() }
+    let project = try IndexStoreTestProject(compiler: compiler)
     let outputIdentities = try project.compileNormalAndPluginTool()
     let store = try IndexStore(path: project.store.path)
 
@@ -115,17 +147,15 @@ struct IndexStoreConfigurationTests {
   }
 }
 
-private final class IndexStoreTestProject {
+private struct IndexStoreTestProject: ~Copyable {
   let module = "MixedConfiguration"
   let compiler: URL
   let root: URL
   let source: URL
   let store: URL
 
-  init() throws {
-    compiler = URL(
-      fileURLWithPath: try #require(ToolchainPaths.activeCompilerPath())
-    )
+  init(compiler: URL) throws {
+    self.compiler = compiler
     root = URL(fileURLWithPath: NSTemporaryDirectory())
       .appendingPathComponent("bylaws-index-config-\(UUID().uuidString)")
     source = root.appendingPathComponent("Shared.swift")
@@ -170,7 +200,7 @@ private final class IndexStoreTestProject {
     return (normal, pluginTool)
   }
 
-  func remove() {
+  deinit {
     try? FileManager.default.removeItem(at: root)
   }
 

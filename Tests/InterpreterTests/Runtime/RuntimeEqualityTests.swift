@@ -38,26 +38,22 @@ struct RuntimeEqualityTests {
     "check == check", "[check] == [check]", "[check].contains(check)",
   ])
   func functionComparison(_ expression: String) async throws {
-    let (program, project) = try await diagnostics(forRules: """
+    let (program, _) = try await diagnostics(forRules: """
     func check(_ value: Int) -> Bool { value > 0 }
     let equal = \(expression)
     \(finalClassRuleSource)
     """)
-    withExtendedLifetime(project) {
-      #expect(program.errors.contains { $0.message.contains("cannot compare") })
-    }
+    #expect(program.errors.contains { $0.message.contains("cannot compare") })
   }
 
   @Test("Set rejects function elements")
   func functionSet() async throws {
-    let (program, project) = try await diagnostics(forRules: """
+    let (program, _) = try await diagnostics(forRules: """
     func check(_ value: Int) -> Bool { value > 0 }
     let values = Set([check])
     \(finalClassRuleSource)
     """)
-    withExtendedLifetime(project) {
-      #expect(program.errors
-        .contains { $0.message == "Set cannot contain a function" })
-    }
+    #expect(program.errors
+      .contains { $0.message == "Set cannot contain a function" })
   }
 }
