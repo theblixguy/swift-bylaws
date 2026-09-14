@@ -44,9 +44,9 @@ package final class CacheDecoder {
 
   private var cursor: Cursor
 
-  package init(_ bytes: [UInt8]) throws(Malformed) {
+  package init(_ bytes: [UInt8], path: String) throws(Malformed) {
     var cursor = Cursor(bytes: bytes)
-    path = try cursor.decodeString()
+    self.path = path
     source = SourceBuffer(try cursor.decodeString())
     self.cursor = cursor
   }

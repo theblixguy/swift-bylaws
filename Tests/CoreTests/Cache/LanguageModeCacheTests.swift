@@ -8,7 +8,6 @@ struct LanguageModeCacheTests {
   @Test("Disk cache separates language modes and retains syntax mode")
   func separateEntries() throws {
     let storage = try ParseCacheTestStorage()
-    defer { withExtendedLifetime(storage) {} }
     let source = "@available (swift, obsoleted: 1.0)\nstruct Legacy {}"
     let path = "/project/Legacy.swift"
     let file = try FileCollector.collect(
@@ -16,7 +15,7 @@ struct LanguageModeCacheTests {
       path: path,
       swiftLanguageMode: .v5
     )
-    storage.cache.store(file, forSource: source, at: path)
+    storage.cache.store(file)
 
     let loaded = try #require(storage.cache.sourceFile(
       forSource: source,

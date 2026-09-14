@@ -366,6 +366,9 @@ the timings on your project. Caching is off by default and may be slower than
 parsing the files again.
 
 If the cache must live in a particular directory, pass `--cache-path DIR`.
+You can copy this directory between CI workers or reuse it after moving a
+checkout. Entries match the source text and Swift language mode, and violations
+use the current checkout's file paths.
 For tests, set `BYLAWS_CACHE_PATH` to choose the directory or
 `BYLAWS_DISABLE_PARSE_CACHE=true` to disable caching.
 

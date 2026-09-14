@@ -218,9 +218,7 @@ enum CodebaseBuilder {
     else {
       return nil
     }
-    guard let name = LexicalFilePath(rootPath).lastComponent else { return nil }
     return try? ParseCache.opening(directory: directory)
-      .opening(project: String(name))
   }
 
   static func contains(_ path: String, in directory: String) -> Bool {
@@ -262,7 +260,7 @@ enum CodebaseBuilder {
       path: path,
       swiftLanguageMode: swiftLanguageMode
     )
-    parseCache?.store(file, forSource: source, at: path)
+    parseCache?.store(file)
     return file
   }
 

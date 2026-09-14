@@ -9,14 +9,11 @@ struct ParseCacheMaintenanceTests {
   func trimsToBudget() throws {
     let testCache = try ParseCacheTestStorage(budget: 1)
     let cache = testCache.cache
-    defer { withExtendedLifetime(testCache) {} }
     for index in 1...3 {
       let path = "/App/File\(index).swift"
       let source = "class Type\(index) {}"
       cache.store(
-        try FileCollector.collect(source: source, path: path),
-        forSource: source,
-        at: path
+        try FileCollector.collect(source: source, path: path)
       )
     }
 
@@ -32,16 +29,13 @@ struct ParseCacheMaintenanceTests {
   func trimmingPreservesUnrelatedFiles() throws {
     let testCache = try ParseCacheTestStorage(budget: 1)
     let cache = testCache.cache
-    defer { withExtendedLifetime(testCache) {} }
     let unrelated = testCache.directory.appendingPathComponent("notes.txt")
     let contents = Data("keep this".utf8)
     try contents.write(to: unrelated)
     let path = "/App/File.swift"
     let source = "class Type {}"
     cache.store(
-      try FileCollector.collect(source: source, path: path),
-      forSource: source,
-      at: path
+      try FileCollector.collect(source: source, path: path)
     )
 
     cache.removeOldEntries()
@@ -53,21 +47,24 @@ struct ParseCacheMaintenanceTests {
     )
   }
 
-  @Test("Trimming reclaims entries an earlier schema version wrote")
-  func removesSupersededSchemaEntries() throws {
+  @Test("Trimming removes earlier cache formats", arguments: [
+    "File-abc-v1.bin", "OldProject/File-abc-v8.bin",
+  ])
+  func removesSupersededSchemaEntries(name: String) throws {
     let testCache = try ParseCacheTestStorage()
     let cache = testCache.cache
-    defer { withExtendedLifetime(testCache) {} }
     let path = "/App/File.swift"
     let source = "class Type {}"
     cache.store(
-      try FileCollector.collect(source: source, path: path),
-      forSource: source,
-      at: path
+      try FileCollector.collect(source: source, path: path)
     )
-    let current = cache.entry(forSource: source, at: path)
+    let current = cache.entry(forSource: source)
     let superseded = current.deletingLastPathComponent()
-      .appendingPathComponent("File-abc-v1.bin")
+      .appendingPathComponent(name)
+    try FileManager.default.createDirectory(
+      at: superseded.deletingLastPathComponent(),
+      withIntermediateDirectories: true
+    )
     try Data("stale".utf8).write(to: superseded)
 
     cache.removeOldEntries()
@@ -114,14 +111,11 @@ struct ParseCacheMaintenanceTests {
   func trimsOnceADay() throws {
     let testCache = try ParseCacheTestStorage(budget: 1)
     let cache = testCache.cache
-    defer { withExtendedLifetime(testCache) {} }
     let path = "/App/File.swift"
     let source = "class Type {}"
     cache.removeOldEntriesWhenDue()
     cache.store(
-      try FileCollector.collect(source: source, path: path),
-      forSource: source,
-      at: path
+      try FileCollector.collect(source: source, path: path)
     )
 
     cache.removeOldEntriesWhenDue()
