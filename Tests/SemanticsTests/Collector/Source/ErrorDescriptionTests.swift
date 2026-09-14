@@ -7,7 +7,10 @@ struct ErrorDescriptionTests {
   @Test(
     "The localized description is the description",
     arguments: [
-      ParseError.didNotParse(path: "/project/Sources/App.swift"),
+      ParseError.didNotParse(diagnostics: [.init(
+        location: .start(of: "/project/Sources/App.swift"),
+        message: "expected declaration", swiftLanguageMode: .v6
+      )]),
       .unreadable(path: "/project/Sources/App.swift", reason: "not UTF-8"),
     ]
   )

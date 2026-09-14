@@ -97,6 +97,12 @@ whole run.
 
 ## Discovery and overrides
 
+The CLI reads SwiftPM language settings automatically. For an Xcode project,
+set `swiftLanguageMode: .v5` or `.v6` in the `Codebase` declaration, or use
+`.automatic(.xcode)` to read its settings. Use
+`.automatic([.swiftPM, .xcode])` to include local package settings too. See
+<doc:WhatBylawsReads#Swift-language-mode> for the discovery limits.
+
 You can keep rules for the whole project in `Bylaws.swift` at the root and add
 package-specific rules beside each local package's `Package.swift`. A package
 can also replace a root rule within its directory with an `Override` that

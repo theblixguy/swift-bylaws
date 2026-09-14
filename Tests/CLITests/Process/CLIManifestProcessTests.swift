@@ -150,7 +150,7 @@ struct CLIManifestProcessTests {
       rules: """
       import Bylaws
 
-      let app = Codebase(root: .automatic(), including: ["Sources/**"])
+      let app = Codebase(root: .automatic(), including: ["Sources/**"], swiftLanguageMode: .v6)
 
       let projectRules: [Rule] = [
         Rule("manifest-state", "Unknown manifest values stay visible") {

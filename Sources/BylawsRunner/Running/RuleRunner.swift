@@ -182,6 +182,19 @@ package enum RuleRunner {
         throw CancellationError()
       case .codebase, .layering, .other:
         guard !Task.isCancelled else { throw CancellationError() }
+        if !error.parseDiagnostics.isEmpty {
+          return resultWithoutReports(
+            rootPath: rootPath,
+            diagnostics: error.parseDiagnostics.map {
+              Diagnostic(
+                severity: .error, location: $0.location,
+                message: "\($0.message) (Swift \($0.swiftLanguageMode.rawValue) mode)"
+              )
+            },
+            outcome: .invalidRules,
+            pathsThatDidNotParse: error.pathsThatDidNotParse
+          )
+        }
         return invalidResult(
           rootPath: rootPath,
           location: selected.first { $0.id == error.rule }?.location

@@ -9,7 +9,7 @@ struct ParseCacheTests {
   func stableCacheKey() {
     #expect(
       ParseCache.key(forSource: "class A {}", at: "/App/A.swift")
-        == "e90f2ca1f695f23dad3c2334bfb8eb3f6daaff9b9a78ce1f055c53fff2091c51"
+        == "8ede1d21ad8f69f2f2fc1e35549b674960491faa0762df9ba0c60c0e1b70410a"
     )
   }
 

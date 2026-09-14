@@ -1,3 +1,4 @@
+public import BylawsSemantics
 public import Foundation
 
 /// An error from resolving or reading a codebase.
@@ -26,6 +27,9 @@ public enum CodebaseError: Error, Sendable, Hashable {
   /// The configured root path is not a directory.
   case notADirectory(path: String)
 
+  /// Project settings do not identify one supported language mode.
+  case languageModeUnavailable(path: String)
+
   /// Files or directories under the root that the parse cannot read.
   ///
   /// Queries require a complete view of the codebase. Any unreadable path fails
@@ -36,7 +40,7 @@ public enum CodebaseError: Error, Sendable, Hashable {
   ///
   /// The model is missing declarations from such a file and cannot prove
   /// that a rule passes. The query throws.
-  case didNotParse(paths: [String])
+  case didNotParse(diagnostics: [SourceParseDiagnostic])
 
   /// A name-matching pattern that does not compile as a regular expression.
   case invalidRegularExpression(pattern: String)
@@ -53,12 +57,13 @@ extension CodebaseError: CustomStringConvertible {
     case let .notADirectory(path):
       "'\(path)' is not a directory. Point the codebase root at the "
         + "project directory."
+    case let .languageModeUnavailable(path):
+      "Bylaws cannot determine the Swift language mode from '\(path)'. "
+        + "Set swiftLanguageMode on Codebase to match the target's build settings."
     case let .unreadable(failures):
       Self.description(of: failures)
-    case let .didNotParse(paths):
-      "The model is missing declarations because Bylaws cannot parse "
-        + "these files: \(paths.joined(separator: ", ")). Fix the "
-        + "syntax errors."
+    case let .didNotParse(diagnostics):
+      diagnostics.map(\.description).joined(separator: "\n")
     case let .invalidRegularExpression(pattern):
       "Bylaws cannot compile '\(pattern)' as a regular expression. Fix the pattern."
     }

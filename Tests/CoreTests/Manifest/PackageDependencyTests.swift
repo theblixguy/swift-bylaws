@@ -239,8 +239,13 @@ struct PackageDependencyTests {
       including: ["Sources/**"]
     )
 
-    await #expect(throws: CodebaseError.didNotParse(paths: [path])) {
+    await #expect {
       _ = try await codebase.packageManifest
+    } throws: { error in
+      guard case let CodebaseError.didNotParse(diagnostics) = error
+      else { return false }
+      return !diagnostics.isEmpty && diagnostics
+        .allSatisfy { $0.location.filePath == path }
     }
   }
 

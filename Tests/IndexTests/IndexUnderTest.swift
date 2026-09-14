@@ -1,6 +1,7 @@
 import BylawsCore
 import BylawsIndex
 import BylawsIndexStore
+import BylawsSemantics
 
 enum IndexUnderTest {
   static let modules: Set<String> = [
@@ -10,13 +11,15 @@ enum IndexUnderTest {
 
   static let codebase = Codebase(
     root: .automatic(),
-    including: ["Sources/**"]
+    including: ["Sources/**"],
+    swiftLanguageMode: .v6
   )
 
   // The index suite must survive a rename in the product sources.
   static let testModules = Codebase(
     root: .automatic(),
-    including: ["Tests/TestModules/**"]
+    including: ["Tests/TestModules/**"],
+    swiftLanguageMode: .v6
   )
 
   static let testModuleNames: Set<String> = [

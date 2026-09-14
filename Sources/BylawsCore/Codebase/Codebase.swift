@@ -14,8 +14,8 @@ import Foundation
 /// Parsed data remains in memory for the process.
 ///
 /// An unreadable file or directory fails the query with
-/// ``CodebaseError/unreadable(failures:)``. Invalid syntax fails it with
-/// ``CodebaseError/didNotParse(paths:)``. A rule runs only over a complete
+/// ``CodebaseError/unreadable(failures:)``. A syntax error fails it with
+/// ``CodebaseError/didNotParse(diagnostics:)``. A rule runs only over a complete
 /// model.
 public struct Codebase: Sendable, Hashable {
   /// A strategy for locating the codebase's root directory.
@@ -89,19 +89,30 @@ public struct Codebase: Sendable, Hashable {
   /// The globs that remove files from the codebase.
   public let excluding: [Glob]
 
+  /// The language mode or project settings to use when parsing files.
+  ///
+  /// The default, `.automatic(.swiftPM)`, reads SwiftPM settings and uses
+  /// Swift 6 for files without applicable settings.
+  public let swiftLanguageMode: LanguageMode
+
   package let parseCachePolicy: ParseCachePolicy
 
   package let overlay: SourceOverlay
 
   /// Creates a codebase at `root` with include and exclude globs.
+  ///
+  /// Set `swiftLanguageMode` to `.v4`, `.v5` or `.v6` to skip discovery in
+  /// tests, the CLI and the editor.
   public init(
     root: Root = .automatic(),
     including: [Glob] = [],
-    excluding: [Glob] = []
+    excluding: [Glob] = [],
+    swiftLanguageMode: LanguageMode = .automatic(.swiftPM)
   ) {
     self.root = root
     self.including = including
     self.excluding = excluding
+    self.swiftLanguageMode = swiftLanguageMode
     parseCachePolicy = .environment()
     overlay = .empty
   }
@@ -111,6 +122,7 @@ public struct Codebase: Sendable, Hashable {
       root: root,
       including: including,
       excluding: excluding,
+      swiftLanguageMode: swiftLanguageMode,
       parseCachePolicy: policy,
       overlay: overlay
     )
@@ -121,6 +133,7 @@ public struct Codebase: Sendable, Hashable {
       root: root,
       including: including,
       excluding: excluding,
+      swiftLanguageMode: swiftLanguageMode,
       parseCachePolicy: parseCachePolicy,
       overlay: overlay
     )
@@ -193,12 +206,14 @@ public struct Codebase: Sendable, Hashable {
     root: Root,
     including: [Glob],
     excluding: [Glob],
+    swiftLanguageMode: LanguageMode,
     parseCachePolicy: ParseCachePolicy,
     overlay: SourceOverlay
   ) {
     self.root = root
     self.including = including
     self.excluding = excluding
+    self.swiftLanguageMode = swiftLanguageMode
     self.parseCachePolicy = parseCachePolicy
     self.overlay = overlay
   }

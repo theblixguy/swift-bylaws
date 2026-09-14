@@ -14,9 +14,8 @@ struct PackageAnalysis: Sendable {
   private let packageImportsByTarget: [String: [PackageImport]]
   private let importGraph: OrderedDirectedGraph<String>
 
-  init(parsedCodebase: ParsedCodebase, manifestSource: String) {
+  init(parsedCodebase: ParsedCodebase, manifest: PackageManifest) {
     let root = LexicalFilePath(parsedCodebase.rootPath)
-    let manifest = PackageManifest(source: manifestSource)
     self.manifest = manifest
     targets = manifest.targets.knownValues.filter { target in
       !target.unresolvedValues.contains { $0.field.hasSuffix(".path") }

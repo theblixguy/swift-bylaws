@@ -7,7 +7,7 @@ public enum ParseError: Error, Sendable, Hashable {
 
   /// The file has a syntax error, and the model is missing declarations
   /// from it.
-  case didNotParse(path: String)
+  case didNotParse(diagnostics: [SourceParseDiagnostic])
 }
 
 extension ParseError: CustomStringConvertible {
@@ -17,9 +17,8 @@ extension ParseError: CustomStringConvertible {
     case let .unreadable(path, reason):
       "The file '\(path)' did not read: \(reason). Check that the file "
         + "exists and holds UTF-8 text."
-    case let .didNotParse(path):
-      "The model is missing declarations because Bylaws cannot parse "
-        + "'\(path)'. Fix the syntax error."
+    case let .didNotParse(diagnostics):
+      diagnostics.map(\.description).joined(separator: "\n")
     }
   }
 }

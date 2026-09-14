@@ -8,7 +8,8 @@ struct BylawsOwnRulesTests {
     let codebase = Codebase(
       root: .automatic(),
       including: ["Sources/**", "Tests/**", "Plugins/**"],
-      excluding: ["**/.build/**"]
+      excluding: ["**/.build/**"],
+      swiftLanguageMode: .v6
     )
     let targetsWithoutSwiftSources = ["CIndexStore"]
     let result = try await codebase.checkPackageDependencies(

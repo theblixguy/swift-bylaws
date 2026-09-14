@@ -1,5 +1,3 @@
-import SwiftParser
-
 public import SwiftSyntax
 
 extension SourceFile {
@@ -7,7 +5,7 @@ extension SourceFile {
   public func withSyntax<R>(_ body: (SourceFileSyntax) throws -> R) rethrows
     -> R
   {
-    try body(Parser.parse(source: sourceText))
+    try body(swiftLanguageMode.parse(sourceText))
   }
 
   /// Runs `body` with the syntax node for `declaration`.
@@ -35,7 +33,9 @@ extension SourceFile {
   public func withSyntaxSession<R>(
     _ body: (SourceSyntaxSession) throws -> R
   ) rethrows -> R {
-    try body(SourceSyntaxSession(path: path, source: sourceText))
+    try body(SourceSyntaxSession(
+      path: path, source: sourceText, swiftLanguageMode: swiftLanguageMode
+    ))
   }
 }
 
@@ -45,9 +45,13 @@ public struct SourceSyntaxSession {
   private let tree: SourceFileSyntax
   private let lines: SourceLineTable
 
-  fileprivate init(path: String, source: String) {
+  fileprivate init(
+    path: String,
+    source: String,
+    swiftLanguageMode: SwiftLanguageMode
+  ) {
     self.path = path
-    tree = Parser.parse(source: source)
+    tree = swiftLanguageMode.parse(source)
     lines = SourceLineTable(source.utf8)
   }
 

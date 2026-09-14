@@ -5,6 +5,7 @@ extension SourceFile: CacheCodable {
     self.init(
       path: decoder.path,
       source: decoder.source,
+      swiftLanguageMode: try decoder.decode(),
       imports: try decoder.decode(),
       classes: try decoder.decode(),
       actors: try decoder.decode(),
@@ -23,6 +24,7 @@ extension SourceFile: CacheCodable {
   package func encode(to encoder: CacheEncoder) {
     encoder.encode(path)
     encoder.encode(sourceText)
+    encoder.encode(swiftLanguageMode)
     encoder.encode(imports)
     encoder.encode(classes)
     encoder.encode(actors)
@@ -73,6 +75,8 @@ extension Visibility: CacheCodable {
 }
 
 extension ImportKind: CacheCodable {}
+
+extension SwiftLanguageMode: CacheCodable {}
 
 extension Ownership: CacheCodable {}
 

@@ -1,5 +1,6 @@
 import Foundation
-import SwiftParser
+import SwiftDiagnostics
+import SwiftParserDiagnostics
 import SwiftSyntax
 
 /// Parses Swift source from a file or string into ``SourceFile`` models.
@@ -7,13 +8,20 @@ public enum FileCollector {
   /// Reads and parses the file at `path`.
   ///
   /// - Throws: ``ParseError/unreadable(path:reason:)`` when the file cannot be
-  ///   read, or ``ParseError/didNotParse(path:)`` when it contains invalid
-  ///   syntax.
-  public static func collect(fileAt path: String) throws(ParseError)
+  ///   read, or ``ParseError/didNotParse(diagnostics:)`` when it has a syntax
+  ///   error.
+  public static func collect(
+    fileAt path: String,
+    swiftLanguageMode: SwiftLanguageMode = .v6
+  ) throws(ParseError)
     -> SourceFile
   {
     let source = try readSource(atPath: path)
-    return try collect(source: source, path: path)
+    return try collect(
+      source: source,
+      path: path,
+      swiftLanguageMode: swiftLanguageMode
+    )
   }
 
   /// Reads the UTF-8 text of the file at `path`.
@@ -32,15 +40,35 @@ public enum FileCollector {
 
   /// Parses `source` at a virtual `path` without reading from disk.
   ///
-  /// - Throws: ``ParseError/didNotParse(path:)`` when the parser recovers
+  /// - Throws: ``ParseError/didNotParse(diagnostics:)`` when the parser recovers
   ///   from a syntax error. A recovered tree can omit declarations and make
   ///   a rule pass incorrectly.
-  public static func collect(source: String, path: String)
+  public static func collect(
+    source: String,
+    path: String,
+    swiftLanguageMode: SwiftLanguageMode = .v6
+  )
     throws(ParseError) -> SourceFile
   {
-    let tree = Parser.parse(source: source)
+    let tree = swiftLanguageMode.parse(source)
 
-    guard !tree.hasError else { throw .didNotParse(path: path) }
+    if tree.hasError {
+      let converter = SourceLocationConverter(fileName: path, tree: tree)
+      let diagnostics = ParseDiagnosticsGenerator.diagnostics(for: tree)
+        .filter { $0.diagMessage.severity == .error }
+        .map { diagnostic in
+          let location = converter.location(for: diagnostic.position)
+          return SourceParseDiagnostic(
+            location: DeclarationLocation(
+              filePath: path, line: location.line, column: location.column,
+              utf8Offset: diagnostic.position.utf8Offset
+            ),
+            message: diagnostic.message,
+            swiftLanguageMode: swiftLanguageMode
+          )
+        }
+      throw .didNotParse(diagnostics: diagnostics)
+    }
 
     let visitor = DeclarationVisitor(
       path: path,
@@ -51,6 +79,7 @@ public enum FileCollector {
     return SourceFile(
       path: path,
       source: visitor.sourceBuffer,
+      swiftLanguageMode: swiftLanguageMode,
       imports: visitor.imports,
       classes: visitor.classes,
       actors: visitor.actors,

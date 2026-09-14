@@ -1,5 +1,5 @@
 import BylawsCore
-import BylawsSemantics
+package import BylawsSemantics
 
 package struct RuntimeError: Error, Sendable, CustomStringConvertible {
   enum Kind: Sendable, Equatable {
@@ -50,18 +50,24 @@ package struct RuntimeError: Error, Sendable, CustomStringConvertible {
   }
 
   package var pathsThatDidNotParse: [String]? {
-    underlyingError.flatMap(Self.pathsThatDidNotParse)
+    parseDiagnostics.map { Array(Set($0.map(\.location.filePath))).sorted() }
   }
 
-  private static func pathsThatDidNotParse(in error: any Error) -> [String]? {
+  package var parseDiagnostics: [SourceParseDiagnostic]? {
+    underlyingError.flatMap(Self.parseDiagnostics)
+  }
+
+  private static func parseDiagnostics(in error: any Error)
+    -> [SourceParseDiagnostic]?
+  {
     switch error {
-    case let CodebaseError.didNotParse(paths):
-      paths
+    case let CodebaseError.didNotParse(diagnostics):
+      diagnostics
     case let LayeringCheckError.unreadableCodebase(error),
          let RuntimeIndexError.unreadableCodebase(error):
-      pathsThatDidNotParse(in: error)
+      parseDiagnostics(in: error)
     case let error as RuntimeError:
-      error.pathsThatDidNotParse
+      error.parseDiagnostics
     default:
       nil
     }

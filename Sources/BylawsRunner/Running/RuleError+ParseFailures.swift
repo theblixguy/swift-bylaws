@@ -1,28 +1,35 @@
 import BylawsCore
 import BylawsIndex
 import BylawsInterpreter
+import BylawsSemantics
 
 extension RuleError {
   var pathsThatDidNotParse: [String] {
+    Array(Set(parseDiagnostics.map(\.location.filePath))).sorted()
+  }
+
+  var parseDiagnostics: [SourceParseDiagnostic] {
     switch cause {
     case .cancelled: []
-    case let .codebase(error): Self.pathsThatDidNotParse(in: error)
-    case let .layering(error): Self.pathsThatDidNotParse(in: error)
-    case let .other(error): Self.pathsThatDidNotParse(in: error)
+    case let .codebase(error): Self.parseDiagnostics(in: error)
+    case let .layering(error): Self.parseDiagnostics(in: error)
+    case let .other(error): Self.parseDiagnostics(in: error)
     }
   }
 
-  private static func pathsThatDidNotParse(in error: any Error) -> [String] {
+  private static func parseDiagnostics(in error: any Error)
+    -> [SourceParseDiagnostic]
+  {
     switch error {
-    case let CodebaseError.didNotParse(paths):
-      paths
+    case let CodebaseError.didNotParse(diagnostics):
+      diagnostics
     case let LayeringCheckError.unreadableCodebase(error),
          let IndexedLayeringError.unreadableCodebase(error),
          let ProjectIndexError.unreadableCodebase(error),
          let RuntimeIndexError.unreadableCodebase(error):
-      pathsThatDidNotParse(in: error)
+      parseDiagnostics(in: error)
     case let error as RuntimeError:
-      error.pathsThatDidNotParse ?? []
+      error.parseDiagnostics ?? []
     default:
       []
     }
