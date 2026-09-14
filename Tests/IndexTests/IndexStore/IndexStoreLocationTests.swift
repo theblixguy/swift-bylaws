@@ -5,13 +5,38 @@ import Testing
 
 @Suite("Index store discovery", .tags(.indexStore))
 struct IndexStoreLocationTests {
+  @Test("Temporary index removes directory at scope exit")
+  func scopedCleanup() throws {
+    let path: String
+    do {
+      let derived = try DerivedData()
+      path = derived.path
+      try #require(FileManager.default.fileExists(atPath: derived.store))
+    }
+
+    #expect(!FileManager.default.fileExists(atPath: path))
+  }
+
+  @Test("Thrown error removes temporary index")
+  func throwingCleanup() throws {
+    var path: String?
+    #expect(throws: MockError.self) {
+      let derived = try DerivedData()
+      path = derived.path
+      throw MockError()
+    }
+
+    #expect(!FileManager.default.fileExists(atPath: try #require(path)))
+  }
+
+  private struct MockError: Error {}
+
   @Test(
     "An environment variable selects the index store before discovery",
     arguments: [IndexStoreLocation.environmentKey, "INDEX_DATA_STORE_DIR"]
   )
   func usesTheEnvironmentVariableFirst(key: String) throws {
     let derived = try DerivedData()
-    defer { derived.remove() }
     let found = try IndexStoreLocation.path(
       forPackageContaining: "/nowhere/Tests/File.swift",
       environment: [key: derived.store]
@@ -22,7 +47,6 @@ struct IndexStoreLocationTests {
   @Test("An invalid explicit store is an error")
   func invalidExplicitStoreFails() throws {
     let derived = try DerivedData()
-    defer { derived.remove() }
     #expect(
       throws: IndexStoreError.missingStore(searched: ["/invalid/store"])
     ) {
@@ -80,7 +104,6 @@ struct IndexStoreLocationTests {
   )
   func findsAStoreFromABuildDirectory(key: String) throws {
     let derived = try DerivedData()
-    defer { derived.remove() }
     let deep = derived.path + "/Build/Intermediates.noindex/Extra/Deeper"
     let found = try IndexStoreLocation.path(
       forPackageContaining: "/nowhere/Tests/File.swift",
@@ -275,7 +298,7 @@ struct IndexStoreLocationTests {
   }
 }
 
-private struct DerivedData {
+private struct DerivedData: ~Copyable {
   let path: String
 
   var store: String { path + "/Index.noindex/DataStore" }
@@ -288,7 +311,7 @@ private struct DerivedData {
     )
   }
 
-  func remove() {
+  deinit {
     try? FileManager.default.removeItem(atPath: path)
   }
 }

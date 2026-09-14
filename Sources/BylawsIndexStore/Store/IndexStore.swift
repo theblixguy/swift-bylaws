@@ -162,10 +162,7 @@ private final class IndexStoreCallbackContext {
     _ apply: (UnsafeMutableRawPointer) -> Void
   ) -> IndexStoreCallbackContext {
     let context = IndexStoreCallbackContext(library: library)
-    // The C callback receives an unretained context pointer.
-    withExtendedLifetime(context) {
-      unsafe apply(Unmanaged.passUnretained(context).toOpaque())
-    }
+    unsafe apply(Unmanaged.passUnretained(context).toOpaque())
     return context
   }
 
