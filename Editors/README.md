@@ -10,8 +10,9 @@ Choose your editor's guide to install Bylaws and set it up on macOS or Linux:
 - [Neovim]
 - [Emacs]
 
-You can use the same rules and baseline as the CLI. Rules that need the
-compiler's index must run separately through the CLI or tests after a build.
+You can use the same rules and baseline as the CLI. Compiler-index rules check
+the code from a build rather than unsaved edits. After saving and rebuilding
+your project, restart the language server to refresh those results.
 
 ## Check your first rule
 
