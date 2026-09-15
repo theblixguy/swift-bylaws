@@ -29,7 +29,9 @@ private enum PluginToolSelection {
     if let path = Context.environment["BYLAWS_PLUGIN_ARTIFACT_PATH"] {
       return .localArtifact(path: path)
     }
-    if Context.environment["BYLAWS_BUILD_PLUGIN_FROM_SOURCE"] != nil {
+    if Context.environment["BYLAWS_BUILD_PLUGIN_FROM_SOURCE"] != nil
+      || Context.environment["SPI_PROCESSING"] == "1"
+    {
       return .source
     }
 
