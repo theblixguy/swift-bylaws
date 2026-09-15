@@ -62,18 +62,20 @@ public struct DiscoveredBaselines: Sendable {
   public static func discovered(
     atRoot rootPath: String
   ) async -> DiscoveredBaselines {
+    await discovered(atRoot: rootPath, overlay: .empty)
+  }
+
+  package static func discovered(
+    atRoot rootPath: String,
+    overlay: SourceOverlay
+  ) async -> DiscoveredBaselines {
     var baselines: [DiscoveredBaseline] = []
-    var diagnostics: [Diagnostic] = []
-    let discovery = await RulesDiscovery.baselineFiles(underRoot: rootPath)
-    for directory in discovery.unopenableDirectories {
-      diagnostics.append(
-        .error(
-          "cannot read the directory",
-          at: DeclarationLocation.start(of: directory),
-          hint: "check the directory's permissions"
-        )
-      )
-    }
+    let discovery = await RulesDiscovery.baselineFiles(
+      underRoot: rootPath,
+      overlay: overlay
+    )
+    var diagnostics = discovery.diagnostics
+      + (discovery.parsedRoot?.diagnostics ?? [])
     for file in discovery.files {
       let loaded = loaded(
         from: file.path,
@@ -97,11 +99,19 @@ public struct DiscoveredBaselines: Sendable {
     from explicitFile: String?,
     atRoot rootPath: String
   ) async -> DiscoveredBaselines {
+    await accepted(from: explicitFile, atRoot: rootPath, overlay: .empty)
+  }
+
+  package static func accepted(
+    from explicitFile: String?,
+    atRoot rootPath: String,
+    overlay: SourceOverlay
+  ) async -> DiscoveredBaselines {
     guard let explicitFile else {
       guard !rootPath.isEmpty else {
         return DiscoveredBaselines(baselines: [], diagnostics: [])
       }
-      return await discovered(atRoot: rootPath)
+      return await discovered(atRoot: rootPath, overlay: overlay)
     }
     return loaded(from: explicitFile, relativeDirectory: "")
   }

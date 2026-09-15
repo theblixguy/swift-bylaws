@@ -128,9 +128,27 @@ layers
   Modules/Billing/Bylaws.swift:3
 ```
 
-Write an exemption as an `excluding` glob in the root file so code owners can
+Write an exemption as a `Codebase` exclusion in the root file so code owners can
 review it with the rule. Use a baseline to record existing violations while
 continuing to report each new one.
+
+### Exclude folders from discovery
+
+You can exclude rules and baselines in generated or vendor folders by adding
+`RuleDiscovery` to the root `Bylaws.swift`:
+
+```swift
+RuleDiscovery(excluding: ["Vendor", "**/Generated"])
+```
+
+This skips the root `Vendor` folder and any folder named `Generated`, including
+their contents. Bylaws also skips `.git`, `.build`, `.swiftpm`, `DerivedData`,
+`node_modules` and `Pods` automatically.
+
+These settings apply to rule and baseline discovery in the CLI, tests and
+editors. To exclude source files from a rule's checks, use the `excluding`
+argument on its `Codebase` instead. You can load a rule or baseline file from an
+excluded folder by passing its path to `--rules` or `--baseline`.
 
 ## Share rules through SwiftPM
 

@@ -1,6 +1,5 @@
 import BylawsCore
 import BylawsSemantics
-import Foundation
 
 enum RuleProgramLoader {
   struct LoadedRulesFile {
@@ -40,6 +39,7 @@ enum RuleProgramLoader {
 
   static func load(
     _ files: [RulesDiscovery.DiscoveredFile],
+    parsedRoot: ParsedRulesFile? = nil,
     parseCachePolicy: ParseCachePolicy,
     overlay: SourceOverlay,
     indexProvider: (any RuntimeIndexProvider)?,
@@ -47,6 +47,7 @@ enum RuleProgramLoader {
   ) async -> RuleProgram {
     var parsed = parseFiles(
       files,
+      parsedRoot: parsedRoot,
       parseCachePolicy: parseCachePolicy,
       overlay: overlay
     )
@@ -93,30 +94,21 @@ enum RuleProgramLoader {
 
   static func parseFiles(
     _ files: [RulesDiscovery.DiscoveredFile],
+    parsedRoot: ParsedRulesFile? = nil,
     parseCachePolicy: ParseCachePolicy,
     overlay: SourceOverlay = .empty
   ) -> (files: [LoadedRulesFile], diagnostics: [Diagnostic]) {
     var parsedFiles: [LoadedRulesFile] = []
     var diagnostics: [Diagnostic] = []
     for file in files {
-      let source: String
-      if let overlaid = overlay.text(forFileAt: file.path) {
-        source = overlaid
+      var parsed = if let parsedRoot, parsedRoot.path == file.path {
+        parsedRoot
       } else {
-        do {
-          source = try String(contentsOfFile: file.path, encoding: .utf8)
-        } catch {
-          diagnostics.append(
-            .error(
-              "cannot read the file: "
-                + error.reportableDescription,
-              at: DeclarationLocation.start(of: file.path)
-            )
-          )
-          continue
-        }
+        ParsedRulesFile.loaded(at: file.path, overlay: overlay)
       }
-      var parsed = RulesFileParser.parse(source: source, path: file.path)
+      if !file.isRoot, let diagnostic = parsed.discoveryOutsideRootDiagnostic {
+        diagnostics.append(diagnostic)
+      }
       parsed.codebases = parsed.codebases.mapValues {
         $0.usingParseCache(parseCachePolicy).usingOverlay(overlay)
       }

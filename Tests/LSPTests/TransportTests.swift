@@ -43,6 +43,22 @@ struct TransportTests {
     #expect(status == 1)
     #expect(standardError.isEmpty)
   }
+
+  @Test("Input closure ends server", arguments: [false, true])
+  func inputClosure(initializeBeforeClosing: Bool) async throws {
+    let server = try LanguageServerSession()
+    if initializeBeforeClosing {
+      _ = try await server.initialize()
+    }
+
+    try await server.closeInput()
+    try await server.waitUntilExit()
+
+    let status = await server.status
+    let standardError = await server.standardError
+    #expect(status == 0)
+    #expect(standardError.isEmpty)
+  }
 }
 
 private actor LanguageServerSession {
@@ -59,8 +75,8 @@ private actor LanguageServerSession {
   private var capturedOutput = Data()
   private var pendingOutput: ArraySlice<UInt8> = []
 
-  var standardError: Data {
-    get async { await readStandardError() }
+  var standardError: String {
+    get async { String(decoding: await readStandardError(), as: UTF8.self) }
   }
 
   var status: Int32 { process.terminationStatus }
@@ -96,6 +112,9 @@ private actor LanguageServerSession {
       continuation.finish()
     }
     process.executableURL = try Self.executable()
+    var environment = ProcessInfo.processInfo.environment
+    environment["SOURCEKIT_LSP_LOG_LEVEL"] = "error"
+    process.environment = environment
     process.standardInput = input
     process.standardOutput = output
     process.standardError = error
@@ -141,6 +160,10 @@ private actor LanguageServerSession {
 
   func exit() throws {
     try send(["jsonrpc": "2.0", "method": "exit"])
+  }
+
+  func closeInput() throws {
+    try input.fileHandleForWriting.close()
   }
 
   func waitUntilExit() async throws {

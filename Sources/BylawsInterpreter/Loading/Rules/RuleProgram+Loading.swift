@@ -38,10 +38,12 @@ extension RuleProgram {
     packageModuleIndex: PackageModuleIndex? = nil
   ) async -> RuleProgram {
     let rootPath = root.string
-    let discovery = await RulesDiscovery.rulesFiles(underRoot: rootPath)
-    let unreadable = discovery.unopenableDirectories.map(unreadableDirectory)
-    guard unreadable.isEmpty else {
-      return RuleProgram(loadedRules: [], diagnostics: unreadable)
+    let discovery = await RulesDiscovery.rulesFiles(
+      underRoot: rootPath,
+      overlay: overlay
+    )
+    guard discovery.diagnostics.isEmpty else {
+      return RuleProgram(loadedRules: [], diagnostics: discovery.diagnostics)
     }
     let files = discovery.files
     guard !files.isEmpty else {
@@ -62,6 +64,7 @@ extension RuleProgram {
     }
     return await RuleProgramLoader.load(
       files,
+      parsedRoot: discovery.parsedRoot,
       parseCachePolicy: parseCachePolicy,
       overlay: overlay,
       indexProvider: indexProvider,
@@ -104,14 +107,6 @@ extension RuleProgram {
       overlay: overlay,
       indexProvider: indexProvider,
       packageModuleIndex: packageModuleIndex
-    )
-  }
-
-  private static func unreadableDirectory(_ path: String) -> Diagnostic {
-    .error(
-      "cannot read the directory",
-      at: DeclarationLocation.start(of: path),
-      hint: "check the directory's permissions"
     )
   }
 }

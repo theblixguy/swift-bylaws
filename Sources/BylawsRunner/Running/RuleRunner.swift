@@ -161,7 +161,8 @@ package enum RuleRunner {
 
     let discovered = await DiscoveredBaselines.accepted(
       from: configuration.baseline,
-      atRoot: rootPath
+      atRoot: rootPath,
+      overlay: configuration.overlay
     )
     guard discovered.diagnostics.isEmpty else {
       return resultWithoutReports(

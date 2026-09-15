@@ -221,6 +221,9 @@ struct SourceModuleLoader {
         }
       }
       let file = RulesFileParser.parse(source: source, path: path)
+      if let diagnostic = file.discoveryOutsideRootDiagnostic {
+        combined.diagnostics.append(diagnostic)
+      }
       let duplicates = names.intersection(file.bindingNames)
       for name in duplicates.sorted() {
         combined.diagnostics.append(

@@ -6,6 +6,7 @@ struct ParsedRulesFile {
   let directory: String
 
   var imports: [ParsedImport] = []
+  var discovery: (value: RuleDiscovery?, location: DeclarationLocation)?
   var codebases: [String: Codebase] = [:]
   var layerings: [String: Layering] = [:]
   var bindingNames: Set<String> = []
