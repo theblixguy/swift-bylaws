@@ -57,6 +57,7 @@ To run rules from a `Bylaws.swift` file, follow <doc:RunningRulesFromTheCLI>.
 - <doc:CorrespondingTypes>
 - <doc:ArchitectureRules>
 - <doc:DependencyRules>
+- <doc:BazelDependencies>
 - <doc:CombiningChecks>
 - <doc:AdvancedRules>
 
@@ -91,6 +92,7 @@ To run rules from a `Bylaws.swift` file, follow <doc:RunningRulesFromTheCLI>.
 - ``/BylawsSemantics/PackageManifest``
 - ``/BylawsCore/PackageDependencyCheck``
 - ``/BylawsCore/ImportGraph``
+- ``/BylawsCore/BazelGraph``
 - ``/BylawsCore/DependencyStabilityCheck``
 
 ### Baselines

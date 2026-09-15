@@ -17,6 +17,11 @@ extension SupportedAPI {
     case attributes
     case awaitCount
     case baseName
+    case bazelGraph
+    case isTool
+    case buildOptions
+    case ruleClass
+    case tags
     case binarySource
     case bodyLineCount
     case branch
@@ -270,6 +275,7 @@ extension SupportedAPI {
   }
 
   package enum Method: String, CaseIterable, Sendable {
+    case bazelGraph
     case deletingLastPathComponent
     case mapValues
     case all, any, none
@@ -342,6 +348,9 @@ extension SupportedAPI {
   }
 
   package enum ModelType: String, CaseIterable, Sendable {
+    case bazelGraph = "BazelGraph"
+    case bazelTarget = "BazelGraph.Target"
+    case bazelConfiguration = "BazelGraph.Configuration"
     case actor = "Actor"
     case attribute = "Attribute"
     case classDeclaration = "Class"

@@ -230,7 +230,9 @@ extension RuntimeModelValue {
     case let .typealiasDeclaration(value): value
     case let .functionCall(value): value
     case .check, .typeReference, .parameter, .attribute, .genericParameter,
-         .enumCase, .importGraph, .importGraphTarget, .packageManifest,
+         .enumCase, .importGraph, .importGraphTarget, .bazelGraph, .bazelTarget,
+         .bazelConfiguration,
+         .packageManifest,
          .manifest, .indexReference, .indexSymbol, .offender, .syntaxClass,
          .syntaxMemberBlock, .syntaxSourceFile, .syntaxToken,
          .syntaxTriviaPiece:

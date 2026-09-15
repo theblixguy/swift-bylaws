@@ -14,6 +14,9 @@ extension RuntimeEvaluator {
       return try manifestMethod(name, manifest: manifest, arguments: arguments)
     }
     switch (name, value) {
+    case let (.directTargetDependencies, .bazelGraph(graph)),
+         let (.transitiveTargetDependencies, .bazelGraph(graph)):
+      return try bazelDependencies(name, graph: graph, arguments: arguments)
     case let (.withSyntax, .sourceFile(file)):
       if arguments.values.count == 1 {
         try arguments.requireLabels([nil], for: name)

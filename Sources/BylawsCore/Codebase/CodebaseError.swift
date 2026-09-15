@@ -30,6 +30,9 @@ public enum CodebaseError: Error, Sendable, Hashable {
   /// Project settings do not identify one supported language mode.
   case languageModeUnavailable(path: String)
 
+  /// A Bazel graph export that cannot be read or lacks dependency data.
+  case bazelGraph(path: String, reason: String)
+
   /// Files or directories under the root that the parse cannot read.
   ///
   /// Queries require a complete view of the codebase. Any unreadable path fails
@@ -60,6 +63,10 @@ extension CodebaseError: CustomStringConvertible {
     case let .languageModeUnavailable(path):
       "Bylaws cannot determine the Swift language mode from '\(path)'. "
         + "Set swiftLanguageMode on Codebase to match the target's build settings."
+    case let .bazelGraph(path, reason):
+      "Bylaws cannot read the Bazel graph at '\(path)'. \(reason) "
+        + "Use Bazel 8 or later to export the full deps(...) query with --output=jsonproto "
+        + "--transitions=lite --proto:include_configurations."
     case let .unreadable(failures):
       Self.description(of: failures)
     case let .didNotParse(diagnostics):

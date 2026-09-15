@@ -415,8 +415,8 @@ bazel run @swift-bylaws//:bylaws -- lint
 ```
 
 The command runs separately from `bazel build`, so add it as a CI step if
-violations should fail the pipeline. Package-dependency rules check
-`Package.swift`, not Bazel target dependencies.
+violations should fail the pipeline. You can also [check Bazel target
+dependencies] using an exported graph, without a `Package.swift`.
 
 ### Show violations in an editor
 
@@ -583,6 +583,7 @@ Bylaws is available under the MIT licence. See [LICENSE].
   https://theblixguy.github.io/swift-bylaws/documentation/bylaws/gettingstarted
 [SwiftPM plugins]: #use-the-swiftpm-plugins
 [Bazel target]: #run-checks-with-bazel
+[check Bazel target dependencies]: Sources/Bylaws/Bylaws.docc/BazelDependencies.md
 [editor integrations]: #show-violations-in-an-editor
 [CLI setup guide]:
   https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesfromthecli
