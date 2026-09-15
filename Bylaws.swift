@@ -1,5 +1,7 @@
 import Bylaws
 
+RuleDiscovery(excluding: ["Distribution/BazelModule/e2e/**"])
+
 let sourcesAndBenchmarks = Codebase(
   including: ["Sources/**", "Benchmarks/Benchmarks/**"],
   swiftLanguageMode: .v6

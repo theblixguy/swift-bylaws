@@ -345,6 +345,20 @@ jobs:
           Scripts/test-release.swift \
             .build/release/bylaws \
             "$(.build/release/bylaws --version)"
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
+        with:
+          bazelisk-version: 1.x
+          bazelisk-cache: true
+          repository-cache: true
+          module-root: Distribution/BazelModule
+      - name: Test Bazel lint target
+        env:
+          USE_BAZEL_VERSION: 9.2.0
+        run: |
+          apt-get update
+          apt-get install --yes --no-install-recommends jq
+          bash Tests/Bazel/test-lint.sh .build/release/bylaws
       - name: Build reusable rules
         env:
           BYLAWS_PLUGIN_ARTIFACT_PATH: BylawsPluginTool.artifactbundle

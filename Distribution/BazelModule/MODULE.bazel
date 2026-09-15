@@ -5,6 +5,7 @@ module(
 )
 
 bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "bazel_lib", version = "3.7.2")
 
 http_archive = use_repo_rule(
     "@bazel_tools//tools/build_defs/repo:http.bzl",
@@ -15,12 +16,12 @@ _BASE = "https://github.com/theblixguy/swift-bylaws/releases/download/{{TAG}}"
 
 http_archive(
     name = "bylaws_macos",
-    urls = [_BASE + "/bylaws-macos.tar.gz"],
     sha256 = "{{MACOS_SHA256}}",
+    urls = [_BASE + "/bylaws-macos.tar.gz"],
 )
 
 http_archive(
     name = "bylaws_linux",
-    urls = [_BASE + "/bylaws-linux.tar.gz"],
     sha256 = "{{LINUX_SHA256}}",
+    urls = [_BASE + "/bylaws-linux.tar.gz"],
 )

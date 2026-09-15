@@ -22,6 +22,7 @@ consumers:
   - 'Package.swift'
   - 'Package.resolved'
   - 'Tests/PackageConsumer/**'
+  - 'Tests/Bazel/**'
   - 'Scripts/make-plugin-artifact-bundle.swift'
   - 'Scripts/test-release.swift'
   - '.github/ci-paths.yml'

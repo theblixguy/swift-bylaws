@@ -7,8 +7,9 @@ bcr_test_module:
     bazel: [7.x, 8.x, 9.x]
   tasks:
     verify_targets:
-      name: "Fetch the tool"
+      name: "Check architectural rules"
       platform: ${{ platform }}
       bazel: ${{ bazel }}
       build_targets:
         - "@swift-bylaws//:bylaws"
+        - "//:architecture"
