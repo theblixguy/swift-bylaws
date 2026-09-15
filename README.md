@@ -405,7 +405,7 @@ macOS and Linux.
 Add the dependency from the Bazel Central Registry to `MODULE.bazel`:
 
 ```starlark
-bazel_dep(name = "swift-bylaws", version = "0.1.2")
+bazel_dep(name = "swift-bylaws", version = "0.2.0")
 ```
 
 Put `Bylaws.swift` at the workspace root, then run:
