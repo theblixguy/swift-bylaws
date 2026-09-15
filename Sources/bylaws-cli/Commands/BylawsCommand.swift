@@ -7,9 +7,9 @@ struct BylawsCommand: AsyncParsableCommand {
     commandName: "bylaws",
     abstract: "Checks a project against its architectural rules.",
     discussion: """
-    Rules live in Bylaws.swift files at the project root and beside a
-    module's Package.swift. The same rules run here, in CI and as test
-    cases.
+    Keep project-wide rules in the root Bylaws.swift and add rules in
+    subfolders where needed. You can run the same rules here, in CI
+    or from a test target.
     """,
     version: BylawsVersion.current,
     subcommands: [LintCommand.self, RulesCommand.self, InitCommand.self],

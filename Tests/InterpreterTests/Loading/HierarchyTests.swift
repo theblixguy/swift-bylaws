@@ -270,7 +270,7 @@ struct HierarchyTests {
     static let cases = [
       ModuleDiagnosticCase(
         rules: "Rule(\"r\", \"Rule\") { a.classes.violations(of: .isFinal) }",
-        message: "duplicate root rule ID",
+        message: "Rule must use a unique ID",
         hint: "Override"
       ),
       ModuleDiagnosticCase(
@@ -279,7 +279,7 @@ struct HierarchyTests {
           a.classes.violations(of: .isFinal)
         }
         """,
-        message: "not a rule the root file declares",
+        message: "Override must name a rule from a parent folder",
         hint: nil
       ),
       ModuleDiagnosticCase(

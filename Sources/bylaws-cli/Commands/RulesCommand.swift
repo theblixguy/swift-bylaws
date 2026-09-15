@@ -115,7 +115,7 @@ struct RulesCommand: AsyncParsableCommand {
       print("\(rule.id)\(enforcement)")
       print("  \(rule.name)")
       if let reason = loadedRule.scope?.overrideReason {
-        print("  overrides the root rule: \(reason)")
+        print("  override: \(reason)")
       }
       print("  \(rule.location.filePath):\(rule.location.line)")
     }

@@ -6,10 +6,8 @@ import Foundation
 extension RuleProgram {
   /// Loads the program declared by a project's `Bylaws.swift` files.
   ///
-  /// Discovery reads the project root and each directory containing a
-  /// `Package.swift`. The root file defines the base program. Module files add
-  /// rules or override a root rule within their subtrees. A root rule continues
-  /// outside the overriding module.
+  /// A rules file applies to its folder and can override rules from parent
+  /// folders. The nearest override applies when folders are nested.
   ///
   /// Read ``RuleProgram/diagnostics`` for missing files and load failures.
   /// ``BylawsCore/Rule/discovered(above:)`` uses the same discovery and throws
@@ -55,8 +53,7 @@ extension RuleProgram {
             at: DeclarationLocation.start(
               of: "\(rootPath)/\(RulesDiscovery.fileName)"
             ),
-            hint: "declare rules at the project root, or beside a "
-              + "module's Package.swift"
+            hint: "add a Bylaws.swift file at the project root or in a folder to check"
           ),
         ],
         ruleFileStatus: .missing

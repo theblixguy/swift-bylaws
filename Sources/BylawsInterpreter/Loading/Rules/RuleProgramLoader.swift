@@ -11,6 +11,7 @@ enum RuleProgramLoader {
     var loadedRules: [RuleProgram.LoadedRule] = []
     var diagnostics: [Diagnostic] = []
     var declaredIDs: Set<Rule.ID> = []
+    var overriddenSubtrees: [Rule.ID: Set<String>] = [:]
     var pathsThatDidNotParse: [String]? = []
   }
 
@@ -20,21 +21,6 @@ enum RuleProgramLoader {
     let parsed: ParsedRulesFile
 
     var id: Rule.ID { Rule.ID(rule.id ?? rule.name) }
-  }
-
-  struct OverrideCompilation {
-    struct Key: Hashable {
-      let directory: String
-      let id: Rule.ID
-    }
-
-    struct Entry {
-      let location: DeclarationLocation
-      let result: Result<RuleCompiler.Compiled, Diagnostic>
-    }
-
-    var subtrees: [Rule.ID: Set<String>] = [:]
-    var entries: [Key: Entry] = [:]
   }
 
   static func load(
@@ -59,21 +45,12 @@ enum RuleProgramLoader {
       overlay: overlay
     )
     diagnostics.append(contentsOf: resolved.diagnostics)
-    let rootRulesByID = rootRulesByID(in: parsed.files)
-    let overrides = compileOverrides(
-      in: parsed.files,
-      rootRulesByID: rootRulesByID
-    )
-    let declared = compileDeclaredRules(
-      in: parsed.files,
-      rootRulesByID: rootRulesByID,
-      overrides: overrides
-    )
+    let declared = compileDeclaredRules(in: parsed.files)
     let runtime = await compileRuntimeRules(
       in: parsed.files,
       sourceModules: resolved.sourceModules,
       indexProvider: indexProvider,
-      overriddenSubtrees: overrides.subtrees,
+      overriddenSubtrees: declared.overriddenSubtrees,
       declaredIDs: declared.declaredIDs
     )
     diagnostics.append(contentsOf: declared.diagnostics)
@@ -143,18 +120,6 @@ enum RuleProgramLoader {
     return (sourceModules, diagnostics)
   }
 
-  static func rootRulesByID(
-    in parsedFiles: [LoadedRulesFile]
-  ) -> [Rule.ID: ParsedRule] {
-    let rootRules: [ParsedRule] =
-      parsedFiles
-        .first { $0.file.isRoot }?.parsed.rules ?? []
-    return Dictionary(
-      rootRules.map { (Rule.ID($0.id ?? $0.name), $0) },
-      uniquingKeysWith: { first, _ in first }
-    )
-  }
-
   static func declaredRules(
     in parsedFiles: [LoadedRulesFile]
   ) -> [DeclaredRule] {
@@ -163,34 +128,5 @@ enum RuleProgramLoader {
         DeclaredRule(rule: $0, file: loaded.file, parsed: loaded.parsed)
       }
     }
-  }
-
-  static func compileOverrides(
-    in parsedFiles: [LoadedRulesFile],
-    rootRulesByID: [Rule.ID: ParsedRule]
-  ) -> OverrideCompilation {
-    var overrides = OverrideCompilation()
-    for declared in declaredRules(in: parsedFiles)
-      where !declared.file.isRoot && declared.rule.isOverride
-    {
-      let id = declared.id
-      let directory = declared.file.relativeDirectory
-      let key = OverrideCompilation.Key(directory: directory, id: id)
-      guard let root = rootRulesByID[id], overrides.entries[key] == nil
-      else { continue }
-      let result = RuleCompiler.compile(
-        declared.rule,
-        as: declared.rule.header(inheriting: root),
-        in: declared.parsed
-      )
-      overrides.entries[key] = .init(
-        location: declared.rule.location,
-        result: result
-      )
-      if case .success = result {
-        overrides.subtrees[id, default: []].insert(directory)
-      }
-    }
-    return overrides
   }
 }

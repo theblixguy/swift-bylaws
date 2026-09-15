@@ -143,13 +143,15 @@ enum RuleCompiler {
 }
 
 extension ParsedRule {
-  func header(inheriting root: ParsedRule? = nil) -> RuleCompiler.Header {
+  func header(
+    inheriting parent: RuleCompiler.Header? = nil
+  ) -> RuleCompiler.Header {
     RuleCompiler.Header(
-      name: root?.name ?? name,
+      name: parent?.name ?? name,
       enforcement: declaredEnforcement
-        ?? root?.declaredEnforcement
+        ?? parent?.enforcement
         ?? .enforced,
-      hint: declaredHint ?? root?.declaredHint
+      hint: declaredHint ?? parent?.hint
     )
   }
 }

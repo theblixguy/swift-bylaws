@@ -34,8 +34,6 @@ enum RulesDiscovery {
     await files(named: baselineFileName, underRoot: rootPath, overlay: overlay)
   }
 
-  private static let manifestName = "Package.swift"
-
   private static let skippedDirectories: Set<String> = [
     ".git", ".build", ".swiftpm", "DerivedData", "node_modules", "Pods",
   ]
@@ -65,15 +63,14 @@ enum RulesDiscovery {
       files.append(DiscoveredFile(path: rootFile, relativeDirectory: ""))
     }
 
-    let walk = await moduleDirectories(
+    let walk = await directories(
+      containing: name,
       underRoot: rootPath,
       excluding: parsedRoot?.discovery?.value?.excludedFolders ?? []
     )
     for directory in walk.directories {
       let path = root.appending(directory).appending(name).string
-      if manager.fileExists(atPath: path) {
-        files.append(DiscoveredFile(path: path, relativeDirectory: directory))
-      }
+      files.append(DiscoveredFile(path: path, relativeDirectory: directory))
     }
     return Discovery(
       files: files,
@@ -88,7 +85,8 @@ enum RulesDiscovery {
     )
   }
 
-  private static func moduleDirectories(
+  private static func directories(
+    containing name: String,
     underRoot rootPath: String,
     excluding folders: [Glob]
   ) async -> (directories: [String], unopenableDirectories: [String]) {
@@ -105,7 +103,7 @@ enum RulesDiscovery {
           return folders.contains { $0.matches(folder) }
             ? .skipDescendants : .descend
         case .regularFile:
-          if path.lastComponent == manifestName {
+          if path.lastComponent == name {
             let directory = path.removingLastComponent().string
             if !directory.isEmpty { directories.append(directory) }
           }
