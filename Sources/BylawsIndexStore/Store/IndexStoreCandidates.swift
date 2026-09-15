@@ -54,23 +54,24 @@ package enum IndexStoreCandidates {
           build.appending(entry).appending($0 + "/index/store")
         }
       }
-    return direct + nested
+    return [build.appending("out")] + direct + nested
   }
 
   package static func runningBuildStore(
     besideExecutableAt executable: LexicalFilePath
   ) -> LexicalFilePath? {
+    guard !executable.contains(component: editorBuildDirectoryName)
+    else { return nil }
     var directory = executable.removingLastComponent()
-    for _ in 0..<10 {
-      if let name = directory.lastComponent,
-         buildConfigurations.contains(name)
-      {
-        let candidate = directory.appending("index/store")
-        return candidate.contains(component: editorBuildDirectoryName)
-          ? nil : candidate
-      }
+    while let name = directory.lastComponent {
       let parent = directory.removingLastComponent()
-      if parent == directory { break }
+      if parent.lastComponent == "Products" {
+        let output = parent.removingLastComponent()
+        if output.lastComponent == "out" { return output }
+      }
+      if buildConfigurations.contains(name) {
+        return directory.appending("index/store")
+      }
       directory = parent
     }
     return nil

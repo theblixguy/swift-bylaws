@@ -72,6 +72,7 @@ package enum SupportedAPI {
     case labelled
     case referencing
     case atLeast
+    case at
     case offenders
     case pieces
     case rule

@@ -152,10 +152,24 @@ extension RuntimeEvaluator {
     index: RuntimeProjectIndex,
     arguments: RuntimeArguments
   ) async throws(RuntimeError) -> RuntimeValue {
+    if name == .occurrences, arguments.label(at: 0) == .at {
+      try arguments.requireLabels([.at], for: name)
+      guard case let .model(.check(.location(location))) = try arguments
+        .value(at: 0)
+      else {
+        throw RuntimeError(
+          message: "ProjectIndex.occurrences takes one DeclarationLocation",
+          location: arguments.location
+        )
+      }
+      let provider = try requireIndexProvider(at: arguments.location)
+      let values = try await reportingFailures(at: arguments.location) {
+        try await provider.occurrences(at: location, in: index)
+      }
+      return .array(values.map { .model(.indexReference($0)) })
+    }
     try arguments.requireLabels(
-      try indexQueryCall(
-        name, on: .projectIndex, at: arguments.location
-      ).leadingLabels,
+      [name == .references ? .to : .of],
       for: name
     )
     let provider = try requireIndexProvider(at: arguments.location)

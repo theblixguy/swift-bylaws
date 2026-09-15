@@ -120,7 +120,15 @@ extension SupportedAPI {
     projectIndexMethod(.directConformers, label: .of),
     projectIndexMethod(.references, label: .to),
     projectIndexMethod(.definitions, label: .of),
-    projectIndexMethod(.occurrences, label: .of),
+    method(
+      .occurrences, on: [.projectIndex],
+      arguments: .alternatives([
+        [.init(.of, .exact(.string))],
+        [.init(.at, .exact(.model(.declarationLocation)))],
+      ]),
+      result: .fixed(.array(.model(.indexReference))),
+      canSuspend: true
+    ),
     method(
       .contains,
       on: [.symbolRoles],

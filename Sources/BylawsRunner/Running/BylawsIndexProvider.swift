@@ -65,15 +65,7 @@ struct BylawsIndexProvider: RuntimeIndexProvider {
     of symbolName: String,
     in index: RuntimeProjectIndex
   ) async throws(RuntimeIndexError) -> [RuntimeIndexReference] {
-    let projectIndex: ProjectIndex
-    do {
-      projectIndex = try await index.codebase.projectIndex(
-        modules: index.modules,
-        unitOutputFiles: index.unitOutputFiles
-      )
-    } catch {
-      throw RuntimeIndexError(error)
-    }
+    let projectIndex = try await resolvedIndex(index)
     let references = switch query {
     case .conformers: projectIndex.conformers(of: symbolName)
     case .definitions: projectIndex.definitions(of: symbolName)
@@ -82,6 +74,28 @@ struct BylawsIndexProvider: RuntimeIndexProvider {
     case .references: projectIndex.references(to: symbolName)
     }
     return references.map(runtimeReference)
+  }
+
+  func occurrences(
+    at location: DeclarationLocation,
+    in index: RuntimeProjectIndex
+  ) async throws(RuntimeIndexError) -> [RuntimeIndexReference] {
+    let projectIndex = try await resolvedIndex(index)
+    return projectIndex.occurrences(at: location).map(runtimeReference)
+  }
+
+  private func resolvedIndex(_ index: RuntimeProjectIndex) async throws(
+    RuntimeIndexError
+  )
+    -> ProjectIndex
+  {
+    do {
+      return try await index.codebase.projectIndex(
+        modules: index.modules, unitOutputFiles: index.unitOutputFiles
+      )
+    } catch {
+      throw RuntimeIndexError(error)
+    }
   }
 
   private func runtimeReference(
