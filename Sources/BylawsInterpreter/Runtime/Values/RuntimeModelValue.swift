@@ -24,6 +24,9 @@ enum RuntimeModelValue: Sendable, Equatable {
   case genericParameter(GenericParameter)
   case enumCase(EnumCase)
   case importGraph(ImportGraph)
+  case bazelGraph(BazelGraph)
+  case bazelTarget(BazelGraph.Target)
+  case bazelConfiguration(BazelGraph.Configuration)
   case importGraphTarget(ImportGraph.Target)
   case packageManifest(PackageManifest)
   case manifest(RuntimeManifestValue)
@@ -52,8 +55,11 @@ enum RuntimeModelValue: Sendable, Equatable {
     case let .importDeclaration(value): runtimeOffender(value)
     case let .typealiasDeclaration(value): runtimeOffender(value)
     case let .functionCall(value): runtimeOffender(value)
+    case let .bazelTarget(value): runtimeOffender(value)
     case .check, .typeReference, .parameter, .attribute, .genericParameter,
-         .importGraph, .importGraphTarget, .packageManifest, .manifest,
+         .importGraph, .importGraphTarget, .bazelGraph, .bazelConfiguration,
+         .packageManifest,
+         .manifest,
          .indexSymbol, .syntaxClass,
          .syntaxMemberBlock, .syntaxSourceFile, .syntaxToken,
          .syntaxTriviaPiece:
@@ -89,6 +95,9 @@ extension RuntimeModelValue {
     case .genericParameter: .genericParameter
     case .enumCase: .enumCase
     case .importGraph: .importGraph
+    case .bazelGraph: .bazelGraph
+    case .bazelTarget: .bazelTarget
+    case .bazelConfiguration: .bazelConfiguration
     case .importGraphTarget: .importGraphTarget
     case .packageManifest: .packageManifest
     case let .manifest(value): value.modelType

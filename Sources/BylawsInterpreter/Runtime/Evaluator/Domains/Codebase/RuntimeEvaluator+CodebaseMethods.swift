@@ -8,6 +8,13 @@ extension RuntimeEvaluator {
     arguments: RuntimeArguments
   ) async throws(RuntimeError) -> RuntimeValue {
     switch name {
+    case .bazelGraph:
+      try arguments.requireLabels([.from], for: name)
+      let path = try arguments.string(at: 0)
+      let graph = try await reportingFailures(at: arguments.location) {
+        try await codebase.bazelGraph(from: path)
+      }
+      return .model(.bazelGraph(graph))
     case .dependencyGroups:
       let groups = try await reportingFailures(at: arguments.location) {
         try await codebase.dependencyGroups(

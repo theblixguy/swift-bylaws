@@ -11,6 +11,13 @@ extension RuntimeEvaluator {
     }
     return switch value {
     case let .check(value): checkMember(name, value)
+    case let .bazelGraph(value):
+      name == .targets ? modelArray(
+        value.targets,
+        RuntimeModelValue.bazelTarget
+      ) : nil
+    case let .bazelTarget(value): bazelTargetMember(name, value)
+    case let .bazelConfiguration(value): bazelConfigurationMember(name, value)
     case let .sourceFile(value): sourceFileMember(name, value)
     case let .classDeclaration(value): classMember(name, value)
     case let .actor(value): typeMember(name, value)

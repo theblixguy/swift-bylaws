@@ -411,7 +411,8 @@ For rules that compare folders, you can use `URL(fileURLWithPath:)` with
 <doc:CorrespondingTypes>.
 
 You can use Bylaws queries, matchers, layering and package checks, including
-`importGraph()`. The index queries in <doc:AdvancedRules> are also supported,
+`importGraph()` and the Bazel graph queries in <doc:BazelDependencies>.
+The index queries in <doc:AdvancedRules> are also supported,
 along with selected SwiftSyntax APIs for comments and class members.
 
 For example, a portable rule can inspect dependency requirements without
@@ -442,9 +443,12 @@ other APIs.
 | `Actor` | `allInheritedTypes`, `attributes`, `documentation`, `enclosingTypeName`, `extensionInheritedTypes`, `functions`, `genericParameters`, `inheritedTypes`, `initializers`, `isDocumented`, `isNonisolated`, `location`, `name`, `properties`, `qualifiedName`, `sourceRange`, `sourceText`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
 | `Array` | `count`, `first`, `isEmpty` | `allSatisfy`, `compactMap`, `contains`, `filter`, `flatMap`, `map` |
 | `Attribute` | `arguments`, `name` | None |
+| `BazelGraph` | `targets` | `directTargetDependencies`, `transitiveTargetDependencies` |
+| `BazelGraph.Configuration` | `buildOptions`, `checksum`, `isTool` | None |
+| `BazelGraph.Target` | `configuration`, `description`, `label`, `location`, `ruleClass`, `tags` | None |
 | `Class` | `allInheritedTypes`, `attributes`, `documentation`, `enclosingTypeName`, `extensionInheritedTypes`, `functions`, `genericParameters`, `inheritedTypes`, `initializers`, `isDocumented`, `isFinal`, `isNonisolated`, `location`, `name`, `properties`, `qualifiedName`, `sourceRange`, `sourceText`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
 | `ClassDeclSyntax` | `memberBlock` | None |
-| `Codebase` | `actors`, `calls`, `classes`, `enums`, `extensions`, `files`, `functions`, `imports`, `initializers`, `packageManifest`, `properties`, `protocols`, `structs`, `typealiases`, `types` | `checkDependencies`, `checkDependencyCycles`, `checkDependencyStability`, `checkFolderLayout`, `checkLayering`, `checkPackageDependencies`, `conformers`, `definitions`, `dependencyGroups`, `directConformers`, `importGraph`, `indexedFindings`, `occurrences`, `projectIndex`, `references` |
+| `Codebase` | `actors`, `calls`, `classes`, `enums`, `extensions`, `files`, `functions`, `imports`, `initializers`, `packageManifest`, `properties`, `protocols`, `structs`, `typealiases`, `types` | `bazelGraph`, `checkDependencies`, `checkDependencyCycles`, `checkDependencyStability`, `checkFolderLayout`, `checkLayering`, `checkPackageDependencies`, `conformers`, `definitions`, `dependencyGroups`, `directConformers`, `importGraph`, `indexedFindings`, `occurrences`, `projectIndex`, `references` |
 | `DeclarationLocation` | `column`, `fileName`, `filePath`, `line`, `utf8Offset` | None |
 | `DependencyGroup` | `files`, `name` | None |
 | `DependencyStabilityCheck` | `checkedEdgeCount`, `emptyTargets`, `isComplete`, `unresolvedManifestValues`, `unstable`, `violations` | `findings` |

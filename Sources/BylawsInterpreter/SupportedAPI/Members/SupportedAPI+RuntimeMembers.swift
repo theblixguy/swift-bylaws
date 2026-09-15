@@ -17,6 +17,7 @@ extension SupportedAPI {
       + syntaxRuntimeMembers
       + typeRuntimeMembers
       + manifestRuntimeMembers
+      + bazelRuntimeMembers
 
   static let collectionReceivers: Set<RuntimeReceiver> = [
     .array, .set, .selection,

@@ -1,5 +1,6 @@
 import BylawsCore
 import BylawsSemantics
+import BylawsTestSupport
 import SwiftSyntax
 import Testing
 @testable import BylawsInterpreter
@@ -122,6 +123,15 @@ private struct ModelSamples {
     try await addSemanticSamples()
     addManifestSamples()
     addGraphAndIndexSamples()
+    let bazelGraph = try await Codebase(root: .sources([
+      "graph.json": BazelGraphMock.json,
+    ])).bazelGraph(from: "graph.json")
+    add(.bazelGraph(bazelGraph))
+    add(bazelGraph.targets, as: RuntimeModelValue.bazelTarget)
+    add(
+      bazelGraph.targets.compactMap(\.configuration),
+      as: RuntimeModelValue.bazelConfiguration
+    )
     for value in try await ContractMocks.checkResults() {
       add(.check(value))
     }
