@@ -4,7 +4,7 @@ import Testing
 
 @Suite("Index store candidates", .tags(.indexStore))
 struct IndexStoreCandidatesTests {
-  @Test("Package stores list the direct configurations before triples")
+  @Test("Package stores include both build-system layouts")
   func packageStoresOrderDirectConfigurationsFirst() {
     let build = LexicalFilePath("/pkg/.build")
     let stores = IndexStoreCandidates.packageStores(
@@ -13,6 +13,7 @@ struct IndexStoreCandidatesTests {
     ).map(\.string)
     #expect(
       stores == [
+        "/pkg/.build/out",
         "/pkg/.build/debug/index/store",
         "/pkg/.build/release/index/store",
         "/pkg/.build/arm64-apple-macosx/debug/index/store",
@@ -51,5 +52,64 @@ struct IndexStoreCandidatesTests {
       )
     )
     #expect(store == nil)
+  }
+
+  @Test("Swift Build executables identify shared index directory", arguments: [
+    (path: "/pkg/.build/out/Products/Debug/tool", store: "/pkg/.build/out"),
+    (path: "/pkg/.build/out/Products/Release/tool", store: "/pkg/.build/out"),
+    (
+      path: "/scratch/out/Products/Debug/Tests.xctest/Contents/MacOS/Tests",
+      store: "/scratch/out"
+    ),
+    (path: "/scratch/out/Products/debug/Tests.xctest", store: "/scratch/out"),
+  ])
+  func swiftBuildExecutable(path: String, store: String) {
+    let found = IndexStoreCandidates.runningBuildStore(
+      besideExecutableAt: LexicalFilePath(path)
+    )
+    #expect(found?.string == store)
+  }
+
+  @Test("Swift Build editor indexes remain excluded")
+  func swiftBuildEditor() {
+    #expect(IndexStoreCandidates.runningBuildStore(
+      besideExecutableAt: LexicalFilePath(
+        "/pkg/.build/index-build/out/Products/Debug/tool"
+      )
+    ) == nil)
+  }
+
+  @Test("Nested executables retain build directory", arguments: [
+    (
+      directory: "/pkg/.build/arm64/debug",
+      store: "/pkg/.build/arm64/debug/index/store"
+    ),
+    (directory: "/scratch/out/Products/Debug", store: "/scratch/out"),
+  ])
+  func nestedExecutable(directory: String, store: String) {
+    let nested = Array(repeating: "nested", count: 12).joined(separator: "/")
+    let found = IndexStoreCandidates.runningBuildStore(
+      besideExecutableAt: LexicalFilePath("\(directory)/\(nested)/tool")
+    )
+    #expect(found?.string == store)
+  }
+
+  @Test("Unrecognised paths end without a store", arguments: [
+    "/tool", "/", "tool", ".", "",
+  ])
+  func unrecognisedPath(path: String) {
+    #expect(IndexStoreCandidates.runningBuildStore(
+      besideExecutableAt: LexicalFilePath(path)
+    ) == nil)
+  }
+
+  @Test("Nearest build configuration wins")
+  func nearestConfiguration() {
+    let found = IndexStoreCandidates.runningBuildStore(
+      besideExecutableAt: LexicalFilePath(
+        "/release/project/.build/arm64/debug/Tests.xctest/Contents/MacOS/Tests"
+      )
+    )
+    #expect(found?.string == "/release/project/.build/arm64/debug/index/store")
   }
 }

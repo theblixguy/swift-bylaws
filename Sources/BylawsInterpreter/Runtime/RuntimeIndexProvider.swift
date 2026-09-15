@@ -35,6 +35,11 @@ package protocol RuntimeIndexProvider: Sendable {
     of symbolName: String,
     in index: RuntimeProjectIndex
   ) async throws(RuntimeIndexError) -> [RuntimeIndexReference]
+
+  func occurrences(
+    at location: DeclarationLocation,
+    in index: RuntimeProjectIndex
+  ) async throws(RuntimeIndexError) -> [RuntimeIndexReference]
 }
 
 package enum RuntimeIndexError: Error, Sendable, Hashable {

@@ -179,7 +179,7 @@ extension SupportedAPI {
       on: declarationReceivers.union([
         .model(.sourceFile), .model(.importDeclaration),
         .model(.extensionDeclaration), .model(.enumCase),
-        .model(.functionCall), .model(.offender),
+        .model(.functionCall), .model(.offender), .model(.indexReference),
       ]),
       result: .fixed(.model(.declarationLocation))
     ),

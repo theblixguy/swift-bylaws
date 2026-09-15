@@ -11,7 +11,7 @@ package struct DependencyAnalyser {
   }
 
   package func check(
-    occurrenceGroups: [[IndexReference]],
+    occurrenceGroups: some Sequence<[IndexReference]>,
     checkingCycles: Bool,
     reportedAt location: DeclarationLocation
   ) -> Rule.Findings {

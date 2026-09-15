@@ -87,6 +87,16 @@ struct RuntimeIndexProviderMock: RuntimeIndexProvider {
     return references
   }
 
+  func occurrences(
+    at location: DeclarationLocation,
+    in index: RuntimeProjectIndex
+  ) async -> [RuntimeIndexReference] {
+    references.filter {
+      $0.file == location.filePath && $0.line == location.line && $0
+        .column == location.column
+    }
+  }
+
   private var references: [RuntimeIndexReference] {
     [
       reference(name: "CoreConformer", module: "BylawsSemantics", line: 3),

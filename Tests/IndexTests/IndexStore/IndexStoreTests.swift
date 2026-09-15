@@ -21,7 +21,8 @@ struct IndexStoreTests {
     let store = try openStore()
     let names = store.unitNames()
     #expect(!names.isEmpty)
-    #expect(names.contains { $0.hasPrefix("IndexStore.swift") })
+    let unit = try indexSymbolUnit(in: store)
+    #expect(unit.mainFile.hasSuffix("/IndexSymbol.swift"))
   }
 
   @Test("A unit contains its module, file and records")
@@ -88,11 +89,13 @@ struct IndexStoreTests {
   }
 
   private func indexSymbolUnit(in store: IndexStore) throws -> IndexUnit {
-    let units = store.unitNames()
-      .filter { $0.hasPrefix("IndexSymbol.swift") }
+    let units = store.unitNames().lazy
       .compactMap { try? store.unit(named: $0) }
     return try #require(
-      units.first { $0.moduleName == "BylawsIndexStore" }
+      units.first {
+        $0.moduleName == "BylawsIndexStore"
+          && $0.mainFile.hasSuffix("/IndexSymbol.swift")
+      }
     )
   }
 }

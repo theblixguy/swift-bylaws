@@ -34,7 +34,7 @@ package struct IndexedLayeringAnalyser {
   }
 
   package func check(
-    occurrenceGroups: [[IndexReference]]
+    occurrenceGroups: some Sequence<[IndexReference]>
   ) -> Findings {
     var checkedDependencies: Set<Dependency> = []
     var offenders: [Offender] = []

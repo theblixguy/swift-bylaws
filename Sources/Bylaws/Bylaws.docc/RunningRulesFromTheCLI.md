@@ -490,7 +490,7 @@ other APIs.
 | `Import` | `attributes`, `kind`, `location`, `moduleName`, `name`, `visibility` | `attribute`, `hasAttribute` |
 | `ImportGraph` | `targets` | None |
 | `ImportGraph.Target` | `importedBy`, `imports`, `instability`, `name` | None |
-| `IndexReference` | `column`, `file`, `line`, `module`, `roles`, `symbol` | None |
+| `IndexReference` | `column`, `file`, `line`, `location`, `module`, `roles`, `symbol` | None |
 | `IndexSymbol` | `kind`, `name`, `usr` | None |
 | `Initializer` | `attributes`, `awaitCount`, `calls`, `cyclomaticComplexity`, `documentation`, `isAsync`, `isConvenience`, `isDocumented`, `isFailable`, `isNonisolated`, `isThrowing`, `location`, `name`, `parameters`, `visibility` | `attribute`, `hasAttribute` |
 | `LayeringCheck` | `emptyLayers`, `missingImports`, `violations` | `findings` |

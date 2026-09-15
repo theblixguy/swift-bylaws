@@ -7,7 +7,7 @@ import Foundation
 ///
 /// Building the index reads every unit once. Queries then read from memory.
 public struct ProjectIndex: Sendable {
-  private let referencesByUSR: [String: [IndexReference]]
+  private let occurrenceStorage: IndexOccurrences
 
   private let usrsByName: [String: Set<String>]
 
@@ -150,12 +150,10 @@ public struct ProjectIndex: Sendable {
       }
     }
 
-    referencesByUSR = references.mapValues {
-      $0.sorted(by: Self.areReferencesInStableOrder)
-    }
+    occurrenceStorage = IndexOccurrences(references.values.joined())
     usrsByName = names
     conformersByUSR = conformers.mapValues {
-      $0.sorted(by: Self.areReferencesInStableOrder)
+      $0.sorted(by: IndexReference.areInStableOrder)
     }
     self.modules = readModules
     fileCount = files.count
@@ -198,7 +196,7 @@ public struct ProjectIndex: Sendable {
         pending.append(conformer.symbol.usr)
       }
     }
-    return found.sorted(by: Self.areReferencesInStableOrder)
+    return found.sorted(by: IndexReference.areInStableOrder)
   }
 
   /// Returns the types whose own declaration or extension names `typeName`.
@@ -208,7 +206,7 @@ public struct ProjectIndex: Sendable {
   public func directConformers(of typeName: String) -> [IndexReference] {
     identifiers(for: typeName)
       .flatMap { conformersByUSR[$0] ?? [] }
-      .sorted(by: Self.areReferencesInStableOrder)
+      .sorted(by: IndexReference.areInStableOrder)
   }
 
   /// Returns every place that uses `symbolName`.
@@ -229,9 +227,23 @@ public struct ProjectIndex: Sendable {
 
   /// Returns every place `symbolName` appears, whatever it does there.
   public func occurrences(of symbolName: String) -> [IndexReference] {
-    identifiers(for: symbolName)
-      .flatMap { referencesByUSR[$0] ?? [] }
-      .sorted(by: Self.areReferencesInStableOrder)
+    occurrenceStorage.matching(identifiers(for: symbolName))
+  }
+
+  /// Returns the compiler occurrences at an exact source position.
+  ///
+  /// Use the file path and source from the indexed build, with lines and
+  /// UTF-8 byte columns starting at 1. The result includes every occurrence
+  /// at that position and is empty when the index has none.
+  ///
+  /// - Complexity: O(log n + k), where n is the number of indexed occurrences
+  ///   and k is the number at this position.
+  public func occurrences(
+    in file: String,
+    line: Int,
+    column: Int
+  ) -> [IndexReference] {
+    occurrenceStorage.at(file: file, line: line, column: column)
   }
 
   /// Returns the modules that supply `symbolName`.
@@ -252,8 +264,8 @@ public struct ProjectIndex: Sendable {
     usrsByName[name] != nil
   }
 
-  package var occurrenceGroups: [[IndexReference]] {
-    referencesByUSR.keys.sorted().compactMap { referencesByUSR[$0] }
+  package var occurrenceGroups: some Sequence<[IndexReference]> {
+    occurrenceStorage.groups
   }
 
   private static func requireOneBuildConfiguration(
@@ -283,26 +295,6 @@ public struct ProjectIndex: Sendable {
         outputFiles: conflict.value
       )
     }
-  }
-
-  private static func areReferencesInStableOrder(
-    _ lhs: IndexReference,
-    _ rhs: IndexReference
-  ) -> Bool {
-    if lhs.file != rhs.file { return lhs.file < rhs.file }
-    if lhs.line != rhs.line { return lhs.line < rhs.line }
-    if lhs.column != rhs.column { return lhs.column < rhs.column }
-    if lhs.module != rhs.module { return lhs.module < rhs.module }
-    if lhs.symbol.usr != rhs.symbol.usr {
-      return lhs.symbol.usr < rhs.symbol.usr
-    }
-    if lhs.symbol.name != rhs.symbol.name {
-      return lhs.symbol.name < rhs.symbol.name
-    }
-    let lhsKind = String(describing: lhs.symbol.kind)
-    let rhsKind = String(describing: rhs.symbol.kind)
-    if lhsKind != rhsKind { return lhsKind < rhsKind }
-    return lhs.roles.rawValue < rhs.roles.rawValue
   }
 
   private struct SourceUnit: Hashable {

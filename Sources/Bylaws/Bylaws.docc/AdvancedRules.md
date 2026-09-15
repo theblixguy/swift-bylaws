@@ -86,6 +86,41 @@ Use an index store for the build configuration you want to check. If the store
 contains several configurations, select the relevant units with
 `unitOutputFiles:`.
 
+## Look up a source position
+
+You can look up the compiler occurrences at an exact source location. This
+test helper checks that an identifier refers to a known definition:
+
+```swift
+func checkReference(
+  at location: DeclarationLocation, to definition: IndexReference
+) async throws {
+  let index = try await Codebase.app.projectIndex(modules: ["Networking"])
+  let references = index.occurrences(at: location).filter {
+    $0.roles.contains(.reference) && !$0.roles.contains(.implicit)
+  }
+  #expect(references.count == 1)
+  #expect(references.first?.symbol.usr == definition.symbol.usr)
+}
+```
+
+Pass a definition from the index and the location of the identifier you want
+to check. For `client.send()`, use the position of `send` to look up the
+method. The lookup takes the file path, line and UTF-8 byte column from the
+source used in the indexed build.
+
+The helper compares `symbol.usr` to check that the reference and definition
+refer to the same symbol, even when other declarations have the same name.
+It also checks the number of results because a position can have several
+indexed occurrences or none. For example, the compiler can omit a local
+value from the index.
+
+You can also use `index.occurrences(at:)` in a CLI rule body, then filter the
+results as shown above. The CLI runs index queries in an asynchronous context,
+so keep the query outside a synchronous matcher or collection closure.
+For direct access through `BylawsIndexStore`, use
+`index.occurrences(in:line:column:)`.
+
 ## Source-text checks
 
 You can read `sourceText` on a file or declaration when a rule needs the exact
