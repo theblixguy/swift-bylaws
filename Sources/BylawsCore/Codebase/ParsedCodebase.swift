@@ -17,6 +17,7 @@ package struct ParsedCodebase: Sendable {
     case imports
     case typealiases
     case calls
+    case expressions
   }
 
   package let rootPath: String

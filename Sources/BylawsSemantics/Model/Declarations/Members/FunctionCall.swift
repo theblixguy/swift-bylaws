@@ -5,14 +5,39 @@ public struct FunctionCall: Declaration, Codable {
     /// The argument's label, or `nil` when the argument has no label.
     public let label: String?
 
-    /// The argument's expression, as written, such as `"logo"` in
+    /// The argument expression as source text, such as `"logo"` in
     /// `UIImage(named: "logo")`.
     public let text: String
 
+    /// The argument's position in the source file, or `nil` if no position
+    /// was supplied.
+    public let location: DeclarationLocation?
+
+    package let swiftLanguageMode: SwiftLanguageMode
+
     /// Creates an argument model.
-    public init(label: String?, text: String) {
+    public init(
+      label: String?, text: String,
+      location: DeclarationLocation? = nil,
+      swiftLanguageMode: SwiftLanguageMode = .v6
+    ) {
       self.label = label
       self.text = text
+      self.location = location
+      self.swiftLanguageMode = swiftLanguageMode
+    }
+
+    /// The argument as a source expression.
+    ///
+    /// Returns `nil` when the argument has no source location or its text
+    /// cannot be parsed as one expression.
+    ///
+    /// - Complexity: O(n), where n is the length of the argument text.
+    public var expression: SourceExpression? {
+      guard let location else { return nil }
+      return SourceExpression.parse(
+        text, at: location, swiftLanguageMode: swiftLanguageMode
+      )
     }
   }
 
@@ -20,7 +45,7 @@ public struct FunctionCall: Declaration, Codable {
   /// `UserDefaults.standard.set` or `Logger.init`.
   public let calledExpression: String
 
-  /// The arguments in order.
+  /// The parenthesised arguments in source order.
   public let arguments: [Argument]
 
   public package(set) var location: DeclarationLocation
@@ -67,11 +92,10 @@ public struct FunctionCall: Declaration, Codable {
   /// `UserDefaults.standard.set`, and `Task.detached` matches itself but not
   /// `Task.sleep`.
   ///
-  /// An identifier that ends in argument labels also compares the labels.
-  /// `UIImage(named:)` leaves `UIImage(systemName:)` alone. Write `_`
-  /// for an argument with no label and `()` for a call with no arguments.
-  /// A trailing closure carries no label. `Task.detached()` matches
-  /// `Task.detached { }`.
+  /// When `identifier` includes argument labels, the call must have matching
+  /// labels. Use `_` for an unlabelled argument and `()` for an empty argument
+  /// list. Only arguments inside parentheses take part in this comparison,
+  /// so `Task.detached()` matches `Task.detached { }`.
   public func references(_ identifier: String) -> Bool {
     let (path, labels) = FunctionCall.parts(of: identifier)
     guard referencesPath(path) else { return false }

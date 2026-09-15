@@ -170,6 +170,18 @@ extension Codebase {
     }
   }
 
+  /// The expressions in the codebase, including those inside local declarations
+  /// and closures.
+  ///
+  /// - Throws: The errors ``files`` throws.
+  public var expressions: Selection<SourceExpression> {
+    get async throws(CodebaseError) {
+      try await selection(of: .expressions, labelled: "expressions") {
+        $0.flatMap(\.expressions)
+      }
+    }
+  }
+
   private func selection<Element>(
     of category: ParsedCodebase.Projection,
     labelled label: String,

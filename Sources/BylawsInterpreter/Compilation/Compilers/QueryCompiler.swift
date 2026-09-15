@@ -129,6 +129,13 @@ enum QueryCompiler {
         { try await $0.calls },
         over: codebase
       )
+    case .expressions:
+      compile(
+        query,
+        supportedQuery,
+        { try await $0.expressions },
+        over: codebase
+      )
     }
   }
 

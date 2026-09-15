@@ -23,12 +23,8 @@ final class CallCollector: LexicalRegionVisitor {
     calls.append(
       FunctionCall(
         calledExpression: text.trimmedText(of: node.calledExpression),
-        arguments: node.arguments.map {
-          FunctionCall.Argument(
-            label: $0.label?.text,
-            text: text.trimmedText(of: $0.expression)
-          )
-        },
+        arguments: node.arguments
+          .map(SyntaxReader(path: path, text: text).argument),
         location: DeclarationLocation(
           filePath: path,
           line: position.line,
@@ -48,12 +44,8 @@ final class CallCollector: LexicalRegionVisitor {
     calls.append(
       FunctionCall(
         calledExpression: "#\(node.macroName.text)",
-        arguments: node.arguments.map {
-          FunctionCall.Argument(
-            label: $0.label?.text,
-            text: text.trimmedText(of: $0.expression)
-          )
-        },
+        arguments: node.arguments
+          .map(SyntaxReader(path: path, text: text).argument),
         location: DeclarationLocation(
           filePath: path,
           line: position.line,

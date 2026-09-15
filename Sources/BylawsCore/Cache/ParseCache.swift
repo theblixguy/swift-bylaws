@@ -6,7 +6,7 @@ package struct ParseCache: Sendable {
   package static let defaultBudget = 1_000_000_000
 
   // Increase this when the model or a collector changes.
-  private static let schemaVersion = 9
+  private static let schemaVersion = 10
   private static let maintenanceInterval: TimeInterval = 24 * 60 * 60
   private static let keySeparator: UInt8 = 0
   private static let entryVersionMarker = "-v"

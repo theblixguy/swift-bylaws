@@ -19,6 +19,7 @@ and conditions.
 | Imports between layers and dependencies declared in a package | <doc:ArchitectureRules> |
 | References between files and cycles between named file groups | <doc:DependencyRules> |
 | Several conditions or the members of a declaration | <doc:CombiningChecks> |
+| Literal values, interpolation arguments and member references | <doc:InspectingExpressions> |
 | Compiler-resolved symbols, source text or SwiftSyntax nodes | <doc:AdvancedRules> |
 
 ## Set up and run a recipe

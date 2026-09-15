@@ -18,6 +18,10 @@ enum RuntimeModelValue: Sendable, Equatable {
   case importDeclaration(Import)
   case typealiasDeclaration(Typealias)
   case functionCall(FunctionCall)
+  case callArgument(FunctionCall.Argument)
+  case sourceExpression(SourceExpression)
+  case expressionArgument(SourceExpression.Argument)
+  case dictionaryElement(SourceExpression.DictionaryElement)
   case typeReference(TypeReference)
   case parameter(Parameter)
   case attribute(Attribute)
@@ -55,6 +59,8 @@ enum RuntimeModelValue: Sendable, Equatable {
     case let .importDeclaration(value): runtimeOffender(value)
     case let .typealiasDeclaration(value): runtimeOffender(value)
     case let .functionCall(value): runtimeOffender(value)
+    case let .sourceExpression(value): runtimeOffender(value)
+    case .callArgument, .expressionArgument, .dictionaryElement: nil
     case let .bazelTarget(value): runtimeOffender(value)
     case .check, .typeReference, .parameter, .attribute, .genericParameter,
          .importGraph, .importGraphTarget, .bazelGraph, .bazelConfiguration,
@@ -89,6 +95,10 @@ extension RuntimeModelValue {
     case .importDeclaration: .importDeclaration
     case .typealiasDeclaration: .typealiasDeclaration
     case .functionCall: .functionCall
+    case .callArgument: .callArgument
+    case .sourceExpression: .sourceExpression
+    case .expressionArgument: .expressionArgument
+    case .dictionaryElement: .dictionaryElement
     case .typeReference: .typeReference
     case .parameter: .parameter
     case .attribute: .attribute

@@ -33,6 +33,7 @@ extension SupportedAPI {
     codebaseSelection(.imports, family: .import),
     codebaseSelection(.typealiases, family: .typealias),
     codebaseSelection(.calls, family: .functionCall),
+    codebaseSelection(.expressions, family: .sourceExpression),
     property(
       .packageManifest,
       on: [.codebase],

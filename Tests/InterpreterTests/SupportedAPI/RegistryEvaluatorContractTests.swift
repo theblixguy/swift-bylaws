@@ -121,6 +121,7 @@ private struct ModelSamples {
 
   init() async throws {
     try await addSemanticSamples()
+    try addExpressionSamples()
     addManifestSamples()
     addGraphAndIndexSamples()
     let bazelGraph = try await Codebase(root: .sources([
@@ -162,6 +163,34 @@ private struct ModelSamples {
 }
 
 extension ModelSamples {
+  private mutating func addExpressionSamples() throws {
+    let file = try FileCollector.collect(
+      source: #"""
+      func check() {
+        log("text", "\(user, privacy: .public)", false, 0, 1.5, nil,
+            Store.save(value: value), ["key": value], [value])
+      }
+      """#,
+      path: "/virtual/Expressions.swift"
+    )
+    let arguments = file.calls.flatMap(\.arguments)
+    add(arguments, as: RuntimeModelValue.callArgument)
+    var expressions = arguments.compactMap(\.expression)
+    while let expression = expressions.popLast() {
+      add(.sourceExpression(expression))
+      let arguments = (expression.arguments ?? []) + expression.interpolations
+        .flatMap(\.self)
+      add(arguments, as: RuntimeModelValue.expressionArgument)
+      expressions += arguments.map(\.expression)
+      expressions += expression.arrayElements ?? []
+      let entries = expression.dictionaryElements ?? []
+      add(entries, as: RuntimeModelValue.dictionaryElement)
+      expressions += entries.flatMap { [$0.key, $0.value] }
+      if let base = expression.base { expressions.append(base) }
+      if let called = expression.calledExpression { expressions.append(called) }
+    }
+  }
+
   private mutating func addSemanticSamples() async throws {
     let codebase = Codebase(root: .sources([
       "Sources/App/Widget.swift": ContractMocks.semanticSource,

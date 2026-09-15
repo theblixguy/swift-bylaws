@@ -1,5 +1,10 @@
 extension SupportedAPI {
   package enum Member: String, CaseIterable, Hashable, Sendable {
+    case stringValue, integerValue, floatingPointValue, booleanValue
+    case isNilLiteral, referenceName, referenceLocation, base, arrayElements
+    case dictionaryElements
+    case interpolations, key
+    case expressions
     case deletingLastPathComponent
     case lastPathComponent
     case pathExtension
@@ -348,6 +353,10 @@ extension SupportedAPI {
   }
 
   package enum ModelType: String, CaseIterable, Sendable {
+    case sourceExpression = "SourceExpression"
+    case expressionArgument = "SourceExpression.Argument"
+    case dictionaryElement = "SourceExpression.DictionaryElement"
+    case callArgument = "FunctionCall.Argument"
     case bazelGraph = "BazelGraph"
     case bazelTarget = "BazelGraph.Target"
     case bazelConfiguration = "BazelGraph.Configuration"
@@ -432,6 +441,7 @@ extension SupportedAPI {
       case .import: self = .importDeclaration
       case .typealias: self = .typealiasDeclaration
       case .functionCall: self = .functionCall
+      case .sourceExpression: self = .sourceExpression
       }
     }
   }

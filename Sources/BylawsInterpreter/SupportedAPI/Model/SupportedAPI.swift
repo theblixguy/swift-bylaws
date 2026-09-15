@@ -99,6 +99,7 @@ package enum SupportedAPI {
     case `import`
     case `typealias`
     case functionCall
+    case sourceExpression
   }
 
   package static let allDeclarationFamilies = Set(DeclarationFamily.allCases)

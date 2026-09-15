@@ -208,6 +208,7 @@ extension SupportedAPI.DeclarationFamily {
     case .import: Import.self
     case .typealias: Typealias.self
     case .functionCall: FunctionCall.self
+    case .sourceExpression: SourceExpression.self
     }
   }
 }
@@ -229,7 +230,10 @@ extension RuntimeModelValue {
     case let .importDeclaration(value): value
     case let .typealiasDeclaration(value): value
     case let .functionCall(value): value
-    case .check, .typeReference, .parameter, .attribute, .genericParameter,
+    case let .sourceExpression(value): value
+    case .callArgument, .expressionArgument,
+         .dictionaryElement,
+         .check, .typeReference, .parameter, .attribute, .genericParameter,
          .enumCase, .importGraph, .importGraphTarget, .bazelGraph, .bazelTarget,
          .bazelConfiguration,
          .packageManifest,

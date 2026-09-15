@@ -72,7 +72,7 @@ public enum FileCollector {
 
     let visitor = DeclarationVisitor(
       path: path,
-      text: SourceText(source: source)
+      text: SourceText(source: source, swiftLanguageMode: swiftLanguageMode)
     )
     visitor.walk(tree)
 

@@ -32,6 +32,10 @@ extension RuntimeEvaluator {
     case let .importDeclaration(value): importMember(name, value)
     case let .typealiasDeclaration(value): typealiasMember(name, value)
     case let .functionCall(value): callMember(name, value)
+    case let .sourceExpression(value): expressionMember(name, value)
+    case let .callArgument(value): callArgumentMember(name, value)
+    case let .expressionArgument(value): expressionArgumentMember(name, value)
+    case let .dictionaryElement(value): dictionaryElementMember(name, value)
     case let .typeReference(value): typeReferenceMember(name, value)
     case let .parameter(value): parameterMember(name, value)
     case let .attribute(value): attributeMember(name, value)
@@ -95,6 +99,10 @@ extension RuntimeEvaluator {
     case .typealiases:
       modelArray(value.typealiases, RuntimeModelValue.typealiasDeclaration)
     case .calls: modelArray(value.calls, RuntimeModelValue.functionCall)
+    case .expressions: modelArray(
+        value.expressions,
+        RuntimeModelValue.sourceExpression
+      )
     default: nil
     }
   }
@@ -309,6 +317,7 @@ extension RuntimeEvaluator {
     switch name {
     case .name: .string(value.name)
     case .calledExpression: .string(value.calledExpression)
+    case .arguments: modelArray(value.arguments, RuntimeModelValue.callArgument)
     case .baseName: .string(value.baseName)
     case .memberName: .string(value.memberName)
     case .argumentLabels:
