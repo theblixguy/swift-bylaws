@@ -21,7 +21,7 @@ struct LintCommand: AsyncParsableCommand {
 
   @Option(
     parsing: .upToNextOption,
-    help: "Rules files to load instead of discovering them."
+    help: "Rules files to load, relative to the project root, instead of discovering them."
   )
   var rules: [String] = []
 
@@ -39,6 +39,11 @@ struct LintCommand: AsyncParsableCommand {
 
   @Option(help: "Choose xcode, github, json or sarif output.")
   var format = OutputFormat.xcode
+
+  @Option(
+    help: "Write the report to this file instead of standard output. Relative paths use the working directory."
+  )
+  var output: String?
 
   @Option(
     name: .customLong("report-path"),
@@ -87,20 +92,25 @@ struct LintCommand: AsyncParsableCommand {
         hasExplicitRuleFiles: !rules.isEmpty
       )
     } catch {
-      try DiagnosticPrinter.printError(
+      try reportError(
         error.description,
-        rulesFileRoot: LexicalFilePath.currentDirectory.string,
-        format: format
+        rootPath: LexicalFilePath.currentDirectory.string
       )
       throw ExitCode(2)
     }
     if recordBaseline != nil,
        !only.isEmpty || !skip.isEmpty || !reportPaths.isEmpty
     {
-      try DiagnosticPrinter.printError(
+      try reportError(
         "--record-baseline cannot be combined with --only, --skip or --report-path",
-        rulesFileRoot: rootPath.string,
-        format: format
+        rootPath: rootPath.string
+      )
+      throw ExitCode(2)
+    }
+    if recordBaseline != nil, output != nil {
+      try reportError(
+        "--record-baseline cannot be combined with --output. Run each command separately.",
+        rootPath: rootPath.string
       )
       throw ExitCode(2)
     }
@@ -109,13 +119,14 @@ struct LintCommand: AsyncParsableCommand {
       RuleRunConfiguration(
         root: rootPath,
         ruleFilePaths: rules.map {
-          LexicalFilePath($0, relativeTo: .currentDirectory)
+          LexicalFilePath($0, relativeTo: rootPath)
         },
         only: only,
         skip: skip,
         strict: strict,
         sourceOnly: sourceOnly,
-        baseline: baseline,
+        baseline: baseline
+          .map { LexicalFilePath($0, relativeTo: rootPath).string },
         reportPaths: reportPaths,
         parseCachePolicy: parseCachePolicy,
         swiftPackageModules: swiftPackageModules
@@ -125,11 +136,7 @@ struct LintCommand: AsyncParsableCommand {
     if result.outcome == .invalidRules
       || result.outcome == .notConfigured
     {
-      try DiagnosticPrinter.print(
-        result.diagnostics,
-        format: format,
-        rootPath: result.rootPath
-      )
+      try writeReport(result.document, rootPath: result.rootPath, quiet: true)
       throw ExitCode(2)
     }
 
@@ -148,15 +155,7 @@ struct LintCommand: AsyncParsableCommand {
       return
     }
 
-    let output = try ReportRenderer.render(
-      result.document,
-      format: format,
-      quiet: quiet,
-      rootPath: result.rootPath
-    )
-    if !output.isEmpty {
-      print(output)
-    }
+    try writeReport(result.document, rootPath: result.rootPath, quiet: quiet)
 
     if result.outcome == .violations {
       throw ExitCode(1)

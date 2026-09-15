@@ -35,8 +35,16 @@ final class CLIProcessProject {
     )
   }
 
-  func run(_ arguments: String...) throws -> Result {
-    try run("lint", arguments: arguments, usesExplicitRoot: true)
+  func run(
+    _ arguments: String...,
+    from directory: URL? = nil
+  ) throws -> Result {
+    try run(
+      "lint",
+      arguments: arguments,
+      usesExplicitRoot: true,
+      directory: directory
+    )
   }
 
   func runRules(_ arguments: String...) throws -> Result {
@@ -50,7 +58,8 @@ final class CLIProcessProject {
   private func run(
     _ command: String,
     arguments: [String],
-    usesExplicitRoot: Bool
+    usesExplicitRoot: Bool,
+    directory: URL? = nil
   ) throws -> Result {
     let outputURL = root.appendingPathComponent("stdout-\(UUID().uuidString)")
     let errorURL = root.appendingPathComponent("stderr-\(UUID().uuidString)")
@@ -69,7 +78,7 @@ final class CLIProcessProject {
     process.arguments = [command]
       + (usesExplicitRoot ? ["--root", root.path] : [])
       + arguments
-    process.currentDirectoryURL = root
+    process.currentDirectoryURL = directory ?? root
     process.standardOutput = standardOutput
     process.standardError = standardError
 

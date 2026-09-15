@@ -1,4 +1,5 @@
 import BylawsCore
+import BylawsPaths
 import SwiftSyntax
 
 extension RulesBindingParser {
@@ -107,7 +108,10 @@ extension RulesBindingParser {
             argument.label == nil,
             let path = RulesStringDecoder.string(argument.expression)
       else { return nil }
-      return .directory(path)
+      return .directory(LexicalFilePath(
+        path,
+        relativeTo: LexicalFilePath(file.directory)
+      ).string)
     default:
       return nil
     }
