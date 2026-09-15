@@ -129,6 +129,34 @@ enum QueryCompiler {
         { try await $0.calls },
         over: codebase
       )
+    case .expressions:
+      compile(
+        query,
+        supportedQuery,
+        { try await $0.expressions },
+        over: codebase
+      )
+    case .compilationBranches:
+      compile(
+        query,
+        supportedQuery,
+        { try await $0.compilationBranches },
+        over: codebase
+      )
+    case .assignments:
+      compile(
+        query,
+        supportedQuery,
+        { try await $0.assignments },
+        over: codebase
+      )
+    case .variableBindings:
+      compile(
+        query,
+        supportedQuery,
+        { try await $0.variableBindings },
+        over: codebase
+      )
     }
   }
 

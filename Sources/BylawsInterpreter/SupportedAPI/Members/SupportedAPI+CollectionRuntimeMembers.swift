@@ -63,6 +63,12 @@ extension SupportedAPI {
     stringMethod(.hasPrefix),
     stringMethod(.hasSuffix),
     stringMethod(.contains),
+    method(
+      .lowercased,
+      on: [.string],
+      arguments: .exact([]),
+      result: .fixed(.string)
+    ),
   ]
 
   static let selectionRuntimeMembers: [RuntimeMemberAPI] = [

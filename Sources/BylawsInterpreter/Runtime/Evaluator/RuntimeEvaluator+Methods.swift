@@ -118,6 +118,10 @@ extension RuntimeEvaluator {
     value: String,
     arguments: RuntimeArguments
   ) throws(RuntimeError) -> RuntimeValue {
+    if name == .lowercased {
+      try arguments.requireLabels([], for: name)
+      return .string(value.lowercased())
+    }
     try arguments.requireLabels([nil], for: name)
     let argument = try arguments.string(at: 0)
     return switch name {

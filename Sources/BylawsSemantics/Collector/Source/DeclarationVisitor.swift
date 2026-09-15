@@ -417,12 +417,7 @@ final class DeclarationVisitor: SyntaxVisitor {
     macroExpansions.append(
       FunctionCall(
         calledExpression: "#\(name)",
-        arguments: arguments.map {
-          FunctionCall.Argument(
-            label: $0.label?.text,
-            text: reader.trimmedSourceText(of: $0.expression)
-          )
-        },
+        arguments: arguments.map(reader.argument),
         location: reader.location(of: node)
       )
     )

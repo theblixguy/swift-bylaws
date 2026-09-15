@@ -14,6 +14,17 @@ extension RuntimeEvaluator {
       return try manifestMethod(name, manifest: manifest, arguments: arguments)
     }
     switch (name, value) {
+    case let (.contains, .compilationBranch(branch)):
+      try arguments.requireLabels([nil], for: name)
+      guard case let .model(.check(.location(location))) = try arguments
+        .value(at: 0)
+      else {
+        throw RuntimeError(
+          message: "CompilationBranch.contains takes one DeclarationLocation",
+          location: arguments.location
+        )
+      }
+      return .boolean(branch.contains(location))
     case let (.directTargetDependencies, .bazelGraph(graph)),
          let (.transitiveTargetDependencies, .bazelGraph(graph)):
       return try bazelDependencies(name, graph: graph, arguments: arguments)

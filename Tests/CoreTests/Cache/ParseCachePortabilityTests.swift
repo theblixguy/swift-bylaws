@@ -20,7 +20,7 @@ struct ParseCachePortabilityTests {
     class Model {
       var value = makeValue()
       init() { prepare() }
-      func load() { fetch() }
+      func load() { fetch("message", privacy: .public) }
       struct Nested {}
     }
     actor Store {}
@@ -51,6 +51,10 @@ struct ParseCachePortabilityTests {
     let model = try #require(loaded.classes.first)
     #expect(model.sourceText == expected.classes.first?.sourceText)
     #expect(loaded.calls == expected.calls)
+    let argument = try #require(loaded.calls.first { $0.memberName == "fetch" }?
+      .arguments.last)
+    #expect(argument.expression?.referenceName == "public")
+    #expect(argument.expression?.location.filePath == path)
   }
 
   @Test("Cache bytes exclude checkout path")

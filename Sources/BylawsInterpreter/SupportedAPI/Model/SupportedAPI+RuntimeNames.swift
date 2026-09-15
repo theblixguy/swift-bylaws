@@ -1,5 +1,19 @@
 extension SupportedAPI {
   package enum Member: String, CaseIterable, Hashable, Sendable {
+    case stringValue, integerValue, floatingPointValue, booleanValue
+    case isNilLiteral, referenceName, referenceLocation, base, arrayElements
+    case dictionaryElements
+    case interpolations, key
+    case expressions
+    case assignments
+    case variableBindings
+    case operatorName
+    case initialValue
+    case isMutable
+    case enclosingDeclarations
+    case compilationBranches
+    case precedingConditions
+    case lowercased
     case deletingLastPathComponent
     case lastPathComponent
     case pathExtension
@@ -275,6 +289,7 @@ extension SupportedAPI {
   }
 
   package enum Method: String, CaseIterable, Sendable {
+    case lowercased
     case bazelGraph
     case deletingLastPathComponent
     case mapValues
@@ -348,6 +363,14 @@ extension SupportedAPI {
   }
 
   package enum ModelType: String, CaseIterable, Sendable {
+    case sourceExpression = "SourceExpression"
+    case sourceAssignment = "SourceAssignment"
+    case variableBinding = "VariableBinding"
+    case enclosingDeclaration = "EnclosingDeclaration"
+    case compilationBranch = "CompilationBranch"
+    case expressionArgument = "SourceExpression.Argument"
+    case dictionaryElement = "SourceExpression.DictionaryElement"
+    case callArgument = "FunctionCall.Argument"
     case bazelGraph = "BazelGraph"
     case bazelTarget = "BazelGraph.Target"
     case bazelConfiguration = "BazelGraph.Configuration"
@@ -432,6 +455,10 @@ extension SupportedAPI {
       case .import: self = .importDeclaration
       case .typealias: self = .typealiasDeclaration
       case .functionCall: self = .functionCall
+      case .sourceExpression: self = .sourceExpression
+      case .sourceAssignment: self = .sourceAssignment
+      case .variableBinding: self = .variableBinding
+      case .compilationBranch: self = .compilationBranch
       }
     }
   }

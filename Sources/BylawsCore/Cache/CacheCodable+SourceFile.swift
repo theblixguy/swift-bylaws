@@ -145,12 +145,17 @@ extension Parameter: CacheCodable {
 
 extension FunctionCall.Argument: CacheCodable {
   package init(from decoder: CacheDecoder) throws(CacheDecoder.Malformed) {
-    self.init(label: try decoder.decode(), text: try decoder.decode())
+    self.init(
+      label: try decoder.decode(), text: try decoder.decode(),
+      location: try decoder.decode(), swiftLanguageMode: try decoder.decode()
+    )
   }
 
   package func encode(to encoder: CacheEncoder) {
     encoder.encode(label)
     encoder.encode(text)
+    encoder.encode(location)
+    encoder.encode(swiftLanguageMode)
   }
 }
 

@@ -4,6 +4,15 @@ struct SyntaxReader {
   let path: String
   let text: SourceText
 
+  func argument(_ node: LabeledExprSyntax) -> FunctionCall.Argument {
+    FunctionCall.Argument(
+      label: node.label?.text,
+      text: text.trimmedText(of: node.expression),
+      location: location(of: node.expression),
+      swiftLanguageMode: text.swiftLanguageMode
+    )
+  }
+
   func genericParameters(
     of clause: GenericParameterClauseSyntax?
   ) -> [GenericParameter] {

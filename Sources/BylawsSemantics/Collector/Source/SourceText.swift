@@ -1,10 +1,12 @@
 import SwiftSyntax
 
-struct SourceText {
+struct SourceText: Sendable {
   let buffer: SourceBuffer
+  let swiftLanguageMode: SwiftLanguageMode
   private let lines: SourceLineTable
 
-  init(source: String) {
+  init(source: String, swiftLanguageMode: SwiftLanguageMode = .v6) {
+    self.swiftLanguageMode = swiftLanguageMode
     lines = SourceLineTable(source.utf8)
     buffer = SourceBuffer(
       source,

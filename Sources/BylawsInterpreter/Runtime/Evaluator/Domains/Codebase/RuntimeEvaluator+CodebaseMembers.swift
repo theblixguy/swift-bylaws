@@ -129,6 +129,26 @@ extension RuntimeEvaluator {
       )
     case .packageManifest:
       .model(.packageManifest(try await codebase.packageManifest))
+    case .expressions:
+      selection(
+        try await codebase.expressions, family: .sourceExpression,
+        root: root, transform: RuntimeModelValue.sourceExpression
+      )
+    case .assignments:
+      selection(
+        try await codebase.assignments, family: .sourceAssignment,
+        root: root, transform: RuntimeModelValue.sourceAssignment
+      )
+    case .variableBindings:
+      selection(
+        try await codebase.variableBindings, family: .variableBinding,
+        root: root, transform: RuntimeModelValue.variableBinding
+      )
+    case .compilationBranches:
+      selection(
+        try await codebase.compilationBranches, family: .compilationBranch,
+        root: root, transform: RuntimeModelValue.compilationBranch
+      )
     default:
       nil
     }
