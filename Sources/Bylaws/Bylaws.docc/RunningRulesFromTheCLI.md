@@ -103,11 +103,13 @@ set `swiftLanguageMode: .v5` or `.v6` in the `Codebase` declaration, or use
 `.automatic([.swiftPM, .xcode])` to include local package settings too. See
 <doc:WhatBylawsReads#Swift-language-mode> for the discovery limits.
 
-You can keep rules for the whole project in `Bylaws.swift` at the root and add
-package-specific rules beside each local package's `Package.swift`. A package
-can also replace a root rule within its directory with an `Override` that
-explains the exception. For example,
-`Modules/Billing/Bylaws.swift` can contain:
+You can keep project-wide rules in the root `Bylaws.swift` and add a
+`Bylaws.swift` in any folder that needs its own rules. Each file uses its folder
+as the default codebase root, including in Xcode and Bazel projects.
+
+Rules from parent folders also apply unless you replace one with an `Override`
+that explains the exception. For example, `Modules/Billing/Bylaws.swift` can
+contain:
 
 ```swift
 let billing = Codebase(including: ["Sources/**"])
@@ -117,14 +119,15 @@ Override("layers", reason: "billing migrates to the new layering in Q4") {
 }
 ```
 
-The root rule continues to run outside the module directory. You can see which
-rules apply to a path and why they were overridden with
+The parent rule continues to run outside `Modules/Billing`. If a subfolder has
+another override for the same rule, that override applies within the subfolder.
+You can see which rules apply to a path and why they were overridden with
 `bylaws rules --for Modules/Billing/Sources`:
 
 ```text
 layers
   Modules import their own layer
-  overrides the root rule: billing migrates to the new layering in Q4
+  override: billing migrates to the new layering in Q4
   Modules/Billing/Bylaws.swift:3
 ```
 

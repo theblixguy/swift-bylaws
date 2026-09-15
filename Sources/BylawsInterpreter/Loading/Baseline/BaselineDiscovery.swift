@@ -2,8 +2,7 @@ public import BylawsCore
 import BylawsPaths
 import BylawsSemantics
 
-/// A recorded baseline file found at the project root or beside a
-/// module's `Package.swift`.
+/// A baseline file found within the project.
 public struct DiscoveredBaseline: Sendable {
   /// The baseline file's path.
   public let path: String
@@ -54,9 +53,7 @@ public struct DiscoveredBaselines: Sendable {
   /// Returns the baselines the project's `Bylaws.baseline.swift` files
   /// declare.
   ///
-  /// Discovery checks the project root and each directory containing a
-  /// `Package.swift`. A module baseline applies only within that module. The
-  /// root baseline applies project-wide.
+  /// Each baseline applies to its folder and subfolders.
   ///
   /// Read ``diagnostics`` for files that failed to load.
   public static func discovered(
