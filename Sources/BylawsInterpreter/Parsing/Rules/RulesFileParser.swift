@@ -92,15 +92,20 @@ struct RulesFileParser {
       parsed.diagnostics.append(unsupported(item))
     case let .expr(expression):
       if let call = expression.as(FunctionCallExprSyntax.self),
-         let name = syntax.identifier(of: call.calledExpression),
-         let keyword = SupportedAPI.Declaration(rawValue: name)
+         let name = syntax.identifier(of: call.calledExpression)
       {
-        RuleDeclarationParser(syntax: syntax).parse(
-          call,
-          as: keyword,
-          into: &parsed
-        )
-        return
+        if name == "RuleDiscovery" {
+          RuleDiscoveryParser(syntax: syntax).parse(call, into: &parsed)
+          return
+        }
+        if let keyword = SupportedAPI.Declaration(rawValue: name) {
+          RuleDeclarationParser(syntax: syntax).parse(
+            call,
+            as: keyword,
+            into: &parsed
+          )
+          return
+        }
       }
       parsed.diagnostics.append(unsupported(item))
     case .stmt:
@@ -132,7 +137,8 @@ struct RulesFileParser {
       "portable rules do not support this top-level code",
       at: item,
       hint: "a Bylaws.swift file contains Codebase and Layering bindings "
-        + "and Rule declarations. Put reusable helpers in an imported rule "
+        + "and Rule, Override or RuleDiscovery declarations. "
+        + "Put reusable helpers in an imported rule "
         + "target or other code in a test target"
     )
   }
