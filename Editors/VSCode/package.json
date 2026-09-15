@@ -2,7 +2,7 @@
   "name": "bylaws",
   "displayName": "Bylaws",
   "description": "Shows Bylaws architecture rule violations in Swift files.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "suyashsrijan",
   "license": "MIT",
   "repository": {
