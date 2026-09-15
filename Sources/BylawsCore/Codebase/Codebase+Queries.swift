@@ -182,6 +182,31 @@ extension Codebase {
     }
   }
 
+  /// The assignments in the codebase, including those inside local functions
+  /// and closures.
+  ///
+  /// - Throws: The errors ``files`` throws.
+  public var assignments: Selection<SourceAssignment> {
+    get async throws(CodebaseError) {
+      try await selection(of: .assignments, labelled: "assignments") {
+        $0.flatMap(\.assignments)
+      }
+    }
+  }
+
+  /// The variable declarations and optional bindings in the codebase.
+  ///
+  /// - Throws: The errors ``files`` throws.
+  public var variableBindings: Selection<VariableBinding> {
+    get async throws(CodebaseError) {
+      try await selection(
+        of: .variableBindings,
+        labelled: "variableBindings",
+        create: { $0.flatMap(\.variableBindings) }
+      )
+    }
+  }
+
   private func selection<Element>(
     of category: ParsedCodebase.Projection,
     labelled label: String,

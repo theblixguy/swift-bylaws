@@ -64,5 +64,51 @@ interpolation. In `"User: \(user, privacy: .public)"`, the first argument is
 The plain string `"privacy: .public"` has no interpolation arguments, so you
 can check the privacy setting without matching those words in log text.
 
+## Check assignments and initial values
+
+Use `codebase.assignments` to check where code changes a value. Each assignment
+has a `target`, a `value` expression and an `operatorName`, such as
+`=` or `+=`. For example, this rule reports assignments that switch on a
+project's insecure-connection option:
+
+```swift
+Rule("secure-connection", "Insecure connections prohibited") {
+  try await codebase.assignments.violations(
+    matching: Matcher<SourceAssignment>("enable insecure connections") {
+      $0.target.referenceName == "allowsInsecureConnections"
+        && $0.value.booleanValue == true
+    }
+  )
+}
+```
+
+The rule reports `allowsInsecureConnections = true` inside an initialiser,
+accessor or closure as well as at file scope. It matches the name and the
+literal `true`, so you need a separate test for an assignment such as
+`allowsInsecureConnections = settings.isEnabled`.
+
+The assignment query covers `=` and the standard compound-assignment
+operators, such as `+=`. It excludes custom operators, whose effects depend
+on their implementation.
+
+Use `codebase.variableBindings` for initial values, including local `let` and
+`var` declarations and optional bindings such as `if let`. Each binding has a
+`name`, `isMutable` and an optional `initialValue` expression. For a tuple
+pattern such as `(key, value)`, `name` contains the whole pattern. The
+`initialValue` is `nil` for a declaration without an initialiser or a
+shorthand binding such as `guard let token`.
+
+## Find the containing declaration
+
+Expressions, assignments and bindings have `enclosingDeclarations`, which
+lists the containing named declarations and their locations, starting with
+the nearest declaration. A reference inside `Store.save()` has entries for
+`save` and `Store`. The list also includes local functions, variable bindings
+and accessors.
+
+You can get this context through `codebase.expressions` or `file.expressions`.
+An expression from `call.arguments` has only the declarations inside that
+argument because it is parsed separately from the file.
+
 Use <doc:AdvancedRules> when you need SwiftSyntax access beyond these
 properties.

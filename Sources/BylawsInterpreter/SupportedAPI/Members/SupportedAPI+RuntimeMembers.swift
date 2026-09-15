@@ -13,6 +13,7 @@ extension SupportedAPI {
       + rangeRuntimeMembers
       + modelRuntimeMembers
       + expressionRuntimeMembers
+      + bodyRuntimeMembers
       + modelMethodRuntimeMembers
       + indexModelRuntimeMembers
       + syntaxRuntimeMembers

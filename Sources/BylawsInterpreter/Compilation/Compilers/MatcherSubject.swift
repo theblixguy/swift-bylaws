@@ -209,6 +209,8 @@ extension SupportedAPI.DeclarationFamily {
     case .typealias: Typealias.self
     case .functionCall: FunctionCall.self
     case .sourceExpression: SourceExpression.self
+    case .sourceAssignment: SourceAssignment.self
+    case .variableBinding: VariableBinding.self
     }
   }
 }
@@ -231,7 +233,9 @@ extension RuntimeModelValue {
     case let .typealiasDeclaration(value): value
     case let .functionCall(value): value
     case let .sourceExpression(value): value
-    case .callArgument, .expressionArgument,
+    case let .sourceAssignment(value): value
+    case let .variableBinding(value): value
+    case .callArgument, .expressionArgument, .enclosingDeclaration,
          .dictionaryElement,
          .check, .typeReference, .parameter, .attribute, .genericParameter,
          .enumCase, .importGraph, .importGraphTarget, .bazelGraph, .bazelTarget,

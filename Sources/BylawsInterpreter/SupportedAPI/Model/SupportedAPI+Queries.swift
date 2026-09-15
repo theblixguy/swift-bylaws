@@ -16,6 +16,8 @@ extension SupportedAPI {
       case typealiases
       case calls
       case expressions
+      case assignments
+      case variableBindings
     }
 
     package let id: ID
@@ -51,6 +53,8 @@ extension SupportedAPI {
     ),
     Query(id: .calls, declarationFamily: .functionCall),
     Query(id: .expressions, declarationFamily: .sourceExpression),
+    Query(id: .assignments, declarationFamily: .sourceAssignment),
+    Query(id: .variableBindings, declarationFamily: .variableBinding),
   ]
 
   package static func query(named name: String) -> Query? {

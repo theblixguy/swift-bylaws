@@ -34,6 +34,8 @@ extension SupportedAPI {
     codebaseSelection(.typealiases, family: .typealias),
     codebaseSelection(.calls, family: .functionCall),
     codebaseSelection(.expressions, family: .sourceExpression),
+    codebaseSelection(.assignments, family: .sourceAssignment),
+    codebaseSelection(.variableBindings, family: .variableBinding),
     property(
       .packageManifest,
       on: [.codebase],

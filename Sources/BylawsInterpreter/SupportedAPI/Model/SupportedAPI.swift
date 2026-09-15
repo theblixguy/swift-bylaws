@@ -100,6 +100,8 @@ package enum SupportedAPI {
     case `typealias`
     case functionCall
     case sourceExpression
+    case sourceAssignment
+    case variableBinding
   }
 
   package static let allDeclarationFamilies = Set(DeclarationFamily.allCases)

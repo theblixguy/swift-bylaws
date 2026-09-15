@@ -167,6 +167,8 @@ extension ModelSamples {
     let file = try FileCollector.collect(
       source: #"""
       func check() {
+        var enabled = false
+        enabled = true
         log("text", "\(user, privacy: .public)", false, 0, 1.5, nil,
             Store.save(value: value), ["key": value], [value])
       }
@@ -174,6 +176,14 @@ extension ModelSamples {
       path: "/virtual/Expressions.swift"
     )
     let arguments = file.calls.flatMap(\.arguments)
+    add(.sourceFile(file))
+    add(file.assignments, as: RuntimeModelValue.sourceAssignment)
+    add(file.variableBindings, as: RuntimeModelValue.variableBinding)
+    add(file.expressions, as: RuntimeModelValue.sourceExpression)
+    add(
+      file.expressions.flatMap(\.enclosingDeclarations),
+      as: RuntimeModelValue.enclosingDeclaration
+    )
     add(arguments, as: RuntimeModelValue.callArgument)
     var expressions = arguments.compactMap(\.expression)
     while let expression = expressions.popLast() {

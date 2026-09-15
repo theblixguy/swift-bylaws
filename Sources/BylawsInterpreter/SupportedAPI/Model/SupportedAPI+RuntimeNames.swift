@@ -5,6 +5,12 @@ extension SupportedAPI {
     case dictionaryElements
     case interpolations, key
     case expressions
+    case assignments
+    case variableBindings
+    case operatorName
+    case initialValue
+    case isMutable
+    case enclosingDeclarations
     case deletingLastPathComponent
     case lastPathComponent
     case pathExtension
@@ -354,6 +360,9 @@ extension SupportedAPI {
 
   package enum ModelType: String, CaseIterable, Sendable {
     case sourceExpression = "SourceExpression"
+    case sourceAssignment = "SourceAssignment"
+    case variableBinding = "VariableBinding"
+    case enclosingDeclaration = "EnclosingDeclaration"
     case expressionArgument = "SourceExpression.Argument"
     case dictionaryElement = "SourceExpression.DictionaryElement"
     case callArgument = "FunctionCall.Argument"
@@ -442,6 +451,8 @@ extension SupportedAPI {
       case .typealias: self = .typealiasDeclaration
       case .functionCall: self = .functionCall
       case .sourceExpression: self = .sourceExpression
+      case .sourceAssignment: self = .sourceAssignment
+      case .variableBinding: self = .variableBinding
       }
     }
   }

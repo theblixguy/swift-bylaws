@@ -8,6 +8,10 @@ extension RuntimeEvaluator {
     switch name {
     case .name: .string(value.name)
     case .text: .string(value.text)
+    case .enclosingDeclarations: modelArray(
+        value.enclosingDeclarations,
+        RuntimeModelValue.enclosingDeclaration
+      )
     case .stringValue: optionalString(value.stringValue)
     case .integerValue: .optional(value.integerValue.map(RuntimeValue.integer))
     case .floatingPointValue: .optional(value.floatingPointValue

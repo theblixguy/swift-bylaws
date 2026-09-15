@@ -4,13 +4,20 @@ import SwiftSyntax
 /// An expression from a Swift source file.
 public struct SourceExpression: Declaration {
   let syntax: ExprSyntax
-  let source: SourceText
-  let origin: DeclarationLocation
+  let context: SourceContext
 
-  init(_ syntax: ExprSyntax, source: SourceText, origin: DeclarationLocation) {
+  var source: SourceText { context.source }
+  var origin: DeclarationLocation { context.origin }
+
+  init(
+    _ syntax: ExprSyntax, source: SourceText, origin: DeclarationLocation,
+    inheritedDeclarations: [EnclosingDeclaration] = []
+  ) {
     self.syntax = syntax
-    self.source = source
-    self.origin = origin
+    context = SourceContext(
+      source: source, origin: origin,
+      inheritedDeclarations: inheritedDeclarations
+    )
   }
 
   static func parse(
@@ -41,19 +48,8 @@ public struct SourceExpression: Declaration {
     location(at: syntax.positionAfterSkippingLeadingTrivia)
   }
 
-  private func location(at start: AbsolutePosition) -> DeclarationLocation {
-    let relative = source.location(of: start)
-    let column = if relative.line == 1 {
-      origin.column + relative.column - 1
-    } else {
-      relative.column
-    }
-    return DeclarationLocation(
-      filePath: origin.filePath,
-      line: origin.line + relative.line - 1,
-      column: column,
-      utf8Offset: origin.utf8Offset.map { $0 + start.utf8Offset }
-    )
+  func location(at start: AbsolutePosition) -> DeclarationLocation {
+    context.location(at: start)
   }
 
   /// The decoded value of a string literal, or `nil` for an interpolated
@@ -126,7 +122,10 @@ public struct SourceExpression: Declaration {
   }
 
   func child(_ node: ExprSyntax) -> Self {
-    Self(node, source: source, origin: origin)
+    Self(
+      node, source: source, origin: origin,
+      inheritedDeclarations: context.inheritedDeclarations
+    )
   }
 }
 
