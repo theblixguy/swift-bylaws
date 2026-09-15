@@ -587,8 +587,10 @@ Bylaws is available under the MIT licence. See [LICENSE].
   https://theblixguy.github.io/swift-bylaws/documentation/bylaws/gettingstarted
 [SwiftPM plugins]: #use-the-swiftpm-plugins
 [Bazel target]: #run-checks-with-bazel
-[Bazel lint target]: Sources/Bylaws/Bylaws.docc/RunningRulesWithBazel.md
-[check Bazel target dependencies]: Sources/Bylaws/Bylaws.docc/BazelDependencies.md
+[Bazel lint target]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningruleswithbazel
+[check Bazel target dependencies]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/bazeldependencies
 [editor integrations]: #show-violations-in-an-editor
 [CLI setup guide]:
   https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesfromthecli
