@@ -1,9 +1,9 @@
 import BylawsLSP
 import BylawsRunner
-import Dispatch
 import Foundation
 import LanguageServerProtocol
 import LanguageServerProtocolTransport
+import SKLogging
 
 #if canImport(Darwin)
   import Darwin
@@ -13,7 +13,7 @@ import LanguageServerProtocolTransport
 
 @main
 struct BylawsLSPCommand {
-  static func main() {
+  static func main() async {
     if CommandLine.arguments.dropFirst() == ["--version"] {
       FileHandle.standardOutput.write(
         Data("\(BylawsVersion.current)\n".utf8)
@@ -21,7 +21,8 @@ struct BylawsLSPCommand {
       return
     }
 
-    let finished = DispatchSemaphore(value: 0)
+    LoggingScope.configureDefaultLoggingSubsystem("bylaws-lsp")
+
     let connection = JSONRPCConnection(
       name: "bylaws-lsp",
       protocol: .lspProtocol,
@@ -38,9 +39,10 @@ struct BylawsLSPCommand {
         }
       }
     )
-    connection.start(receiveHandler: server) {
-      finished.signal()
+    await withCheckedContinuation { continuation in
+      connection.start(receiveHandler: server) {
+        continuation.resume()
+      }
     }
-    finished.wait()
   }
 }

@@ -403,6 +403,11 @@ let package = Package(
           package: "swift-tools-protocols",
           condition: .when(traits: ["LanguageServer"])
         ),
+        .product(
+          name: "SKLogging",
+          package: "swift-tools-protocols",
+          condition: .when(traits: ["LanguageServer"])
+        ),
       ],
       swiftSettings: swiftSettings
     ),
