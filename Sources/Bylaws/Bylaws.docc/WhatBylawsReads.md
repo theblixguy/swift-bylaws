@@ -124,6 +124,9 @@ are outside the source model.
 Bylaws checks `.swift` files, so you need another analysis tool for declarations
 that exist only in an Objective-C header.
 
+For a symbolic link to a file, Bylaws uses the link's path for filters and
+diagnostics. Directory links are skipped to avoid loops and repeated checks.
+
 ## Control flow
 
 Use `cyclomaticComplexity` to count branches in a function or initialiser.

@@ -77,6 +77,29 @@ check which files the rule selects.
 For CI, choose the `github` format for pull request annotations, `sarif` for
 code scanning or `json` for another tool.
 
+You can save a report with `--output` and see violations and warnings in the
+terminal when the checks finish:
+
+```sh
+bylaws lint --format json --output report.json
+```
+
+The report replaces the file's contents, and diagnostics go to standard error.
+If the file cannot be written, the command exits with status code 2. Use
+`--record-baseline` in a separate run.
+
+To check a project from another directory, use `--root`. Relative `--rules`,
+`--baseline` and `--report-path` values refer to that project root. Paths for
+`--output`, `--record-baseline` and `--cache-path` refer to your working
+directory, so you can keep generated files outside the project:
+
+```sh
+bylaws lint --root Projects/App --rules Bylaws.swift --output report.txt
+```
+
+Within a rules file, a relative `Codebase(root: .directory(...))` path starts
+from the directory that contains that file.
+
 You can select rules by ID with `--only` and `--skip`. Advisory violations
 appear as warnings without failing the run unless you add `--strict`.
 

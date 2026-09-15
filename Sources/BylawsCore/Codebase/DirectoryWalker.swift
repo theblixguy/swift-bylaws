@@ -137,11 +137,12 @@ package enum DirectoryWalker {
     #endif
   }
 
-  // Symbolic links can loop or re-enter an excluded tree.
+  // Directory links can loop or re-enter an excluded tree.
   private static func kind(of type: UInt8, at path: String) -> ClassifiedEntry {
     switch type {
     case UInt8(DT_DIR): return .included(.directory)
     case UInt8(DT_REG): return .included(.regularFile)
+    case UInt8(DT_LNK): return linkedFile(at: path)
     case UInt8(DT_UNKNOWN):
       guard let type = try? FilePath(path).stat(
         followTargetSymlink: false
@@ -149,9 +150,18 @@ package enum DirectoryWalker {
       switch type {
       case .directory: return .included(.directory)
       case .regular: return .included(.regularFile)
+      case .symbolicLink: return linkedFile(at: path)
       default: return .ignored
       }
     default: return .ignored
+    }
+  }
+
+  private static func linkedFile(at path: String) -> ClassifiedEntry {
+    if (try? FilePath(path).stat(followTargetSymlink: true).type) == .regular {
+      .included(.regularFile)
+    } else {
+      .ignored
     }
   }
 }

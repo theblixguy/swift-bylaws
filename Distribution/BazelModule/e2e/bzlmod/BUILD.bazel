@@ -1,0 +1,26 @@
+load("@swift-bylaws//bazel:defs.bzl", "bylaws_lint")
+load(":generate.bzl", "generated_directory")
+
+exports_files([
+    "Bylaws.swift",
+    "MODULE.bazel",
+])
+
+genrule(
+    name = "generated_file",
+    outs = ["Sources/Generated.swift"],
+    cmd = "printf 'final class Generated {}\\n' > $@",
+)
+
+generated_directory(name = "generated_directory")
+
+bylaws_lint(
+    name = "architecture",
+    srcs = [
+        "Sources/Model.swift",
+        ":generated_directory",
+        ":generated_file",
+    ],
+    data = ["MODULE.bazel"],
+    rules = ["Bylaws.swift"],
+)

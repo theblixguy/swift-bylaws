@@ -1,0 +1,86 @@
+load("@swift-bylaws//bazel:defs.bzl", "bylaws_lint")
+load(":generate.bzl", "generated_directory", "overlapping_directory")
+
+overlapping_directory(name = "generated")
+
+bylaws_lint(
+    name = "overlap",
+    srcs = [
+        "Sources/Model.swift",
+        ":generated",
+    ],
+)
+
+genrule(
+    name = "generated_file",
+    srcs = ["Inputs/Generated.swift"],
+    outs = ["Sources/Generated.swift"],
+    cmd = "cp $(location Inputs/Generated.swift) $@",
+)
+
+generated_directory(
+    name = "generated_tree",
+    src = "Inputs/GeneratedTree.swift",
+)
+
+bylaws_lint(
+    name = "cache",
+    srcs = [
+        "Sources/Model.swift",
+        "Sources/Other folder/Model.swift",
+        ":generated_file",
+        ":generated_tree",
+    ],
+    data = [
+        "Inputs/Data.txt",
+        "//:MODULE.bazel",
+    ],
+    rules = ["Rules/Final.swift"],
+)
+
+bylaws_lint(
+    name = "advisory",
+    srcs = ["Sources/Violation.swift"],
+    data = ["//:MODULE.bazel"],
+    rules = ["Rules/Advisory.swift"],
+)
+
+bylaws_lint(
+    name = "strict",
+    srcs = ["Sources/Violation.swift"],
+    data = ["//:MODULE.bazel"],
+    rules = ["Rules/Advisory.swift"],
+    strict = True,
+)
+
+bylaws_lint(
+    name = "baseline",
+    srcs = ["Sources/Violation.swift"],
+    baseline = "Baseline.swift",
+    data = ["//:MODULE.bazel"],
+    rules = ["Rules/Final.swift"],
+)
+
+bylaws_lint(
+    name = "stale_baseline",
+    srcs = ["Sources/Model.swift"],
+    baseline = "Baseline.swift",
+    data = ["//:MODULE.bazel"],
+    rules = ["Rules/Final.swift"],
+)
+
+bylaws_lint(
+    name = "discovery",
+    srcs = ["Sources/Model.swift"],
+    data = [
+        "//:Bylaws.swift",
+        "//:MODULE.bazel",
+    ],
+)
+
+bylaws_lint(
+    name = "index",
+    srcs = ["Sources/Model.swift"],
+    data = ["//:MODULE.bazel"],
+    rules = ["Rules/Index.swift"],
+)
