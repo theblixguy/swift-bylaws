@@ -20,6 +20,7 @@ package struct ParsedCodebase: Sendable {
     case expressions
     case assignments
     case variableBindings
+    case compilationBranches
   }
 
   package let rootPath: String

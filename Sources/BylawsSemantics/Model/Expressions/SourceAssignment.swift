@@ -15,6 +15,10 @@ public struct SourceAssignment: Declaration {
   /// nearest declaration.
   public let enclosingDeclarations: [EnclosingDeclaration]
 
+  /// The conditional-compilation branches that contain the assignment,
+  /// starting with the outermost branch.
+  public let compilationBranches: [CompilationBranch]
+
   /// The target expression's text.
   public var name: String { target.text }
 
@@ -40,6 +44,7 @@ public struct SourceAssignment: Declaration {
     target = expression.child(elements[0])
     self.operatorName = operatorName
     enclosingDeclarations = expression.enclosingDeclarations
+    compilationBranches = expression.compilationBranches
     if elements.count == 3 {
       value = expression.child(elements[2])
     } else {
@@ -52,7 +57,8 @@ public struct SourceAssignment: Declaration {
           swiftLanguageMode: expression.source.swiftLanguageMode
         ),
         origin: expression.location(at: elements[2].position),
-        inheritedDeclarations: enclosingDeclarations
+        inheritedDeclarations: enclosingDeclarations,
+        inheritedBranches: compilationBranches
       )
     }
   }

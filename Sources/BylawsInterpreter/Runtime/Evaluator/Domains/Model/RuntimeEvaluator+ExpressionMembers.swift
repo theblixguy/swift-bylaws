@@ -8,6 +8,10 @@ extension RuntimeEvaluator {
     switch name {
     case .name: .string(value.name)
     case .text: .string(value.text)
+    case .compilationBranches: modelArray(
+        value.compilationBranches,
+        RuntimeModelValue.compilationBranch
+      )
     case .enclosingDeclarations: modelArray(
         value.enclosingDeclarations,
         RuntimeModelValue.enclosingDeclaration

@@ -18,6 +18,10 @@ public struct VariableBinding: Declaration {
   /// declaration.
   public let enclosingDeclarations: [EnclosingDeclaration]
 
+  /// The conditional-compilation branches that contain the binding,
+  /// starting with the outermost branch.
+  public let compilationBranches: [CompilationBranch]
+
   init(
     pattern: PatternSyntax, initialValue: ExprSyntax?, isMutable: Bool,
     syntax: some SyntaxProtocol, source: SourceText, origin: DeclarationLocation
@@ -30,5 +34,6 @@ public struct VariableBinding: Declaration {
     self.isMutable = isMutable
     location = context.location(at: pattern.positionAfterSkippingLeadingTrivia)
     enclosingDeclarations = context.enclosingDeclarations(of: syntax)
+    compilationBranches = context.compilationBranches(of: syntax)
   }
 }

@@ -207,6 +207,20 @@ extension Codebase {
     }
   }
 
+  /// The conditional-compilation branches in the codebase.
+  ///
+  /// - Throws: The errors ``files`` throws.
+  public var compilationBranches: Selection<CompilationBranch> {
+    get async throws(CodebaseError) {
+      try await selection(
+        of: .compilationBranches,
+        labelled: "compilationBranches"
+      ) {
+        $0.flatMap(\.compilationBranches)
+      }
+    }
+  }
+
   private func selection<Element>(
     of category: ParsedCodebase.Projection,
     labelled label: String,

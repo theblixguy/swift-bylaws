@@ -9,6 +9,10 @@ extension RuntimeEvaluator {
     case .target: .model(.sourceExpression(value.target))
     case .value: .model(.sourceExpression(value.value))
     case .operatorName: .string(value.operatorName)
+    case .compilationBranches: modelArray(
+        value.compilationBranches,
+        RuntimeModelValue.compilationBranch
+      )
     case .enclosingDeclarations:
       modelArray(
         value.enclosingDeclarations,
@@ -28,6 +32,10 @@ extension RuntimeEvaluator {
         RuntimeModelValue.sourceExpression
       )
     case .isMutable: .boolean(value.isMutable)
+    case .compilationBranches: modelArray(
+        value.compilationBranches,
+        RuntimeModelValue.compilationBranch
+      )
     case .enclosingDeclarations:
       modelArray(
         value.enclosingDeclarations,

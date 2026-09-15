@@ -18,6 +18,7 @@ extension SupportedAPI {
       case expressions
       case assignments
       case variableBindings
+      case compilationBranches
     }
 
     package let id: ID
@@ -55,6 +56,7 @@ extension SupportedAPI {
     Query(id: .expressions, declarationFamily: .sourceExpression),
     Query(id: .assignments, declarationFamily: .sourceAssignment),
     Query(id: .variableBindings, declarationFamily: .variableBinding),
+    Query(id: .compilationBranches, declarationFamily: .compilationBranch),
   ]
 
   package static func query(named name: String) -> Query? {

@@ -11,6 +11,8 @@ extension SupportedAPI {
     case initialValue
     case isMutable
     case enclosingDeclarations
+    case compilationBranches
+    case precedingConditions
     case deletingLastPathComponent
     case lastPathComponent
     case pathExtension
@@ -363,6 +365,7 @@ extension SupportedAPI {
     case sourceAssignment = "SourceAssignment"
     case variableBinding = "VariableBinding"
     case enclosingDeclaration = "EnclosingDeclaration"
+    case compilationBranch = "CompilationBranch"
     case expressionArgument = "SourceExpression.Argument"
     case dictionaryElement = "SourceExpression.DictionaryElement"
     case callArgument = "FunctionCall.Argument"
@@ -453,6 +456,7 @@ extension SupportedAPI {
       case .sourceExpression: self = .sourceExpression
       case .sourceAssignment: self = .sourceAssignment
       case .variableBinding: self = .variableBinding
+      case .compilationBranch: self = .compilationBranch
       }
     }
   }

@@ -102,6 +102,7 @@ package enum SupportedAPI {
     case sourceExpression
     case sourceAssignment
     case variableBinding
+    case compilationBranch
   }
 
   package static let allDeclarationFamilies = Set(DeclarationFamily.allCases)

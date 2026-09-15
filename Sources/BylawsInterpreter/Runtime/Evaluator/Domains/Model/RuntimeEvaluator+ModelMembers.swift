@@ -34,6 +34,7 @@ extension RuntimeEvaluator {
     case let .functionCall(value): callMember(name, value)
     case let .sourceExpression(value): expressionMember(name, value)
     case let .sourceAssignment(value): assignmentMember(name, value)
+    case let .compilationBranch(value): compilationBranchMember(name, value)
     case let .variableBinding(value): variableBindingMember(name, value)
     case let .enclosingDeclaration(value): name == .name ? .string(value.name) :
       nil
@@ -103,6 +104,10 @@ extension RuntimeEvaluator {
     case .typealiases:
       modelArray(value.typealiases, RuntimeModelValue.typealiasDeclaration)
     case .calls: modelArray(value.calls, RuntimeModelValue.functionCall)
+    case .compilationBranches: modelArray(
+        value.compilationBranches,
+        RuntimeModelValue.compilationBranch
+      )
     case .assignments: modelArray(
         value.assignments,
         RuntimeModelValue.sourceAssignment

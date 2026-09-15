@@ -36,6 +36,7 @@ extension SupportedAPI {
     codebaseSelection(.expressions, family: .sourceExpression),
     codebaseSelection(.assignments, family: .sourceAssignment),
     codebaseSelection(.variableBindings, family: .variableBinding),
+    codebaseSelection(.compilationBranches, family: .compilationBranch),
     property(
       .packageManifest,
       on: [.codebase],

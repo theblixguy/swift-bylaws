@@ -144,6 +144,11 @@ extension RuntimeEvaluator {
         try await codebase.variableBindings, family: .variableBinding,
         root: root, transform: RuntimeModelValue.variableBinding
       )
+    case .compilationBranches:
+      selection(
+        try await codebase.compilationBranches, family: .compilationBranch,
+        root: root, transform: RuntimeModelValue.compilationBranch
+      )
     default:
       nil
     }

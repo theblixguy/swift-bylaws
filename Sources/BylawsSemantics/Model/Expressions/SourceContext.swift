@@ -3,7 +3,19 @@ import SwiftSyntax
 struct SourceContext: Sendable {
   let source: SourceText
   let origin: DeclarationLocation
-  var inheritedDeclarations: [EnclosingDeclaration] = []
+  let inheritedDeclarations: [EnclosingDeclaration]
+  let inheritedBranches: [CompilationBranch]
+
+  init(
+    source: SourceText, origin: DeclarationLocation,
+    inheritedDeclarations: [EnclosingDeclaration] = [],
+    inheritedBranches: [CompilationBranch] = []
+  ) {
+    self.source = source
+    self.origin = origin
+    self.inheritedDeclarations = inheritedDeclarations
+    self.inheritedBranches = inheritedBranches
+  }
 
   func location(at start: AbsolutePosition) -> DeclarationLocation {
     let relative = source.location(of: start)

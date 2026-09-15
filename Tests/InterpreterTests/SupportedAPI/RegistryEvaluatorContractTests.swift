@@ -167,8 +167,12 @@ extension ModelSamples {
     let file = try FileCollector.collect(
       source: #"""
       func check() {
+      #if DEBUG
         var enabled = false
         enabled = true
+      #else
+        let enabled = false
+      #endif
         log("text", "\(user, privacy: .public)", false, 0, 1.5, nil,
             Store.save(value: value), ["key": value], [value])
       }
@@ -178,6 +182,7 @@ extension ModelSamples {
     let arguments = file.calls.flatMap(\.arguments)
     add(.sourceFile(file))
     add(file.assignments, as: RuntimeModelValue.sourceAssignment)
+    add(file.compilationBranches, as: RuntimeModelValue.compilationBranch)
     add(file.variableBindings, as: RuntimeModelValue.variableBinding)
     add(file.expressions, as: RuntimeModelValue.sourceExpression)
     add(

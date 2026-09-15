@@ -211,6 +211,7 @@ extension SupportedAPI.DeclarationFamily {
     case .sourceExpression: SourceExpression.self
     case .sourceAssignment: SourceAssignment.self
     case .variableBinding: VariableBinding.self
+    case .compilationBranch: CompilationBranch.self
     }
   }
 }
@@ -235,6 +236,7 @@ extension RuntimeModelValue {
     case let .sourceExpression(value): value
     case let .sourceAssignment(value): value
     case let .variableBinding(value): value
+    case let .compilationBranch(value): value
     case .callArgument, .expressionArgument, .enclosingDeclaration,
          .dictionaryElement,
          .check, .typeReference, .parameter, .attribute, .genericParameter,

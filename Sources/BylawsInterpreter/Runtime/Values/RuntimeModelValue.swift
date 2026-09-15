@@ -23,6 +23,7 @@ enum RuntimeModelValue: Sendable, Equatable {
   case sourceAssignment(SourceAssignment)
   case variableBinding(VariableBinding)
   case enclosingDeclaration(EnclosingDeclaration)
+  case compilationBranch(CompilationBranch)
   case expressionArgument(SourceExpression.Argument)
   case dictionaryElement(SourceExpression.DictionaryElement)
   case typeReference(TypeReference)
@@ -66,6 +67,7 @@ enum RuntimeModelValue: Sendable, Equatable {
     case let .sourceAssignment(value): runtimeOffender(value)
     case let .variableBinding(value): runtimeOffender(value)
     case let .enclosingDeclaration(value): runtimeOffender(value)
+    case let .compilationBranch(value): runtimeOffender(value)
     case .callArgument, .expressionArgument, .dictionaryElement: nil
     case let .bazelTarget(value): runtimeOffender(value)
     case .check, .typeReference, .parameter, .attribute, .genericParameter,
@@ -106,6 +108,7 @@ extension RuntimeModelValue {
     case .sourceAssignment: .sourceAssignment
     case .variableBinding: .variableBinding
     case .enclosingDeclaration: .enclosingDeclaration
+    case .compilationBranch: .compilationBranch
     case .expressionArgument: .expressionArgument
     case .dictionaryElement: .dictionaryElement
     case .typeReference: .typeReference

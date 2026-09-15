@@ -136,6 +136,13 @@ enum QueryCompiler {
         { try await $0.expressions },
         over: codebase
       )
+    case .compilationBranches:
+      compile(
+        query,
+        supportedQuery,
+        { try await $0.compilationBranches },
+        over: codebase
+      )
     case .assignments:
       compile(
         query,

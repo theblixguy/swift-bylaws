@@ -11,12 +11,14 @@ public struct SourceExpression: Declaration {
 
   init(
     _ syntax: ExprSyntax, source: SourceText, origin: DeclarationLocation,
-    inheritedDeclarations: [EnclosingDeclaration] = []
+    inheritedDeclarations: [EnclosingDeclaration] = [],
+    inheritedBranches: [CompilationBranch] = []
   ) {
     self.syntax = syntax
     context = SourceContext(
       source: source, origin: origin,
-      inheritedDeclarations: inheritedDeclarations
+      inheritedDeclarations: inheritedDeclarations,
+      inheritedBranches: inheritedBranches
     )
   }
 
@@ -124,7 +126,8 @@ public struct SourceExpression: Declaration {
   func child(_ node: ExprSyntax) -> Self {
     Self(
       node, source: source, origin: origin,
-      inheritedDeclarations: context.inheritedDeclarations
+      inheritedDeclarations: context.inheritedDeclarations,
+      inheritedBranches: context.inheritedBranches
     )
   }
 }
