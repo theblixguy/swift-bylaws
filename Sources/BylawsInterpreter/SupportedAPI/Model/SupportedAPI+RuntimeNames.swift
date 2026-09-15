@@ -13,6 +13,7 @@ extension SupportedAPI {
     case enclosingDeclarations
     case compilationBranches
     case precedingConditions
+    case lowercased
     case deletingLastPathComponent
     case lastPathComponent
     case pathExtension
@@ -288,6 +289,7 @@ extension SupportedAPI {
   }
 
   package enum Method: String, CaseIterable, Sendable {
+    case lowercased
     case bazelGraph
     case deletingLastPathComponent
     case mapValues

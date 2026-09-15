@@ -21,6 +21,7 @@ and conditions.
 | Several conditions or the members of a declaration | <doc:CombiningChecks> |
 | Literal values, interpolation arguments and member references | <doc:InspectingExpressions> |
 | Code permitted only inside a particular `#if` branch | <doc:ConditionalCompilation> |
+| Logging, keychain access, authentication code and security settings | <doc:SecurityCookbook> |
 | Compiler-resolved symbols, source text or SwiftSyntax nodes | <doc:AdvancedRules> |
 
 ## Set up and run a recipe
