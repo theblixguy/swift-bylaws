@@ -1,4 +1,5 @@
 import ArgumentParser
+import BylawsCore
 import Testing
 @testable import bylaws_cli
 
@@ -28,6 +29,23 @@ struct CacheSizeTests {
   func missingValue() {
     #expect(throws: (any Error).self) {
       try LintCommand.parse(["--cache-size"])
+    }
+  }
+
+  @Test(
+    "Validation option selects the shared cache mode",
+    arguments: ["metadata", "content"]
+  )
+  func validationMode(argument: String) throws {
+    let command = try LintCommand.parse(["--cache-validation", argument])
+    #expect(command.cacheValidation == ParseCacheConfiguration
+      .Validation(rawValue: argument))
+  }
+
+  @Test("Unsupported validation mode fails parsing")
+  func unknownValidation() {
+    #expect(throws: (any Error).self) {
+      try LintCommand.parse(["--cache-validation", "fast"])
     }
   }
 }

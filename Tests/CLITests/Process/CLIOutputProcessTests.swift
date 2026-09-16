@@ -62,7 +62,7 @@ struct CLIOutputProcessTests {
         .compactMap { $0 as? String } ?? []
 
     #expect(result.status == 0)
-    #expect(entries.contains { $0.hasSuffix(".bin") })
+    #expect(entries.contains { $0.hasSuffix(".pack") })
   }
 
   @Test("--cache-size applies a lower target on the next run")
@@ -97,7 +97,7 @@ struct CLIOutputProcessTests {
       .compactMap { $0 as? String } ?? []
 
     #expect(reduced.status == 0)
-    #expect(!entries.contains { $0.hasSuffix(".bin") })
+    #expect(!entries.contains { $0.hasSuffix(".pack") })
   }
 
   @Test("Zero size disables cache writes")

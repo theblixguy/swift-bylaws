@@ -9,8 +9,8 @@ import Foundation
 /// ``imports`` return the declarations in those files as a ``Selection``
 /// to filter and check.
 ///
-/// Initialisation defers file access. The first query reads the cache settings in
-/// `BYLAWS_DISABLE_PARSE_CACHE` and `BYLAWS_CACHE_PATH`, then parses the files.
+/// Initialisation defers file access. Without an explicit cache configuration,
+/// the first query reads `BYLAWS_DISABLE_PARSE_CACHE` and `BYLAWS_CACHE_PATH`.
 /// Parsed data remains in memory for the process.
 ///
 /// An unreadable file or directory fails the query with
@@ -106,7 +106,8 @@ public struct Codebase: Sendable, Hashable {
   /// Set `swiftLanguageMode` to `.v4`, `.v5` or `.v6` to skip discovery in
   /// tests, the CLI and the editor.
   ///
-  /// Set `parseCache` to choose a disk cache directory and cleanup target.
+  /// Set `parseCache` to choose a disk cache directory, cleanup target and
+  /// validation policy.
   /// A `nil` value uses the environment settings.
   public init(
     root: Root = .automatic(),
