@@ -3,7 +3,7 @@ import Crypto
 package import Foundation
 
 package struct ParseCache: Sendable {
-  package static let defaultBudget = 1_000_000_000
+  package static let defaultBudget = ParseCacheConfiguration.defaultBudget
 
   // Increase this when the model or a collector changes.
   private static let schemaVersion = 10
@@ -61,13 +61,15 @@ package struct ParseCache: Sendable {
     let stamp = directory.appendingPathComponent("last-trim")
     let stampDate = Self.attributes(of: stamp, [.contentModificationDateKey])?
       .contentModificationDate
-    if let stampDate,
+    let previousBudget = Self.readFile(at: stamp)
+      .flatMap { Int(String(decoding: $0, as: UTF8.self)) }
+    if let stampDate, let previousBudget, budget == previousBudget,
        Date().timeIntervalSince(stampDate) < Self.maintenanceInterval
     {
       return
     }
-    Self.writeFile(Data(), to: stamp)
     removeOldEntries()
+    Self.writeFile(Data(String(budget).utf8), to: stamp)
   }
 
   package func removeOldEntries() {
@@ -82,6 +84,7 @@ package struct ParseCache: Sendable {
 
     var dated: [(url: URL, date: Date, size: Int)] = []
     for case let url as URL in walker {
+      guard url.lastPathComponent != "last-trim" else { continue }
       guard let values = Self.attributes(of: url, Set(keys)),
             values.isRegularFile == true,
             let size = values.fileSize,

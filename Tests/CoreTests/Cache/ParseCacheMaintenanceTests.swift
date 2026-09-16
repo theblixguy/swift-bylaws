@@ -122,4 +122,38 @@ struct ParseCacheMaintenanceTests {
 
     #expect(cache.sourceFile(forSource: source, at: path) != nil)
   }
+
+  @Test("Lower budget applies during daily maintenance interval")
+  func reducedBudget() throws {
+    let storage = try ParseCacheTestStorage()
+    let source = "class Model {}"
+    let path = "/App/Model.swift"
+    storage.cache.store(try FileCollector.collect(source: source, path: path))
+    storage.cache.removeOldEntriesWhenDue()
+    #expect(storage.cache.sourceFile(forSource: source, at: path) != nil)
+
+    let smaller = try ParseCache.opening(
+      directory: storage.directory,
+      budget: 1
+    )
+    smaller.removeOldEntriesWhenDue()
+
+    #expect(smaller.sourceFile(forSource: source, at: path) == nil)
+  }
+
+  @Test("Lower target applies after an increase within daily interval")
+  func budgetChanges() throws {
+    let storage = try ParseCacheTestStorage(budget: 1)
+    storage.cache.removeOldEntriesWhenDue()
+    let source = "class Model {}"
+    let path = "/App/Model.swift"
+    let larger = try ParseCache.opening(directory: storage.directory)
+    larger.store(try FileCollector.collect(source: source, path: path))
+    larger.removeOldEntriesWhenDue()
+    #expect(larger.sourceFile(forSource: source, at: path) != nil)
+
+    storage.cache.removeOldEntriesWhenDue()
+
+    #expect(storage.cache.sourceFile(forSource: source, at: path) == nil)
+  }
 }

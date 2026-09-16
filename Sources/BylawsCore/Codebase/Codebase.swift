@@ -103,17 +103,21 @@ public struct Codebase: Sendable, Hashable {
   ///
   /// Set `swiftLanguageMode` to `.v4`, `.v5` or `.v6` to skip discovery in
   /// tests, the CLI and the editor.
+  ///
+  /// Set `parseCache` to choose a disk cache directory and cleanup target.
+  /// A `nil` value uses the environment settings.
   public init(
     root: Root = .automatic(),
     including: [Glob] = [],
     excluding: [Glob] = [],
-    swiftLanguageMode: LanguageMode = .automatic(.swiftPM)
+    swiftLanguageMode: LanguageMode = .automatic(.swiftPM),
+    parseCache: ParseCacheConfiguration? = nil
   ) {
     self.root = root
     self.including = including
     self.excluding = excluding
     self.swiftLanguageMode = swiftLanguageMode
-    parseCachePolicy = .environment()
+    parseCachePolicy = parseCache.map { .configured($0) } ?? .environment()
     overlay = .empty
   }
 

@@ -64,4 +64,58 @@ struct CLIOutputProcessTests {
     #expect(result.status == 0)
     #expect(entries.contains { $0.hasSuffix(".bin") })
   }
+
+  @Test("--cache-size applies a lower target on the next run")
+  func reducedCacheSize() throws {
+    let project = try CLIProcessProject(
+      source: "final class Good {}",
+      rules: CLIProcessMock.finalClassesRule
+    )
+    let cache = project.root.appendingPathComponent("ParseCache")
+    let small = try project.run(
+      "--cache-path",
+      cache.path,
+      "--cache-size",
+      "1B"
+    )
+    #expect(small.status == 0)
+    let larger = try project.run(
+      "--cache-path",
+      cache.path,
+      "--cache-size",
+      "1GB"
+    )
+    #expect(larger.status == 0)
+
+    let reduced = try project.run(
+      "--cache-path",
+      cache.path,
+      "--cache-size",
+      "1B"
+    )
+    let entries = FileManager.default.enumerator(atPath: cache.path)?
+      .compactMap { $0 as? String } ?? []
+
+    #expect(reduced.status == 0)
+    #expect(!entries.contains { $0.hasSuffix(".bin") })
+  }
+
+  @Test("Zero size disables cache writes")
+  func zeroCacheSize() throws {
+    let project = try CLIProcessProject(
+      source: "final class Good {}",
+      rules: CLIProcessMock.finalClassesRule
+    )
+    let cache = project.root.appendingPathComponent("ParseCache")
+
+    let result = try project.run(
+      "--cache-path",
+      cache.path,
+      "--cache-size",
+      "0"
+    )
+
+    #expect(result.status == 0)
+    #expect(!FileManager.default.fileExists(atPath: cache.path))
+  }
 }

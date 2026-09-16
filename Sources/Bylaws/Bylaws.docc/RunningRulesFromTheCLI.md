@@ -413,8 +413,48 @@ If the cache must live in a particular directory, pass `--cache-path DIR`.
 You can copy this directory between CI workers or reuse it after moving a
 checkout. Entries match the source text and Swift language mode, and violations
 use the current checkout's file paths.
-For tests, set `BYLAWS_CACHE_PATH` to choose the directory or
-`BYLAWS_DISABLE_PARSE_CACHE=true` to disable caching.
+
+You can adjust the default disk-cache target of 1,000,000,000 bytes with
+`--cache-size 500MB`, which also enables caching. The option takes whole bytes
+or a case-insensitive `B`, `KB`, `MB`, `GB`, `KiB`, `MiB` or `GiB` suffix,
+with decimal units using powers of 1,000 and binary units using powers of
+1,024. If you want to disable the disk cache while keeping its existing
+entries, pass `--cache-size 0`.
+
+Bylaws normally cleans up the cache at most once a day, removing the oldest
+entries by modification time first. The cache can grow beyond the requested
+size between cleanups, so the size setting is a soft target. If you change
+it, Bylaws runs cleanup the next time it loads the cache, even if the previous
+cleanup was earlier that day. The size is based on file lengths, which can
+differ from allocated disk space, and applies only to the disk cache.
+
+In Swift tests, you can configure each codebase without changing the process
+environment:
+
+```swift
+let codebase = Codebase(
+  root: .directory(projectPath),
+  parseCache: .init(directory: cacheDirectory, budget: 500_000_000)
+)
+```
+
+In this example, `cacheDirectory` is a `URL` to the directory where Bylaws
+creates its `Bylaws` cache folder. You can give each test its own directory
+to keep parallel tests independent. If several tests share a directory,
+a test configured with a smaller budget may delete files cached by another
+test during cleanup. Bylaws will parse those source files again if they're
+needed.
+
+When you set `parseCache` with a budget greater than zero, Bylaws caches files
+even in temporary directories and ignores `BYLAWS_DISABLE_PARSE_CACHE` for
+that codebase. You can set `directory` to override `BYLAWS_CACHE_PATH` or leave
+it out to use that environment value or the user's caches directory. If you
+leave out `parseCache`, Bylaws uses the environment settings for the codebase.
+
+If you want to configure all tests through the environment, set
+`BYLAWS_CACHE_PATH` to choose their cache directory or
+`BYLAWS_DISABLE_PARSE_CACHE=true` to disable caching. You can disable the cache
+for an individual codebase by setting its `parseCache` budget to zero.
 
 ## Supported API
 
