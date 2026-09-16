@@ -56,6 +56,21 @@ The target writes `bazel-bin/architecture.json` and reports violations and
 warnings in the build output. Set `strict = True` on the target to fail the
 build on advisory violations as well.
 
+## Set the selection-cache budget
+
+You can set `selection_cache_size = "32MiB"` on a `bylaws_lint` target to
+change how much memory Bylaws can use to retain selections shared between
+rules. If you omit the attribute or leave it empty, Bylaws uses the CLI's
+default budget of 64MiB.
+
+The value takes whole bytes or a case-insensitive `B`, `KB`, `MB`, `GB`,
+`KiB`, `MiB` or `GiB` suffix. To turn off selection reuse, set
+`selection_cache_size = "0"`.
+
+This budget applies to retained selections within each lint action. Parsed
+files and active rule evaluations use additional memory, so it is not a limit
+on the process's total memory use. Bazel manages caching between actions.
+
 ## Include the files that rules read
 
 The target preserves each file's path within its repository. A rule can select

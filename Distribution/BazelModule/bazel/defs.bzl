@@ -46,6 +46,8 @@ def _bylaws_lint_impl(ctx):
         args.add("--baseline", to_repository_relative_path(ctx.file.baseline))
     if ctx.attr.strict:
         args.add("--strict")
+    if ctx.attr.selection_cache_size:
+        args.add("--selection-cache-size", ctx.attr.selection_cache_size)
 
     ctx.actions.run(
         executable = ctx.attr.bylaws[DefaultInfo].files_to_run,
@@ -79,6 +81,9 @@ bylaws_lint = rule(
         ),
         "strict": attr.bool(
             doc = "Fail the build on advisory violations too.",
+        ),
+        "selection_cache_size": attr.string(
+            doc = "Memory budget for retained query selections, using CLI size units such as '32MiB'. Empty uses the CLI default. Set '0' to disable selection reuse.",
         ),
         "bylaws": attr.label(
             default = Label("//:bylaws"),

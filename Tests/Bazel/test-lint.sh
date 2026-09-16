@@ -76,6 +76,20 @@ changed_source() {
     --record-baseline Cases/Baseline.swift > "$work/baseline.log"
 
 passes //:architecture
+jq -se 'any(.[]; .mnemonic == "BylawsLint" and (.commandArgs | index("--selection-cache-size") == null))' \
+    "$work/actions.json" > /dev/null
+
+for setting in size:32MiB disabled:0; do
+    passes "//Cases:selection_cache_${setting%%:*}"
+    jq -se --arg size "${setting#*:}" \
+        'any(.[]; .mnemonic == "BylawsLint" and (
+            .commandArgs | index("--selection-cache-size") as $i |
+            $i != null and .[$i + 1] == $size
+        ))' \
+        "$work/actions.json" > /dev/null
+done
+fails //Cases:selection_cache_invalid "Size must be a non-negative whole number of bytes"
+
 passes //Cases:cache
 grep -q '"mnemonic": "BylawsLint"' "$work/actions.json"
 passes //Cases:cache
