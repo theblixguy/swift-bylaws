@@ -204,18 +204,27 @@ enum QueryCompiler {
       default: return nil
       }
     }
-    let compiledFilters = nameFilters.count == query.filters.count
-      ? [{ @Sendable in $0.filtering(nameFilters) }]
-      : filters
+    let compiledFilters = filters
+    let usesNameFilters = !nameFilters.isEmpty
+      && nameFilters.count == query.filters.count
     return .success { subtrees in
-      let applied = subtrees.isEmpty
-        ? compiledFilters
-        : compiledFilters + [{ $0.outside(subtrees) }]
-      return {
+      {
         var selection = try await accessor(codebase)
-        for filter in applied {
-          selection = try filter(selection)
+        if usesNameFilters {
+          if let cache = SelectionCache.current {
+            selection = try await cache.selection(
+              from: selection,
+              filters: nameFilters
+            )
+          } else {
+            selection = selection.filtering(nameFilters)
+          }
+        } else {
+          for filter in compiledFilters {
+            selection = try filter(selection)
+          }
         }
+        if !subtrees.isEmpty { selection = selection.outside(subtrees) }
         return check(selection).erased()
       }
     }

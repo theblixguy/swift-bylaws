@@ -89,6 +89,27 @@ struct LintCommand: AsyncParsableCommand {
   var cacheSize: CacheSize?
 
   @Option(
+    help: ArgumentHelp(
+      """
+      Set the memory budget for retained query selections using whole bytes \
+      or a case-insensitive B, KB, MB, GB, KiB, MiB or GiB suffix (for example, \
+      32MiB). This option takes a value, with zero disabling selection reuse. \
+      The default budget is 64MiB.
+      """,
+      valueName: "size"
+    ),
+    transform: { value in
+      guard let size = CacheSize(argument: value) else {
+        throw ValidationError(
+          "Size must be a non-negative whole number of bytes or use B, KB, MB, GB, KiB, MiB or GiB, within the supported integer range."
+        )
+      }
+      return UInt(size.bytes)
+    }
+  )
+  var selectionCacheSize: UInt = SelectionCache.defaultBudget
+
+  @Option(
     name: .customLong(InternalOptionName.swiftPackageModules.rawValue),
     help: ArgumentHelp(visibility: .hidden)
   )
@@ -139,6 +160,7 @@ struct LintCommand: AsyncParsableCommand {
           .map { LexicalFilePath($0, relativeTo: rootPath).string },
         reportPaths: reportPaths,
         parseCachePolicy: parseCachePolicy,
+        selectionCacheBudget: selectionCacheSize,
         swiftPackageModules: swiftPackageModules
       )
     )

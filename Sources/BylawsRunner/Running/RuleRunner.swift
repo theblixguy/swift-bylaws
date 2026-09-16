@@ -15,6 +15,7 @@ package struct RuleRunConfiguration {
   package var baseline: String?
   package var reportPaths: [String]
   package var parseCachePolicy: ParseCachePolicy
+  package var selectionCacheBudget: UInt
   package var overlay: SourceOverlay
   package var swiftPackageModules: String?
 
@@ -28,6 +29,7 @@ package struct RuleRunConfiguration {
     baseline: String? = nil,
     reportPaths: [String] = [],
     parseCachePolicy: ParseCachePolicy = .disabled,
+    selectionCacheBudget: UInt = SelectionCache.defaultBudget,
     overlay: SourceOverlay = .empty,
     swiftPackageModules: String? = nil
   ) {
@@ -40,6 +42,7 @@ package struct RuleRunConfiguration {
     self.baseline = baseline
     self.reportPaths = reportPaths
     self.parseCachePolicy = parseCachePolicy
+    self.selectionCacheBudget = selectionCacheBudget
     self.overlay = overlay
     self.swiftPackageModules = swiftPackageModules
   }
@@ -176,7 +179,11 @@ package enum RuleRunner {
     let selected = selection.rules
     let allFindings: [Rule.Findings]
     do {
-      allFindings = try await findingsOfEachRule(in: selected)
+      let budget = configuration.selectionCacheBudget
+      allFindings = try await SelectionCache
+        .withBudget(budget) { () throws(RuleError) in
+          try await findingsOfEachRule(in: selected)
+        }
     } catch {
       switch error.cause {
       case .cancelled:

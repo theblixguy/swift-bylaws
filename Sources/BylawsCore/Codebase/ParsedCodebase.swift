@@ -1,4 +1,5 @@
 import BylawsPaths
+import Foundation
 package import BylawsSemantics
 
 package struct ParsedCodebase: Sendable {
@@ -49,6 +50,7 @@ package struct ParsedCodebase: Sendable {
 private actor ParsedCodebaseProjections {
   private struct WeakStorage {
     weak var value: AnyObject?
+    let identity: UUID
   }
 
   private var values: [ParsedCodebase.Projection: WeakStorage] = [:]
@@ -60,8 +62,9 @@ private actor ParsedCodebaseProjections {
     if let existing = values[category]?.value as? SelectionStorage<Element> {
       return existing
     }
-    let created = SelectionStorage(create())
-    values[category] = WeakStorage(value: created)
+    let identity = values[category]?.identity ?? UUID()
+    let created = SelectionStorage(create(), identity: identity)
+    values[category] = WeakStorage(value: created, identity: identity)
     return created
   }
 }

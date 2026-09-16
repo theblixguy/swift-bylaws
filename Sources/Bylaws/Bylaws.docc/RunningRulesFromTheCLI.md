@@ -456,6 +456,43 @@ If you want to configure all tests through the environment, set
 `BYLAWS_DISABLE_PARSE_CACHE=true` to disable caching. You can disable the cache
 for an individual codebase by setting its `parseCache` budget to zero.
 
+The CLI reuses selections from repeated name filters within each run, with
+a default memory budget of 64 MiB. You can change the budget with
+`--selection-cache-size`:
+
+```sh
+bylaws lint --selection-cache-size 32MiB
+```
+
+The option takes a value in whole bytes or with a case-insensitive suffix
+of B, KB, MB, GB, KiB, MiB or GiB. KB, MB and GB use powers of 1000, while
+KiB, MiB and GiB use powers of 1024. If you want to turn off selection reuse,
+pass `--selection-cache-size 0`.
+
+The budget covers the estimated memory used to cache selections across all
+codebases in the run, including the original and filtered arrays, query keys
+and cache entries. Bylaws also needs memory for parsed files and rules that
+are running, so this setting does not limit the process's total memory use.
+When there is no room for a new result, Bylaws removes the least recently used
+cached results first. Rules can use results that are too large to cache, but
+Bylaws may need to calculate them again for another rule.
+
+For discovered rules in Swift Testing, you can share a cache across calls
+to `report()` with `SelectionCache.withBudget`:
+
+```swift
+try await SelectionCache.withBudget(32 * 1024 * 1024) {
+  for rule in rules {
+    try await rule.report()
+  }
+}
+```
+
+Bylaws clears the cache after the closure finishes. You can reuse results
+from `named`, `prefixed`, `suffixed` and `excluding` filters in compiled
+portable queries. Native Swift filter chains and custom closures run as
+usual, and inspection continues to show each filter step.
+
 ## Supported API
 
 The portable language includes top-level and local `let` bindings, named

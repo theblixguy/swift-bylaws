@@ -1,6 +1,6 @@
 import BylawsPaths
 public import BylawsSemantics
-import Foundation
+package import Foundation
 
 /// The results of a codebase query.
 ///
@@ -77,7 +77,10 @@ package final class SelectionStorage<Element: Sendable>: Sendable {
   @usableFromInline
   package let elements: [Element]
 
-  package init(_ elements: [Element]) {
+  package let identity: UUID
+
+  package init(_ elements: [Element], identity: UUID = UUID()) {
+    self.identity = identity
     self.elements = elements
   }
 }

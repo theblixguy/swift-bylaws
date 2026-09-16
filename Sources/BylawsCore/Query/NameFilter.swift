@@ -4,6 +4,15 @@ package enum NameFilter: Sendable, Hashable {
   case prefixed([String])
   case excluding([String])
 
+  var estimatedBytes: Int {
+    let values = switch self {
+    case let .named(values), let .suffixed(values),
+         let .prefixed(values), let .excluding(values): values
+    }
+    return MemoryLayout<Self>.stride
+      + values.reduce(0) { $0 + MemoryLayout<String>.stride + $1.utf8.count }
+  }
+
   func matches(_ name: String) -> Bool {
     switch self {
     case let .named(names): names.contains(name)
