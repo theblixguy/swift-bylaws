@@ -78,15 +78,15 @@ enum CodebaseBuilder {
       inputs,
       maximumConcurrentTasks: maximumConcurrentFileTasks
     ) { input in
-      Result { () throws(ParseError) in
-        try collect(
+      await Result(catching: { () async throws(ParseError) in
+        try await collect(
           input.path,
           from: codebase.overlay,
           reusing: reusable,
           through: parseCache,
           swiftLanguageMode: input.mode
         )
-      }
+      })
     }
     for result in results {
       switch result {
@@ -97,7 +97,7 @@ enum CodebaseBuilder {
         diagnostics
       }
     }
-    parseCache?.removeOldEntriesWhenDue()
+    await parseCache?.removeOldEntriesWhenDue()
 
     guard readFailures.isEmpty else {
       throw CodebaseError.unreadable(
@@ -204,7 +204,12 @@ enum CodebaseBuilder {
     forRoot rootPath: String,
     policy: ParseCachePolicy
   ) -> ParseCache? {
-    guard case let .enabled(directory, cachesTemporaryRoots, budget) = policy
+    guard case let .enabled(
+      directory,
+      cachesTemporaryRoots,
+      budget,
+      validation
+    ) = policy
     else {
       return nil
     }
@@ -219,7 +224,9 @@ enum CodebaseBuilder {
     else {
       return nil
     }
-    return try? ParseCache.opening(directory: directory, budget: budget)
+    return try? ParseCache.opening(
+      directory: directory, budget: budget, validation: validation
+    )
   }
 
   static func contains(_ path: String, in directory: String) -> Bool {
@@ -232,7 +239,7 @@ enum CodebaseBuilder {
     reusing reusable: ReusableFiles?,
     through parseCache: ParseCache?,
     swiftLanguageMode: SwiftLanguageMode
-  ) throws(ParseError) -> SourceFile {
+  ) async throws(ParseError) -> SourceFile {
     if let reused = reusable?.file(
       at: path,
       for: overlay,
@@ -248,21 +255,16 @@ enum CodebaseBuilder {
         swiftLanguageMode: swiftLanguageMode
       )
     }
-    let source = try FileCollector.readSource(atPath: path)
-    if let cached = parseCache?.sourceFile(
-      forSource: source,
-      at: path,
-      swiftLanguageMode: swiftLanguageMode
-    ) {
-      return cached
+    if let parseCache {
+      return try await parseCache.collect(
+        at: path,
+        swiftLanguageMode: swiftLanguageMode
+      )
     }
-    let file = try FileCollector.collect(
-      source: source,
-      path: path,
+    return try FileCollector.collect(
+      fileAt: path,
       swiftLanguageMode: swiftLanguageMode
     )
-    parseCache?.store(file)
-    return file
   }
 
   private static func merging(

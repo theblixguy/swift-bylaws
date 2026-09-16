@@ -1,7 +1,7 @@
-import BylawsCore
 import BylawsSemantics
 import Foundation
 import Testing
+@testable import BylawsCore
 
 @Suite("Portable parse cache")
 struct ParseCachePortabilityTests {
@@ -9,7 +9,7 @@ struct ParseCachePortabilityTests {
     "/worker/checkout/Sources/Model.swift",
     "/sandbox/renamed/Other/模型.swift",
   ])
-  func restoredLocations(path: String) throws {
+  func restoredLocations(path: String) async throws {
     let storage = try ParseCacheTestStorage()
     let source = """
     import Foundation
@@ -34,10 +34,10 @@ struct ParseCachePortabilityTests {
     let parsed = try FileCollector.collect(
       source: source, path: "/original/Sources/Model.swift"
     )
-    storage.cache.store(parsed)
+    await storage.cache.store(parsed)
 
     let loaded = try #require(
-      storage.cache.sourceFile(forSource: source, at: path)
+      await storage.cache.sourceFile(forSource: source, at: path)
     )
     let expected = try FileCollector.collect(source: source, path: path)
     let locations = locations(in: loaded)
@@ -75,8 +75,12 @@ struct ParseCachePortabilityTests {
     #expect(!String(decoding: first.bytes, as: UTF8.self).contains("/original"))
   }
 
-  @Test("Copied cache serves renamed checkout without rewriting entries")
-  func copiedCache() async throws {
+  @Test("Copied cache reuses models in either validation mode", arguments: [
+    ParseCacheConfiguration.Validation.metadata, .content,
+  ])
+  func copiedCache(
+    validation: ParseCacheConfiguration.Validation
+  ) async throws {
     let source = "class Model { func load() {} }"
     let files = ["Sources/Model.swift": source, "Sources/Other.swift": source]
     let storage = try ParseCacheTestStorage()
@@ -96,7 +100,10 @@ struct ParseCachePortabilityTests {
     let originalCodebase = Codebase(
       root: .directory(original.path), swiftLanguageMode: .v6
     ).usingParseCache(
-      .enabled(directory: storage.directory, cachesTemporaryRoots: true)
+      .enabled(
+        directory: storage.directory, cachesTemporaryRoots: true,
+        validation: validation
+      )
     )
     try #require(try await originalCodebase.files.count == 2)
 
@@ -109,7 +116,9 @@ struct ParseCachePortabilityTests {
       to: copiedDirectory.appendingPathComponent("Bylaws")
     )
     let cache = try ParseCache.opening(directory: copiedDirectory)
-    let entry = cache.entry(forSource: source)
+    let entry = try #require(manager.contentsOfDirectory(
+      at: cache.directory, includingPropertiesForKeys: nil
+    ).first { $0.pathExtension == "pack" })
     let savedDate = Date(timeIntervalSince1970: 1_000_000)
     try manager.setAttributes(
       [.modificationDate: savedDate], ofItemAtPath: entry.path
@@ -117,7 +126,10 @@ struct ParseCachePortabilityTests {
     let codebase = Codebase(
       root: .directory(moved.path), swiftLanguageMode: .v6
     ).usingParseCache(
-      .enabled(directory: copiedDirectory, cachesTemporaryRoots: true)
+      .enabled(
+        directory: copiedDirectory, cachesTemporaryRoots: true,
+        validation: validation
+      )
     )
 
     let loaded = try await codebase.files
@@ -132,8 +144,11 @@ struct ParseCachePortabilityTests {
     }
     let entries = try manager.contentsOfDirectory(
       at: cache.directory, includingPropertiesForKeys: nil
-    ).filter { $0.pathExtension == "bin" }
-    #expect(entries.map(\.lastPathComponent) == [entry.lastPathComponent])
+    ).filter { $0.pathExtension == "pack" }
+    let contentKey = ParseCache.key(forSource: source)
+    let models = try entries.map { try ParseCachePack(url: $0) }
+      .count { $0.entries[contentKey] != nil }
+    #expect(models == 1)
     #expect(attributes[.modificationDate] as? Date == savedDate)
   }
 

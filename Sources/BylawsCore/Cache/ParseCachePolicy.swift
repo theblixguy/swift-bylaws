@@ -7,7 +7,8 @@ package enum ParseCachePolicy: Sendable, Hashable {
   case disabled
   case enabled(
     directory: URL, cachesTemporaryRoots: Bool,
-    budget: Int = ParseCacheConfiguration.defaultBudget
+    budget: Int = ParseCacheConfiguration.defaultBudget,
+    validation: ParseCacheConfiguration.Validation = .metadata
   )
   case configured(ParseCacheConfiguration)
   case environment(cachesTemporaryRoots: Bool = false)
@@ -24,13 +25,13 @@ package enum ParseCachePolicy: Sendable, Hashable {
       if let directory = configuration.directory {
         return .enabled(
           directory: directory, cachesTemporaryRoots: true,
-          budget: configuration.budget
+          budget: configuration.budget, validation: configuration.validation
         )
       }
       return Self.enabled(
         cachesTemporaryRoots: true, environment: environment,
         defaultCacheDirectory: defaultCacheDirectory,
-        budget: configuration.budget
+        budget: configuration.budget, validation: configuration.validation
       )
     }
     guard case let .environment(cachesTemporaryRoots) = self else {
@@ -49,18 +50,21 @@ package enum ParseCachePolicy: Sendable, Hashable {
     cachesTemporaryRoots: Bool,
     environment: [String: String],
     defaultCacheDirectory: URL?,
-    budget: Int = ParseCacheConfiguration.defaultBudget
+    budget: Int = ParseCacheConfiguration.defaultBudget,
+    validation: ParseCacheConfiguration.Validation = .metadata
   ) -> ParseCachePolicy {
     if let path = environment[directoryEnvironmentKey], !path.isEmpty {
       return .enabled(
         directory: URL(fileURLWithPath: path),
-        cachesTemporaryRoots: cachesTemporaryRoots, budget: budget
+        cachesTemporaryRoots: cachesTemporaryRoots, budget: budget,
+        validation: validation
       )
     }
     guard let defaultCacheDirectory else { return .disabled }
     return .enabled(
       directory: defaultCacheDirectory,
-      cachesTemporaryRoots: cachesTemporaryRoots, budget: budget
+      cachesTemporaryRoots: cachesTemporaryRoots, budget: budget,
+      validation: validation
     )
   }
 }

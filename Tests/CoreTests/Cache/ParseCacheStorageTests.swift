@@ -6,7 +6,7 @@ import Testing
 @Suite("Temporary cache storage")
 struct ParseCacheStorageTests {
   @Test("Cache files remain until scope ends")
-  func scopedCleanup() throws {
+  func scopedCleanup() async throws {
     let directory: URL
     do {
       let storage = try ParseCacheTestStorage()
@@ -14,9 +14,9 @@ struct ParseCacheStorageTests {
       let cache = storage.cache
       let source = "struct Model {}"
       let path = "/project/Model.swift"
-      cache.store(try FileCollector.collect(source: source, path: path))
+      await cache.store(try FileCollector.collect(source: source, path: path))
 
-      #expect(cache.sourceFile(forSource: source, at: path) != nil)
+      #expect(await cache.sourceFile(forSource: source, at: path) != nil)
       #expect(FileManager.default.fileExists(atPath: directory.path))
     }
 
