@@ -39,6 +39,30 @@ bylaws_lint(
 )
 
 bylaws_lint(
+    name = "selection_cache_size",
+    srcs = ["Sources/Model.swift"],
+    data = ["//:MODULE.bazel"],
+    rules = ["Rules/Final.swift"],
+    selection_cache_size = "32MiB",
+)
+
+bylaws_lint(
+    name = "selection_cache_disabled",
+    srcs = ["Sources/Model.swift"],
+    data = ["//:MODULE.bazel"],
+    rules = ["Rules/Final.swift"],
+    selection_cache_size = "0",
+)
+
+bylaws_lint(
+    name = "selection_cache_invalid",
+    srcs = ["Sources/Model.swift"],
+    data = ["//:MODULE.bazel"],
+    rules = ["Rules/Final.swift"],
+    selection_cache_size = "32MiBB",
+)
+
+bylaws_lint(
     name = "advisory",
     srcs = ["Sources/Violation.swift"],
     data = ["//:MODULE.bazel"],
