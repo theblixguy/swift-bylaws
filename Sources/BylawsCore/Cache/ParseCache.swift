@@ -14,51 +14,33 @@ package struct ParseCache: Sendable {
 
   package let directory: URL
   package let budget: Int
-  private let storage: ParseCacheStore
+  let storage: ParseCacheStore
+  let validation: ParseCacheConfiguration.Validation
 
   package static func opening(
     directory: URL,
-    budget: Int = ParseCache.defaultBudget
+    budget: Int = ParseCache.defaultBudget,
+    validation: ParseCacheConfiguration.Validation = .metadata
   ) throws(ParseCacheError) -> ParseCache {
     let ownedDirectory = directory.appendingPathComponent("Bylaws")
     try prepareDirectory(ownedDirectory)
-    return ParseCache(cacheDirectory: ownedDirectory, budget: budget)
+    return ParseCache(
+      cacheDirectory: ownedDirectory, budget: budget, validation: validation
+    )
   }
 
   private init(
     cacheDirectory: URL,
-    budget: Int
+    budget: Int,
+    validation: ParseCacheConfiguration.Validation
   ) {
     directory = cacheDirectory
     self.budget = budget
+    self.validation = validation
     storage = ParseCacheStore(
       directory: cacheDirectory,
       schemaVersion: Self.schemaVersion
     )
-  }
-
-  package func sourceFile(
-    forSource source: String,
-    at path: String,
-    swiftLanguageMode: SwiftLanguageMode = .v6
-  ) async -> SourceFile? {
-    let key = Self.key(
-      forSource: source,
-      swiftLanguageMode: swiftLanguageMode
-    )
-    guard let entry = await storage.entry(for: key), let data = entry.data,
-          let file = Self.decodeSourceFile(Array(data), at: path),
-          file.sourceText == source, file.swiftLanguageMode == swiftLanguageMode
-    else { return nil }
-    return file
-  }
-
-  package func store(_ file: SourceFile) async {
-    let encoder = CacheEncoder()
-    encoder.encode(file)
-    await storage.store(Data(encoder.bytes), for: Self.key(
-      forSource: file.sourceText, swiftLanguageMode: file.swiftLanguageMode
-    ))
   }
 
   package func removeOldEntriesWhenDue() async {
@@ -138,9 +120,16 @@ package struct ParseCache: Sendable {
     forSource source: String,
     swiftLanguageMode: SwiftLanguageMode = .v6
   ) -> String {
+    digest(for: source, swiftLanguageMode: swiftLanguageMode)
+  }
+
+  static func digest(
+    for text: String,
+    swiftLanguageMode: SwiftLanguageMode
+  ) -> String {
     var bytes = Array(swiftLanguageMode.rawValue.utf8)
     bytes.append(keySeparator)
-    bytes.append(contentsOf: source.utf8)
+    bytes.append(contentsOf: text.utf8)
     return SHA256.hash(data: Data(bytes))
       .map { byte in
         let hex = String(byte, radix: 16)
@@ -178,18 +167,6 @@ package struct ParseCache: Sendable {
   private static func isSymbolicLink(_ url: URL) -> Bool {
     (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path))
       != nil
-  }
-
-  private static func decodeSourceFile(
-    _ bytes: [UInt8], at path: String
-  ) -> SourceFile? {
-    do {
-      let decoder = try CacheDecoder(bytes, path: path)
-      let file = try SourceFile(from: decoder)
-      return decoder.isAtEnd ? file : nil
-    } catch {
-      return nil
-    }
   }
 
   private static func attributes(

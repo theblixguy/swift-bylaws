@@ -427,11 +427,23 @@ with decimal units using powers of 1,000 and binary units using powers of
 entries, pass `--cache-size 0`.
 
 Bylaws normally cleans up the cache at most once a day, removing the oldest
-entries by modification time first. The cache can grow beyond the requested
+packs by modification time first. The cache can grow beyond the requested
 size between cleanups, so the size setting is a soft target. If you change
 it, Bylaws runs cleanup the next time it loads the cache, even if the previous
 cleanup was earlier that day. The size is based on file lengths, which can
 differ from allocated disk space, and applies only to the disk cache.
+
+When caching is enabled, Bylaws uses metadata validation to check a file's
+identity, size and precise modification and change times before and after
+loading its cached model. It reads and hashes the source if the metadata has
+changed, an entry is missing or damaged, or a timestamp is recent or ambiguous.
+This can miss a source change if every checked metadata field is preserved.
+
+If you want to read and hash each source file before accepting a hit, use
+`--cache-validation content`, which also enables caching. You can switch
+between validation modes while reusing the same parsed entries. Cached models
+include their source text, which lets metadata validation skip the source
+read when the file's metadata is unchanged.
 
 In Swift tests, you can configure each codebase without changing the process
 environment:
@@ -439,7 +451,11 @@ environment:
 ```swift
 let codebase = Codebase(
   root: .directory(projectPath),
-  parseCache: .init(directory: cacheDirectory, budget: 500_000_000)
+  parseCache: .init(
+    directory: cacheDirectory,
+    budget: 500_000_000,
+    validation: .content
+  )
 )
 ```
 

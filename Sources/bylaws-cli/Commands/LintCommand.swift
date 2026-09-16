@@ -89,6 +89,23 @@ struct LintCommand: AsyncParsableCommand {
   var cacheSize: CacheSize?
 
   @Option(
+    help: """
+    Choose metadata (default) or content validation and enable caching. \
+    Metadata checks file attributes and can skip source reads, while content \
+    reads and hashes every source file.
+    """,
+    transform: { value in
+      guard let validation = ParseCacheConfiguration
+        .Validation(rawValue: value)
+      else {
+        throw ValidationError("Cache validation must be metadata or content.")
+      }
+      return validation
+    }
+  )
+  var cacheValidation: ParseCacheConfiguration.Validation?
+
+  @Option(
     name: .customLong(InternalOptionName.swiftPackageModules.rawValue),
     help: ArgumentHelp(visibility: .hidden)
   )
@@ -173,10 +190,11 @@ struct LintCommand: AsyncParsableCommand {
   }
 
   private var parseCachePolicy: ParseCachePolicy {
-    if cache || cachePath != nil || cacheSize != nil {
+    if cache || cachePath != nil || cacheSize != nil || cacheValidation != nil {
       return .configured(ParseCacheConfiguration(
         directory: cachePath.map { URL(fileURLWithPath: $0) },
-        budget: cacheSize?.bytes ?? ParseCacheConfiguration.defaultBudget
+        budget: cacheSize?.bytes ?? ParseCacheConfiguration.defaultBudget,
+        validation: cacheValidation ?? .metadata
       ))
     }
     return .disabled

@@ -122,4 +122,21 @@ struct ParseCachePolicyTests {
     #expect(await secondCache
       .sourceFile(forSource: source, at: sourceURL.path) == nil)
   }
+
+  @Test("Validation defaults to metadata and explicit choices stay independent")
+  func validationChoice() {
+    let directory = URL(fileURLWithPath: "/cache")
+    let defaults = Codebase(parseCache: .init(directory: directory))
+    let content = Codebase(parseCache: .init(
+      directory: directory,
+      validation: .content
+    ))
+
+    #expect(defaults.parseCachePolicy.resolved() == .enabled(
+      directory: directory, cachesTemporaryRoots: true, validation: .metadata
+    ))
+    #expect(content.parseCachePolicy.resolved() == .enabled(
+      directory: directory, cachesTemporaryRoots: true, validation: .content
+    ))
+  }
 }
