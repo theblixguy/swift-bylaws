@@ -57,7 +57,7 @@ struct ParseCachePolicyTests {
     ).files
     let entries = manager.enumerator(atPath: cache.path)?
       .compactMap { $0 as? String } ?? []
-    #expect(entries.contains { $0.hasSuffix(".bin") })
+    #expect(entries.contains { $0.hasSuffix(".pack") })
   }
 
   @Test("Explicit directory and budget override environment settings")
@@ -115,9 +115,11 @@ struct ParseCachePolicyTests {
     let files = try await (firstFiles, secondFiles)
     #expect(files.0.count == 1)
     #expect(files.1.count == 1)
-    #expect(first.cache
+    let firstCache = try ParseCache.opening(directory: first.directory)
+    let secondCache = try ParseCache.opening(directory: second.directory)
+    #expect(await firstCache
       .sourceFile(forSource: source, at: sourceURL.path) != nil)
-    #expect(second.cache
+    #expect(await secondCache
       .sourceFile(forSource: source, at: sourceURL.path) == nil)
   }
 }

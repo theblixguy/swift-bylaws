@@ -6,14 +6,15 @@ package struct ParseCache: Sendable {
   package static let defaultBudget = ParseCacheConfiguration.defaultBudget
 
   // Increase this when the model or a collector changes.
-  private static let schemaVersion = 10
+  private static let schemaVersion = 11
   private static let maintenanceInterval: TimeInterval = 24 * 60 * 60
   private static let keySeparator: UInt8 = 0
   private static let entryVersionMarker = "-v"
-  private static let entryNameExtension = ".bin"
+  private static let entryNameExtension = ".pack"
 
   package let directory: URL
   package let budget: Int
+  private let storage: ParseCacheStore
 
   package static func opening(
     directory: URL,
@@ -30,49 +31,60 @@ package struct ParseCache: Sendable {
   ) {
     directory = cacheDirectory
     self.budget = budget
+    storage = ParseCacheStore(
+      directory: cacheDirectory,
+      schemaVersion: Self.schemaVersion
+    )
   }
 
   package func sourceFile(
     forSource source: String,
     at path: String,
     swiftLanguageMode: SwiftLanguageMode = .v6
-  ) -> SourceFile? {
-    let entry = entry(
+  ) async -> SourceFile? {
+    let key = Self.key(
       forSource: source,
       swiftLanguageMode: swiftLanguageMode
     )
-    guard let bytes = Self.readFile(at: entry) else { return nil }
-    guard let file = Self.decodeSourceFile(bytes, at: path) else {
-      Self.removeFile(at: entry)
-      return nil
-    }
+    guard let entry = await storage.entry(for: key), let data = entry.data,
+          let file = Self.decodeSourceFile(Array(data), at: path),
+          file.sourceText == source, file.swiftLanguageMode == swiftLanguageMode
+    else { return nil }
     return file
   }
 
-  package func store(_ file: SourceFile) {
+  package func store(_ file: SourceFile) async {
     let encoder = CacheEncoder()
     encoder.encode(file)
-    Self.writeFile(Data(encoder.bytes), to: entry(
+    await storage.store(Data(encoder.bytes), for: Self.key(
       forSource: file.sourceText, swiftLanguageMode: file.swiftLanguageMode
     ))
   }
 
-  package func removeOldEntriesWhenDue() {
+  package func removeOldEntriesWhenDue() async {
+    await storage.flush()
     let stamp = directory.appendingPathComponent("last-trim")
     let stampDate = Self.attributes(of: stamp, [.contentModificationDateKey])?
       .contentModificationDate
-    let previousBudget = Self.readFile(at: stamp)
+    let previousBudget = (try? Data(contentsOf: stamp))
       .flatMap { Int(String(decoding: $0, as: UTF8.self)) }
     if let stampDate, let previousBudget, budget == previousBudget,
        Date().timeIntervalSince(stampDate) < Self.maintenanceInterval
     {
       return
     }
-    removeOldEntries()
+    await removeOldEntries()
     Self.writeFile(Data(String(budget).utf8), to: stamp)
   }
 
-  package func removeOldEntries() {
+  package func removeOldEntries() async {
+    await storage.flush()
+    trim()
+    await storage.compactIfNeeded()
+    await storage.reload()
+  }
+
+  private func trim() {
     let manager = FileManager.default
     let keys: [URLResourceKey] = [
       .isRegularFileKey, .fileSizeKey, .contentModificationDateKey,
@@ -90,8 +102,9 @@ package struct ParseCache: Sendable {
             let size = values.fileSize,
             let date = values.contentModificationDate
       else { continue }
-      if let version = Self.schemaVersion(ofEntryNamed: url.lastPathComponent),
-         version != Self.schemaVersion
+      if url.pathExtension == "bin"
+        || Self.schemaVersion(ofEntryNamed: url.lastPathComponent)
+        .map({ $0 != Self.schemaVersion }) == true
       {
         Self.removeFile(at: url)
         continue
@@ -105,21 +118,8 @@ package struct ParseCache: Sendable {
     for entry in dated {
       Self.removeFile(at: entry.url)
       total -= entry.size
-      if total <= budget { return }
+      if total <= budget { break }
     }
-  }
-
-  package func entry(
-    forSource source: String,
-    swiftLanguageMode: SwiftLanguageMode = .v6
-  ) -> URL {
-    let key = Self.key(
-      forSource: source,
-      swiftLanguageMode: swiftLanguageMode
-    )
-    let name = "\(key)\(Self.entryVersionMarker)\(Self.schemaVersion)"
-      + Self.entryNameExtension
-    return directory.appendingPathComponent(name)
   }
 
   private static func schemaVersion(ofEntryNamed fileName: String) -> Int? {
@@ -178,10 +178,6 @@ package struct ParseCache: Sendable {
   private static func isSymbolicLink(_ url: URL) -> Bool {
     (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path))
       != nil
-  }
-
-  private static func readFile(at url: URL) -> [UInt8]? {
-    try? FileCollector.readBytes(atPath: url.path)
   }
 
   private static func decodeSourceFile(

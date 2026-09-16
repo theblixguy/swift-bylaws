@@ -9,7 +9,7 @@ struct ParseCachePortabilityTests {
     "/worker/checkout/Sources/Model.swift",
     "/sandbox/renamed/Other/模型.swift",
   ])
-  func restoredLocations(path: String) throws {
+  func restoredLocations(path: String) async throws {
     let storage = try ParseCacheTestStorage()
     let source = """
     import Foundation
@@ -34,10 +34,10 @@ struct ParseCachePortabilityTests {
     let parsed = try FileCollector.collect(
       source: source, path: "/original/Sources/Model.swift"
     )
-    storage.cache.store(parsed)
+    await storage.cache.store(parsed)
 
     let loaded = try #require(
-      storage.cache.sourceFile(forSource: source, at: path)
+      await storage.cache.sourceFile(forSource: source, at: path)
     )
     let expected = try FileCollector.collect(source: source, path: path)
     let locations = locations(in: loaded)
@@ -109,7 +109,9 @@ struct ParseCachePortabilityTests {
       to: copiedDirectory.appendingPathComponent("Bylaws")
     )
     let cache = try ParseCache.opening(directory: copiedDirectory)
-    let entry = cache.entry(forSource: source)
+    let entry = try #require(manager.contentsOfDirectory(
+      at: cache.directory, includingPropertiesForKeys: nil
+    ).first { $0.pathExtension == "pack" })
     let savedDate = Date(timeIntervalSince1970: 1_000_000)
     try manager.setAttributes(
       [.modificationDate: savedDate], ofItemAtPath: entry.path
@@ -132,7 +134,7 @@ struct ParseCachePortabilityTests {
     }
     let entries = try manager.contentsOfDirectory(
       at: cache.directory, includingPropertiesForKeys: nil
-    ).filter { $0.pathExtension == "bin" }
+    ).filter { $0.pathExtension == "pack" }
     #expect(entries.map(\.lastPathComponent) == [entry.lastPathComponent])
     #expect(attributes[.modificationDate] as? Date == savedDate)
   }

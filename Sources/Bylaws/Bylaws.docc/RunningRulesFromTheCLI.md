@@ -414,6 +414,11 @@ You can copy this directory between CI workers or reuse it after moving a
 checkout. Entries match the source text and Swift language mode, and violations
 use the current checkout's file paths.
 
+The cache groups parsed files into indexed packs, which each run reads before
+writing new entries in batches. If an entry is missing or damaged, Bylaws
+parses that source file again. During cleanup, it removes older packs and
+combines small packs where this reduces the number of files.
+
 You can adjust the default disk-cache target of 1,000,000,000 bytes with
 `--cache-size 500MB`, which also enables caching. The option takes whole bytes
 or a case-insensitive `B`, `KB`, `MB`, `GB`, `KiB`, `MiB` or `GiB` suffix,

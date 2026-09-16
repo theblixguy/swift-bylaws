@@ -78,15 +78,15 @@ enum CodebaseBuilder {
       inputs,
       maximumConcurrentTasks: maximumConcurrentFileTasks
     ) { input in
-      Result { () throws(ParseError) in
-        try collect(
+      await Result(catching: { () async throws(ParseError) in
+        try await collect(
           input.path,
           from: codebase.overlay,
           reusing: reusable,
           through: parseCache,
           swiftLanguageMode: input.mode
         )
-      }
+      })
     }
     for result in results {
       switch result {
@@ -97,7 +97,7 @@ enum CodebaseBuilder {
         diagnostics
       }
     }
-    parseCache?.removeOldEntriesWhenDue()
+    await parseCache?.removeOldEntriesWhenDue()
 
     guard readFailures.isEmpty else {
       throw CodebaseError.unreadable(
@@ -232,7 +232,7 @@ enum CodebaseBuilder {
     reusing reusable: ReusableFiles?,
     through parseCache: ParseCache?,
     swiftLanguageMode: SwiftLanguageMode
-  ) throws(ParseError) -> SourceFile {
+  ) async throws(ParseError) -> SourceFile {
     if let reused = reusable?.file(
       at: path,
       for: overlay,
@@ -249,7 +249,7 @@ enum CodebaseBuilder {
       )
     }
     let source = try FileCollector.readSource(atPath: path)
-    if let cached = parseCache?.sourceFile(
+    if let cached = await parseCache?.sourceFile(
       forSource: source,
       at: path,
       swiftLanguageMode: swiftLanguageMode
@@ -261,7 +261,7 @@ enum CodebaseBuilder {
       path: path,
       swiftLanguageMode: swiftLanguageMode
     )
-    parseCache?.store(file)
+    await parseCache?.store(file)
     return file
   }
 
