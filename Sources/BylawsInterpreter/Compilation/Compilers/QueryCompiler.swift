@@ -194,6 +194,9 @@ enum QueryCompiler {
       else { matcher }
       check = { Violations(of: requirement, in: $0) }
     }
+    let codebase = codebase.usingDeclarations(
+      query.canUseDeclarationsAsWritten ? .asWritten : .resolved
+    )
     let nameFilters = query.filters.compactMap { filter -> NameFilter? in
       let strings = filter.unlabelledStrings
       switch SupportedAPI.filter(named: filter.name)?.id {

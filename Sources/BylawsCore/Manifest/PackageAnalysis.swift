@@ -24,7 +24,7 @@ struct PackageAnalysis: Sendable {
     var filesByTarget: [String: [SourceFile]] = [:]
     for target in targets {
       let directory = root.appending(target.sourceDirectory)
-      let candidates = parsedCodebase.files.filter {
+      let candidates = parsedCodebase.filesAsWritten.filter {
         directory.contains(LexicalFilePath($0.path))
       }
       filesByTarget[target.name] = Self.selectedFiles(

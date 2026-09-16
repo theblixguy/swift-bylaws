@@ -32,7 +32,7 @@ package struct DependencyPlan {
     }
     let root = LexicalFilePath(parsedCodebase.rootPath)
     var files: [String: File] = [:]
-    for file in parsedCodebase.files {
+    for file in parsedCodebase.filesAsWritten {
       let path = LexicalFilePath(file.path)
       guard let relative = path.relative(to: root) else { continue }
       let matchPath = Glob.Path(relative.string)
@@ -73,7 +73,7 @@ package struct DependencyPlan {
     let root = LexicalFilePath(parsedCodebase.rootPath)
     var files: [String: File] = [:]
     var groups: Set<String> = []
-    for file in parsedCodebase.files {
+    for file in parsedCodebase.filesAsWritten {
       let path = LexicalFilePath(file.path)
       guard let relative = path.relative(to: root) else { continue }
       var matchingFolders: [String] = []

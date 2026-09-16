@@ -230,6 +230,7 @@ extension Codebase {
       .parsedCodebase(for: self)
     let storage = await parsedCodebase.projection(
       for: category,
+      declarations: declarations,
       create: create
     )
     let description = "\(label) in \(parsedCodebase.rootName)"
