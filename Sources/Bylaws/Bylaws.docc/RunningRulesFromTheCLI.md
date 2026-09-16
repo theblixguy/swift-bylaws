@@ -66,7 +66,9 @@ bylaws lint
 
 If you want to start with warning-only rules instead of the example above,
 run `bylaws init` in a project that has no `Bylaws.swift` file. It creates
-advisory rules, which report violations without failing the run.
+advisory rules, which report violations without failing the run. The generated
+codebase excludes DocC bundles with `**/*.docc/**`. If you want to check their
+Swift examples too, remove that pattern from the `excluding` list.
 
 The run exits with status code 0 when the rules pass, status code 1 when it
 finds an enforced violation and status code 2 when it cannot load a rules file.
