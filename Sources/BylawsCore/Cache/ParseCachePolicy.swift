@@ -1,6 +1,13 @@
+import BylawsPaths
 package import Foundation
 
 package enum ParseCachePolicy: Sendable, Hashable {
+  package struct Settings: Sendable {
+    package let directory: URL
+    package let budget: Int
+    package let validation: ParseCacheConfiguration.Validation
+  }
+
   package static let disableEnvironmentKey = "BYLAWS_DISABLE_PARSE_CACHE"
   package static let directoryEnvironmentKey = "BYLAWS_CACHE_PATH"
 
@@ -50,6 +57,30 @@ package enum ParseCachePolicy: Sendable, Hashable {
       cachesTemporaryRoots: cachesTemporaryRoots,
       environment: environment,
       defaultCacheDirectory: defaultCacheDirectory
+    )
+  }
+
+  package func settings(forRoot rootPath: String) -> Settings? {
+    guard case let .enabled(
+      directory,
+      cachesTemporaryRoots,
+      budget,
+      validation
+    ) = resolved()
+    else { return nil }
+    let temporaryDirectories = [
+      FileManager.default.temporaryDirectory.path,
+      "/tmp", "/private/tmp", "/var/folders", "/private/var/folders",
+    ]
+    guard cachesTemporaryRoots
+      || !temporaryDirectories.contains(where: {
+        LexicalFilePath($0).contains(LexicalFilePath(rootPath))
+      })
+    else { return nil }
+    return Settings(
+      directory: directory,
+      budget: budget,
+      validation: validation
     )
   }
 

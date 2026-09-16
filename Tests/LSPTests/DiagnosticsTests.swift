@@ -146,29 +146,22 @@ struct DiagnosticsTests {
   )
   func overlappingRefreshes() async throws {
     let olderProject = try DiagnosticTestProject()
-    let newerProject = try DiagnosticTestProject(source: "final class Good {}")
     let control = DiagnosticRefreshControl()
-    let roots = [olderProject.root.path, newerProject.root.path]
-      .map(LexicalFilePath.init)
+    let sourcePath = olderProject.source.path
     let state = BylawsLanguageServerState(
       clock: UnimplementedClock(),
       client: TestConnection(),
       runner: RuleRunning(
         run: { configuration throws(CancellationError) in
-          let requestID = await control
-            .beginRequest()
-          var configuration = configuration
-          configuration
-            .root = roots[requestID]
-          configuration
-            .parseCachePolicy = .disabled
-          let result = try await RuleRunner
-            .run(configuration)
+          let requestID = await control.beginRequest()
+          let result = RuleRunResult.mock(
+            rootPath: configuration.root.string,
+            diagnosticAt: requestID == 0 ? sourcePath : nil
+          )
           await control.suspend(requestID)
           return result
         },
-        discardCaches: RuleRunner
-          .discardCaches(under:)
+        discardCaches: { _ in }
       )
     )
     _ = await state.initialize(

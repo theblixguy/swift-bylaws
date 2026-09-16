@@ -1,3 +1,6 @@
+import BylawsCore
+import BylawsPaths
+import BylawsRunner
 import Clocks
 import Foundation
 import LanguageServerProtocol
@@ -14,9 +17,23 @@ struct DiagnosticRequestTests {
     let project = try DiagnosticTestProject(source: "final class Good {}")
     let clock = TestClock()
     let start = clock.now
+    let sourcePath = project.source.path
     let server = BylawsLanguageServer(
       client: TestConnection(),
       clock: clock,
+      runner: RuleRunning(
+        run: { configuration throws(CancellationError) in
+          let diagnosticPath =
+            configuration.overlay.text(forFileAt: sourcePath) == "class Bad {}"
+              ? sourcePath
+              : nil
+          return RuleRunResult.mock(
+            rootPath: configuration.root.string,
+            diagnosticAt: diagnosticPath
+          )
+        },
+        discardCaches: { _ in }
+      ),
       onExit: { _ in }
     )
     var initialization = initializeRequest(

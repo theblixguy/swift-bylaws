@@ -96,7 +96,7 @@ struct ParseCacheMaintenanceTests {
     try contents.write(to: unrelated)
 
     #expect(
-      throws: ParseCacheError.directoryIsSymbolicLink(
+      throws: DiskCache.Error.directoryIsSymbolicLink(
         path: container.appendingPathComponent("Bylaws").path
       )
     ) {
