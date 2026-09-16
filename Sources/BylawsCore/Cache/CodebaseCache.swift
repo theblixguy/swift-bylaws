@@ -27,6 +27,7 @@ package actor CodebaseCache {
     ) { () async throws(CodebaseError) in
       try await CodebaseBuilder.build(codebase, reusing: reusable)
     }
+    await codebase.recordSourceDependencies(rootPath: key.directoryRoot)
     return built.parsed
   }
 
@@ -44,7 +45,7 @@ package actor CodebaseCache {
       codebase.parseCachePolicy.resolved()
     )
     let key = try key(for: codebase)
-    return try await MemoisedTask.value(
+    let analysis = try await MemoisedTask.value(
       name: "bylaws: analyse package",
       lookup: { entries[key]?.packageAnalysis },
       insert: { entries[key]?.packageAnalysis = $0 },
@@ -56,6 +57,10 @@ package actor CodebaseCache {
         from: codebase.overlay
       )
     }
+    await codebase.recordSwiftPackageAnalysisDependencies(
+      rootPath: key.directoryRoot
+    )
+    return analysis
   }
 
   private struct Key: Sendable, Hashable {
@@ -69,6 +74,11 @@ package actor CodebaseCache {
     private let excluding: Set<Glob>
     private let parseCachePolicy: ParseCachePolicy
     private let swiftLanguageMode: Codebase.LanguageMode
+
+    var directoryRoot: String? {
+      guard case let .directory(path) = root else { return nil }
+      return path
+    }
 
     init(_ codebase: Codebase) throws(CodebaseError) {
       switch codebase.root.strategy {

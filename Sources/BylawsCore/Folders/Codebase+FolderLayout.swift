@@ -24,6 +24,7 @@ extension Codebase {
     let directories: Set<String>
     do {
       rootPath = try resolvedRootPath()
+      await recordDescendantsDependency(rootPath)
       directories = try await layoutDirectories(
         matching: glob,
         rootPath: rootPath

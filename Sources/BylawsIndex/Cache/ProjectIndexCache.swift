@@ -22,7 +22,7 @@ package actor ProjectIndexCache {
       unitOutputFiles: unitOutputFiles
     )
     do {
-      return try await MemoisedTask.value(
+      let index = try await MemoisedTask.value(
         name: "bylaws: read index store",
         lookup: { entries[key] },
         insert: { entry in
@@ -39,6 +39,8 @@ package actor ProjectIndexCache {
           unitOutputFiles: unitOutputFiles
         )
       }
+      await RuleDependencyTracking.recordUntrackedDependency()
+      return index
     } catch {
       throw .indexUnavailable(error)
     }
