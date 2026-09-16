@@ -10,7 +10,8 @@ import Foundation
 /// to filter and check.
 ///
 /// Initialisation defers file access. Without an explicit cache configuration,
-/// the first query reads `BYLAWS_DISABLE_PARSE_CACHE` and `BYLAWS_CACHE_PATH`.
+/// the first query uses the enclosing `.parseCache` trait's defaults or reads
+/// `BYLAWS_DISABLE_PARSE_CACHE` and `BYLAWS_CACHE_PATH`.
 /// Parsed data remains in memory for the process.
 ///
 /// An unreadable file or directory fails the query with
@@ -108,7 +109,8 @@ public struct Codebase: Sendable, Hashable {
   ///
   /// Set `parseCache` to choose a disk cache directory, cleanup target and
   /// validation policy.
-  /// A `nil` value uses the environment settings.
+  /// A `nil` value uses the enclosing `.parseCache` trait's defaults or the
+  /// environment settings.
   public init(
     root: Root = .automatic(),
     including: [Glob] = [],

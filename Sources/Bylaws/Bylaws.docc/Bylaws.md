@@ -78,6 +78,8 @@ To run rules from a `Bylaws.swift` file, follow <doc:RunningRulesFromTheCLI>.
 ### Rule traits
 
 - ``CodebaseTrait``
+- ``ParseCacheTrait``
+- ``SelectionCacheTrait``
 - ``AnnotatesViolationsTrait``
 - ``BaselineTrait``
 - ``BaselineMode``

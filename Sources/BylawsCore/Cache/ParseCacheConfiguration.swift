@@ -2,6 +2,8 @@ public import Foundation
 
 /// The disk cache settings for a codebase.
 public struct ParseCacheConfiguration: Sendable, Hashable {
+  @TaskLocal package static var current: Self?
+
   /// The checks used before reusing a cached parse.
   public enum Validation: String, Sendable, Hashable {
     /// Checks file metadata before reusing a parse.
