@@ -91,9 +91,9 @@ If the file cannot be written, the command exits with status code 2. Use
 `--record-baseline` in a separate run.
 
 To check a project from another directory, use `--root`. Relative `--rules`,
-`--baseline` and `--report-path` values refer to that project root. Paths for
-`--output`, `--record-baseline` and `--cache-path` refer to your working
-directory, so you can keep generated files outside the project:
+`--baseline`, `--report-path` and `--changed-path` values refer to that project
+root. Paths for `--output`, `--record-baseline` and `--cache-path` refer to your
+working directory, so you can keep generated files outside the project:
 
 ```sh
 bylaws lint --root Projects/App --rules Bylaws.swift --output report.txt
@@ -119,6 +119,23 @@ Each path includes its descendants and can be absolute or relative to the
 project root. Violations and source-located warnings outside those paths are
 omitted, but configuration errors and stale baseline entries apply to the
 whole run.
+
+When another tool gives you a complete list of files changed since the previous
+run, pass them to `--changed-path`. Bylaws then enables the disk cache, rechecks
+the rules affected by those paths and uses cached results for the rest:
+
+```sh
+bylaws lint --changed-path Sources/Checkout/CheckoutView.swift
+```
+
+Include changed generated inputs too, such as a refreshed Bazel graph, because
+a version-control diff might not list them.
+
+Each affected rule checks all of its inputs again, which means a change in one
+file can reveal a violation in another. Bylaws runs every rule when no result
+cache exists and always reruns a rule when it cannot track all of its inputs.
+Rules that use compiler-index data also run every time because the index can
+change independently of source files.
 
 ## Discovery and overrides
 
@@ -407,19 +424,17 @@ language, write the rule as an ordinary test.
 
 ## Performance
 
-If you want to try caching parsed files between runs, add `--cache` and compare
-the timings on your project. Caching is off by default and may be slower than
-parsing the files again.
+Use `--cache` to reuse parsed files between runs and save the rule results that
+`--changed-path` needs. Caching is off by default and can be slower than running
+without it, so compare the timings on your project.
 
 If the cache must live in a particular directory, pass `--cache-path DIR`.
 You can copy this directory between CI workers or reuse it after moving a
 checkout. Entries match the source text and Swift language mode, and violations
 use the current checkout's file paths.
 
-The cache groups parsed files into indexed packs, which each run reads before
-writing new entries in batches. If an entry is missing or damaged, Bylaws
-parses that source file again. During cleanup, it removes older packs and
-combines small packs where this reduces the number of files.
+If a parsed entry is missing or damaged, Bylaws parses that source file again.
+If saved rule results are damaged, Bylaws runs those rules again.
 
 You can adjust the default disk-cache target of 1,000,000,000 bytes with
 `--cache-size 500MB`, which also enables caching. The option takes whole bytes
@@ -428,12 +443,12 @@ with decimal units using powers of 1,000 and binary units using powers of
 1,024. If you want to disable the disk cache while keeping its existing
 entries, pass `--cache-size 0`.
 
-Bylaws normally cleans up the cache at most once a day, removing the oldest
-packs by modification time first. The cache can grow beyond the requested
-size between cleanups, so the size setting is a soft target. If you change
-it, Bylaws runs cleanup the next time it loads the cache, even if the previous
-cleanup was earlier that day. The size is based on file lengths, which can
-differ from allocated disk space, and applies only to the disk cache.
+Bylaws normally cleans up the cache at most once a day and removes the oldest
+entries first. The cache can grow beyond the requested size between cleanups,
+so the size setting is a soft target. If you change it, Bylaws runs cleanup the
+next time it loads the cache, even if the previous cleanup was earlier that
+day. The size is based on file lengths, which can differ from allocated disk
+space, and applies only to the disk cache.
 
 When caching is enabled, Bylaws uses metadata validation to check a file's
 identity, size and precise modification and change times before and after

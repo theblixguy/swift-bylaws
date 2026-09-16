@@ -54,6 +54,7 @@ public struct RuleProgram: Sendable {
 
   package let ruleFileStatus: RuleFileStatus
   package let pathsThatDidNotParse: [String]
+  package let ruleSourcePaths: [String]?
 
   /// The directory scopes, in loaded-rule order.
   ///
@@ -70,7 +71,8 @@ public struct RuleProgram: Sendable {
     self.init(
       loadedRules: loadedRules,
       diagnostics: diagnostics,
-      ruleFileStatus: .found
+      ruleFileStatus: .found,
+      ruleSourcePaths: nil
     )
   }
 
@@ -78,12 +80,14 @@ public struct RuleProgram: Sendable {
     loadedRules: [LoadedRule],
     diagnostics: [Diagnostic],
     ruleFileStatus: RuleFileStatus,
-    pathsThatDidNotParse: [String] = []
+    pathsThatDidNotParse: [String] = [],
+    ruleSourcePaths: [String]? = nil
   ) {
     self.loadedRules = loadedRules
     self.diagnostics = diagnostics
     self.ruleFileStatus = ruleFileStatus
     self.pathsThatDidNotParse = pathsThatDidNotParse
+    self.ruleSourcePaths = ruleSourcePaths
   }
 
   /// The diagnostics with the ``Diagnostic/Severity/error`` severity.

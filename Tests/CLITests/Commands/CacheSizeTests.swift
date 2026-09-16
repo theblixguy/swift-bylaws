@@ -48,4 +48,15 @@ struct CacheSizeTests {
       try LintCommand.parse(["--cache-validation", "fast"])
     }
   }
+
+  @Test("Changed paths accept several values")
+  func changedPaths() throws {
+    let command = try LintCommand.parse([
+      "--changed-path", "Sources/App.swift", "Sources/Feature.swift",
+    ])
+
+    #expect(command.changedPaths == [
+      "Sources/App.swift", "Sources/Feature.swift",
+    ])
+  }
 }

@@ -14,6 +14,7 @@ package struct RuleRunConfiguration {
   package var sourceOnly: Bool
   package var baseline: String?
   package var reportPaths: [String]
+  package var changedPaths: [String]
   package var parseCachePolicy: ParseCachePolicy
   package var selectionCacheBudget: UInt
   package var overlay: SourceOverlay
@@ -28,6 +29,7 @@ package struct RuleRunConfiguration {
     sourceOnly: Bool = false,
     baseline: String? = nil,
     reportPaths: [String] = [],
+    changedPaths: [String] = [],
     parseCachePolicy: ParseCachePolicy = .disabled,
     selectionCacheBudget: UInt = SelectionCache.defaultBudget,
     overlay: SourceOverlay = .empty,
@@ -41,6 +43,7 @@ package struct RuleRunConfiguration {
     self.sourceOnly = sourceOnly
     self.baseline = baseline
     self.reportPaths = reportPaths
+    self.changedPaths = changedPaths
     self.parseCachePolicy = parseCachePolicy
     self.selectionCacheBudget = selectionCacheBudget
     self.overlay = overlay
@@ -181,34 +184,26 @@ package enum RuleRunner {
     do {
       let budget = configuration.selectionCacheBudget
       allFindings = try await SelectionCache
-        .withBudget(budget) { () throws(RuleError) in
-          try await findingsOfEachRule(in: selected)
-        }
-    } catch {
-      switch error.cause {
-      case .cancelled:
-        throw CancellationError()
-      case .codebase, .layering, .other:
-        guard !Task.isCancelled else { throw CancellationError() }
-        if !error.parseDiagnostics.isEmpty {
-          return resultWithoutReports(
-            rootPath: rootPath,
-            diagnostics: error.parseDiagnostics.map {
-              Diagnostic(
-                severity: .error, location: $0.location,
-                message: "\($0.message) (Swift \($0.swiftLanguageMode.rawValue) mode)"
-              )
-            },
-            outcome: .invalidRules,
-            pathsThatDidNotParse: error.pathsThatDidNotParse
+        .withBudget(budget) {
+          () throws(IncrementalRuleEvaluator.Error) in
+          try await IncrementalRuleEvaluator.findings(
+            of: selected,
+            program: program,
+            configuration: configuration
           )
         }
+    } catch {
+      switch error {
+      case let .cache(error):
         return invalidResult(
           rootPath: rootPath,
-          location: selected.first { $0.id == error.rule }?.location
-            ?? defaultLocation(rootPath: rootPath, rules: selected),
-          message: error.description,
-          pathsThatDidNotParse: error.pathsThatDidNotParse
+          message: error.description
+        )
+      case let .rule(error):
+        return try failureResult(
+          for: error,
+          rootPath: rootPath,
+          rules: selected
         )
       }
     }
@@ -276,17 +271,6 @@ package enum RuleRunner {
     )
   }
 
-  private static func findingsOfEachRule(
-    in rules: [Rule]
-  ) async throws(RuleError) -> [Rule.Findings] {
-    try await boundedConcurrentMap(
-      rules,
-      maximumConcurrentTasks: ProcessInfo.processInfo.activeProcessorCount
-    ) { rule throws(RuleError) in
-      try await rule.findings()
-    }
-  }
-
   private static func entries(
     from violations: Violations<Offender>,
     ruleID: Rule.ID,
@@ -295,6 +279,40 @@ package enum RuleRunner {
     Set(violations.offenders.map { offender in
       Baseline.Entry(offender: offender, for: ruleID, relativeTo: rootPath)
     })
+  }
+
+  private static func failureResult(
+    for error: RuleError,
+    rootPath: String,
+    rules: [Rule]
+  ) throws(CancellationError) -> RuleRunResult {
+    switch error.cause {
+    case .cancelled:
+      throw CancellationError()
+    case .codebase, .layering, .other:
+      guard !Task.isCancelled else { throw CancellationError() }
+      if !error.parseDiagnostics.isEmpty {
+        return resultWithoutReports(
+          rootPath: rootPath,
+          diagnostics: error.parseDiagnostics.map {
+            Diagnostic(
+              severity: .error,
+              location: $0.location,
+              message: "\($0.message) (Swift \($0.swiftLanguageMode.rawValue) mode)"
+            )
+          },
+          outcome: .invalidRules,
+          pathsThatDidNotParse: error.pathsThatDidNotParse
+        )
+      }
+      return invalidResult(
+        rootPath: rootPath,
+        location: rules.first { $0.id == error.rule }?.location
+          ?? defaultLocation(rootPath: rootPath, rules: rules),
+        message: error.description,
+        pathsThatDidNotParse: error.pathsThatDidNotParse
+      )
+    }
   }
 
   private static func defaultLocation(
