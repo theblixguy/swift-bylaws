@@ -265,3 +265,25 @@ extension Selection: CustomStringConvertible {
     return "\(elements): \(queryDescription)"
   }
 }
+
+extension Selection where Element: Named {
+  package func filtering(_ filters: [NameFilter]) -> Selection {
+    guard !filters.isEmpty else { return self }
+    if QueryInspection.isEnabled {
+      return filters.reduce(self) { selection, filter in
+        selection.narrowed(
+          to: selection.elements.filter { filter.matches($0.name) },
+          appending: filter.description
+        )
+      }
+    }
+    return Selection(
+      elements: elements.filter { element in
+        filters.allSatisfy { $0.matches(element.name) }
+      },
+      queryDescription: ([queryDescription] + filters.map(\.description))
+        .joined(separator: " "),
+      rootPath: rootPath
+    )
+  }
+}

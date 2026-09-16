@@ -194,7 +194,19 @@ enum QueryCompiler {
       else { matcher }
       check = { Violations(of: requirement, in: $0) }
     }
-    let compiledFilters = filters
+    let nameFilters = query.filters.compactMap { filter -> NameFilter? in
+      let strings = filter.unlabelledStrings
+      switch SupportedAPI.filter(named: filter.name)?.id {
+      case .named: return .named(strings)
+      case .suffixed: return .suffixed(strings)
+      case .prefixed: return .prefixed(strings)
+      case .excluding: return .excluding(strings)
+      default: return nil
+      }
+    }
+    let compiledFilters = nameFilters.count == query.filters.count
+      ? [{ @Sendable in $0.filtering(nameFilters) }]
+      : filters
     return .success { subtrees in
       let applied = subtrees.isEmpty
         ? compiledFilters
