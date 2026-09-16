@@ -20,6 +20,13 @@ package enum ParseCachePolicy: Sendable, Hashable {
       in: .userDomainMask
     ).first
   ) -> ParseCachePolicy {
+    if case .environment = self,
+       let configuration = ParseCacheConfiguration.current
+    {
+      return Self.configured(configuration).resolved(
+        environment: environment, defaultCacheDirectory: defaultCacheDirectory
+      )
+    }
     if case let .configured(configuration) = self {
       guard configuration.budget > 0 else { return .disabled }
       if let directory = configuration.directory {

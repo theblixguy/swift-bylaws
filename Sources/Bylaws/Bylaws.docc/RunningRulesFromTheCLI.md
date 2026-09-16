@@ -447,8 +447,12 @@ between validation modes while reusing the same parsed entries. Cached models
 include their source text, which lets metadata validation skip the source
 read when the file's metadata is unchanged.
 
-In Swift tests, you can configure each codebase without changing the process
-environment:
+In Swift tests, you can set defaults for a suite or test with
+`.parseCache(validation: .content)`. The trait also takes `directory` and `budget`,
+and inherits omitted settings from its enclosing scope. See
+<doc:GettingStarted#Configure-caches-for-tests> for examples and precedence.
+You can give an individual codebase an explicit configuration, which takes
+precedence over those defaults:
 
 ```swift
 let codebase = Codebase(
@@ -500,8 +504,9 @@ When there is no room for a new result, Bylaws removes the least recently used
 cached results first. Rules can use results that are too large to cache, but
 Bylaws may need to calculate them again for another rule.
 
-For discovered rules in Swift Testing, you can share a cache across calls
-to `report()` with `SelectionCache.withBudget`:
+For discovered rules in Swift Testing, add `.selectionCache(budget: 32 * 1024 * 1024)`
+to a suite to share one cache across its tests. You can also share a cache across
+selected calls to `report()` with `SelectionCache.withBudget`:
 
 ```swift
 try await SelectionCache.withBudget(32 * 1024 * 1024) {

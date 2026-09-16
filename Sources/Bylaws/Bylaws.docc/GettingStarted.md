@@ -102,6 +102,52 @@ test when no functions match the query.
 <doc:DeclarationRules> includes checks for calls in property initialisers
 and accessors.
 
+## Configure caches for tests
+
+You can choose disk-cache settings for a suite with `.parseCache`. For example,
+this suite reads and hashes each source file before reusing its cached parse:
+
+```swift
+@Suite(.codebase(.app), .parseCache(validation: .content))
+struct ArchitectureRules {
+  @Test("Classes are final")
+  func finalClasses() async throws {
+    let classes = try await Codebase.app.classes
+    #expect(classes.allSatisfy(\.isFinal))
+  }
+}
+```
+
+The trait also takes `directory` and `budget`, so you can set a cache directory
+`URL` or change the soft disk-size target without repeating the validation
+setting. Omitted arguments keep the enclosing suite's settings. At the outermost
+scope, the defaults are the directory from `BYLAWS_CACHE_PATH` or the user's
+caches directory, a 1 GB target and metadata validation. If you want to disable
+the disk cache for one test, add `.parseCache(budget: 0)` to its `@Test` attribute.
+
+A trait with a non-zero budget enables caching even for temporary projects
+and overrides `BYLAWS_DISABLE_PARSE_CACHE`. An explicit `Codebase(parseCache:)`
+configuration takes precedence over the trait. Bylaws resolves the settings
+when you query the codebase, so stored and static codebases can use them too.
+The order of `.codebase` and `.parseCache` in the suite attribute makes no
+difference to preparation.
+
+For discovered rules, `.selectionCache(budget: 32 * 1024 * 1024)` gives the
+suite one shared budget for retained query selections. You can omit `budget`
+to use 64 MiB or set it to zero to disable selection reuse. A nested suite or
+test with its own trait gets a separate cache and budget, which Bylaws clears
+when that scope finishes. Parsed files and running rules use additional memory.
+Native Swift filter chains and custom closures keep their usual behaviour.
+
+Both traits apply while tests run, including all parameterised cases. Swift
+Testing evaluates `arguments:` before entering these scopes. If a query builds
+the argument list, set `Codebase(parseCache:)` explicitly to configure its disk
+cache, or move the query into the test body to use trait settings.
+
+Parallel suites have independent settings, though suites that choose the same
+disk directory share its entries and cleanup behaviour. See
+<doc:RunningRulesFromTheCLI#Performance> for validation modes and cache limits.
+
 ## Set up an Xcode project
 
 Choose **File > Add Package Dependencies**, enter the repository URL and add

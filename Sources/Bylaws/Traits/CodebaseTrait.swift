@@ -20,9 +20,11 @@
       testCase: Test.Case?,
       performing function: @concurrent @Sendable () async throws -> Void
     ) async throws {
-      try await codebase.prepare()
-      try await Codebase.$current.withValue(codebase) {
-        try await function()
+      try await ParseCacheTrait.withConfiguration(for: test) {
+        try await codebase.prepare()
+        try await Codebase.$current.withValue(codebase) {
+          try await function()
+        }
       }
     }
   }
