@@ -194,16 +194,40 @@ enum QueryCompiler {
       else { matcher }
       check = { Violations(of: requirement, in: $0) }
     }
+    let codebase = codebase.usingDeclarations(
+      query.canUseDeclarationsAsWritten ? .asWritten : .resolved
+    )
+    let nameFilters = query.filters.compactMap { filter -> NameFilter? in
+      let strings = filter.unlabelledStrings
+      switch SupportedAPI.filter(named: filter.name)?.id {
+      case .named: return .named(strings)
+      case .suffixed: return .suffixed(strings)
+      case .prefixed: return .prefixed(strings)
+      case .excluding: return .excluding(strings)
+      default: return nil
+      }
+    }
     let compiledFilters = filters
+    let usesNameFilters = !nameFilters.isEmpty
+      && nameFilters.count == query.filters.count
     return .success { subtrees in
-      let applied = subtrees.isEmpty
-        ? compiledFilters
-        : compiledFilters + [{ $0.outside(subtrees) }]
-      return {
+      {
         var selection = try await accessor(codebase)
-        for filter in applied {
-          selection = try filter(selection)
+        if usesNameFilters {
+          if let cache = SelectionCache.current {
+            selection = try await cache.selection(
+              from: selection,
+              filters: nameFilters
+            )
+          } else {
+            selection = selection.filtering(nameFilters)
+          }
+        } else {
+          for filter in compiledFilters {
+            selection = try filter(selection)
+          }
         }
+        if !subtrees.isEmpty { selection = selection.outside(subtrees) }
         return check(selection).erased()
       }
     }

@@ -413,8 +413,85 @@ If the cache must live in a particular directory, pass `--cache-path DIR`.
 You can copy this directory between CI workers or reuse it after moving a
 checkout. Entries match the source text and Swift language mode, and violations
 use the current checkout's file paths.
-For tests, set `BYLAWS_CACHE_PATH` to choose the directory or
-`BYLAWS_DISABLE_PARSE_CACHE=true` to disable caching.
+
+You can adjust the default disk-cache target of 1,000,000,000 bytes with
+`--cache-size 500MB`, which also enables caching. The option takes whole bytes
+or a case-insensitive `B`, `KB`, `MB`, `GB`, `KiB`, `MiB` or `GiB` suffix,
+with decimal units using powers of 1,000 and binary units using powers of
+1,024. If you want to disable the disk cache while keeping its existing
+entries, pass `--cache-size 0`.
+
+Bylaws normally cleans up the cache at most once a day, removing the oldest
+entries by modification time first. The cache can grow beyond the requested
+size between cleanups, so the size setting is a soft target. If you change
+it, Bylaws runs cleanup the next time it loads the cache, even if the previous
+cleanup was earlier that day. The size is based on file lengths, which can
+differ from allocated disk space, and applies only to the disk cache.
+
+In Swift tests, you can configure each codebase without changing the process
+environment:
+
+```swift
+let codebase = Codebase(
+  root: .directory(projectPath),
+  parseCache: .init(directory: cacheDirectory, budget: 500_000_000)
+)
+```
+
+In this example, `cacheDirectory` is a `URL` to the directory where Bylaws
+creates its `Bylaws` cache folder. You can give each test its own directory
+to keep parallel tests independent. If several tests share a directory,
+a test configured with a smaller budget may delete files cached by another
+test during cleanup. Bylaws will parse those source files again if they're
+needed.
+
+When you set `parseCache` with a budget greater than zero, Bylaws caches files
+even in temporary directories and ignores `BYLAWS_DISABLE_PARSE_CACHE` for
+that codebase. You can set `directory` to override `BYLAWS_CACHE_PATH` or leave
+it out to use that environment value or the user's caches directory. If you
+leave out `parseCache`, Bylaws uses the environment settings for the codebase.
+
+If you want to configure all tests through the environment, set
+`BYLAWS_CACHE_PATH` to choose their cache directory or
+`BYLAWS_DISABLE_PARSE_CACHE=true` to disable caching. You can disable the cache
+for an individual codebase by setting its `parseCache` budget to zero.
+
+The CLI reuses selections from repeated name filters within each run, with
+a default memory budget of 64 MiB. You can change the budget with
+`--selection-cache-size`:
+
+```sh
+bylaws lint --selection-cache-size 32MiB
+```
+
+The option takes a value in whole bytes or with a case-insensitive suffix
+of B, KB, MB, GB, KiB, MiB or GiB. KB, MB and GB use powers of 1000, while
+KiB, MiB and GiB use powers of 1024. If you want to turn off selection reuse,
+pass `--selection-cache-size 0`.
+
+The budget covers the estimated memory used to cache selections across all
+codebases in the run, including the original and filtered arrays, query keys
+and cache entries. Bylaws also needs memory for parsed files and rules that
+are running, so this setting does not limit the process's total memory use.
+When there is no room for a new result, Bylaws removes the least recently used
+cached results first. Rules can use results that are too large to cache, but
+Bylaws may need to calculate them again for another rule.
+
+For discovered rules in Swift Testing, you can share a cache across calls
+to `report()` with `SelectionCache.withBudget`:
+
+```swift
+try await SelectionCache.withBudget(32 * 1024 * 1024) {
+  for rule in rules {
+    try await rule.report()
+  }
+}
+```
+
+Bylaws clears the cache after the closure finishes. You can reuse results
+from `named`, `prefixed`, `suffixed` and `excluding` filters in compiled
+portable queries. Native Swift filter chains and custom closures run as
+usual, and inspection continues to show each filter step.
 
 ## Supported API
 

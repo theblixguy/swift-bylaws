@@ -95,48 +95,52 @@ public struct Codebase: Sendable, Hashable {
   /// Swift 6 for files without applicable settings.
   public let swiftLanguageMode: LanguageMode
 
-  package let parseCachePolicy: ParseCachePolicy
+  package private(set) var parseCachePolicy: ParseCachePolicy
 
-  package let overlay: SourceOverlay
+  package private(set) var overlay: SourceOverlay
+
+  package private(set) var declarations: ParsedCodebase.Declarations = .resolved
 
   /// Creates a codebase at `root` with include and exclude globs.
   ///
   /// Set `swiftLanguageMode` to `.v4`, `.v5` or `.v6` to skip discovery in
   /// tests, the CLI and the editor.
+  ///
+  /// Set `parseCache` to choose a disk cache directory and cleanup target.
+  /// A `nil` value uses the environment settings.
   public init(
     root: Root = .automatic(),
     including: [Glob] = [],
     excluding: [Glob] = [],
-    swiftLanguageMode: LanguageMode = .automatic(.swiftPM)
+    swiftLanguageMode: LanguageMode = .automatic(.swiftPM),
+    parseCache: ParseCacheConfiguration? = nil
   ) {
     self.root = root
     self.including = including
     self.excluding = excluding
     self.swiftLanguageMode = swiftLanguageMode
-    parseCachePolicy = .environment()
+    parseCachePolicy = parseCache.map { .configured($0) } ?? .environment()
     overlay = .empty
   }
 
   package func usingParseCache(_ policy: ParseCachePolicy) -> Codebase {
-    Codebase(
-      root: root,
-      including: including,
-      excluding: excluding,
-      swiftLanguageMode: swiftLanguageMode,
-      parseCachePolicy: policy,
-      overlay: overlay
-    )
+    var codebase = self
+    codebase.parseCachePolicy = policy
+    return codebase
   }
 
   package func usingOverlay(_ overlay: SourceOverlay) -> Codebase {
-    Codebase(
-      root: root,
-      including: including,
-      excluding: excluding,
-      swiftLanguageMode: swiftLanguageMode,
-      parseCachePolicy: parseCachePolicy,
-      overlay: overlay
-    )
+    var codebase = self
+    codebase.overlay = overlay
+    return codebase
+  }
+
+  package func usingDeclarations(
+    _ declarations: ParsedCodebase.Declarations
+  ) -> Codebase {
+    var codebase = self
+    codebase.declarations = declarations
+    return codebase
   }
 
   /// The codebase bound by the enclosing suite's `.codebase(_:)` trait.
@@ -151,7 +155,8 @@ public struct Codebase: Sendable, Hashable {
   /// - Throws: ``CodebaseError`` when the root cannot be resolved, the root
   ///   is not a directory, or a source file cannot be read or parsed.
   public func prepare() async throws(CodebaseError) {
-    _ = try await CodebaseCache.shared.parsedCodebase(for: self)
+    let parsed = try await CodebaseCache.shared.parsedCodebase(for: self)
+    _ = await parsed.resolvedFiles()
   }
 
   package func resolvedRootPath() throws(CodebaseError) -> String {
@@ -201,22 +206,6 @@ public struct Codebase: Sendable, Hashable {
 
   // Inline sources need stable paths for globs and source locations.
   package static let sourcesRootPath = "/virtual"
-
-  private init(
-    root: Root,
-    including: [Glob],
-    excluding: [Glob],
-    swiftLanguageMode: LanguageMode,
-    parseCachePolicy: ParseCachePolicy,
-    overlay: SourceOverlay
-  ) {
-    self.root = root
-    self.including = including
-    self.excluding = excluding
-    self.swiftLanguageMode = swiftLanguageMode
-    self.parseCachePolicy = parseCachePolicy
-    self.overlay = overlay
-  }
 
   private static func standardisedPath(_ path: String) -> String {
     absolutePath(path).string

@@ -24,7 +24,7 @@ extension Codebase {
     let root = LexicalFilePath(parsed.rootPath)
     let glob = Glob(pattern)
     var folders: Set<String> = []
-    for file in parsed.files {
+    for file in parsed.filesAsWritten {
       guard let relative = LexicalFilePath(file.path).relative(to: root)
       else { continue }
       var parent = relative.removingLastComponent()

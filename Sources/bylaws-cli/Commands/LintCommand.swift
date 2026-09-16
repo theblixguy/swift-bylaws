@@ -79,6 +79,37 @@ struct LintCommand: AsyncParsableCommand {
   var cachePath: String?
 
   @Option(
+    help: """
+    Set the soft disk-cache target using whole bytes or a case-insensitive \
+    B, KB, MB, GB, KiB, MiB or GiB suffix (for example, 500MB). This option \
+    takes a value and enables caching, with zero disabling the disk cache. \
+    The default target is 1GB.
+    """
+  )
+  var cacheSize: CacheSize?
+
+  @Option(
+    help: ArgumentHelp(
+      """
+      Set the memory budget for retained query selections using whole bytes \
+      or a case-insensitive B, KB, MB, GB, KiB, MiB or GiB suffix (for example, \
+      32MiB). This option takes a value, with zero disabling selection reuse. \
+      The default budget is 64MiB.
+      """,
+      valueName: "size"
+    ),
+    transform: { value in
+      guard let size = CacheSize(argument: value) else {
+        throw ValidationError(
+          "Size must be a non-negative whole number of bytes or use B, KB, MB, GB, KiB, MiB or GiB, within the supported integer range."
+        )
+      }
+      return UInt(size.bytes)
+    }
+  )
+  var selectionCacheSize: UInt = SelectionCache.defaultBudget
+
+  @Option(
     name: .customLong(InternalOptionName.swiftPackageModules.rawValue),
     help: ArgumentHelp(visibility: .hidden)
   )
@@ -129,6 +160,7 @@ struct LintCommand: AsyncParsableCommand {
           .map { LexicalFilePath($0, relativeTo: rootPath).string },
         reportPaths: reportPaths,
         parseCachePolicy: parseCachePolicy,
+        selectionCacheBudget: selectionCacheSize,
         swiftPackageModules: swiftPackageModules
       )
     )
@@ -163,14 +195,11 @@ struct LintCommand: AsyncParsableCommand {
   }
 
   private var parseCachePolicy: ParseCachePolicy {
-    if let cachePath {
-      return .enabled(
-        directory: URL(fileURLWithPath: cachePath),
-        cachesTemporaryRoots: true
-      )
-    }
-    if cache {
-      return .defaultEnabled(cachesTemporaryRoots: true)
+    if cache || cachePath != nil || cacheSize != nil {
+      return .configured(ParseCacheConfiguration(
+        directory: cachePath.map { URL(fileURLWithPath: $0) },
+        budget: cacheSize?.bytes ?? ParseCacheConfiguration.defaultBudget
+      ))
     }
     return .disabled
   }

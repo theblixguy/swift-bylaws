@@ -1,7 +1,13 @@
 import BylawsPaths
+import Foundation
 package import BylawsSemantics
 
 package struct ParsedCodebase: Sendable {
+  package enum Declarations: Sendable, Hashable {
+    case asWritten
+    case resolved
+  }
+
   package enum Projection: Sendable, Hashable {
     case files
     case classes
@@ -24,21 +30,33 @@ package struct ParsedCodebase: Sendable {
   }
 
   package let rootPath: String
-  package let files: [SourceFile]
+  package let filesAsWritten: [SourceFile]
+  private let inheritance = ResolvedInheritance()
   private let projections = ParsedCodebaseProjections()
 
   package func projection<Element: Sendable>(
     for category: Projection,
+    declarations: Declarations = .resolved,
     create: @escaping @Sendable ([SourceFile]) -> [Element]
   ) async -> SelectionStorage<Element> {
-    let files = files
-    return await projections.value(for: category) { create(files) }
+    let files = switch declarations {
+    case .asWritten: filesAsWritten
+    case .resolved: await resolvedFiles()
+    }
+    return await projections.value(
+      for: category,
+      declarations: declarations
+    ) { create(files) }
   }
 
   package init(rootPath: String, files rawFiles: [SourceFile]) {
     self.rootPath = rootPath
 
-    files = InheritanceResolver.resolve(in: rawFiles)
+    filesAsWritten = rawFiles
+  }
+
+  package func resolvedFiles() async -> [SourceFile] {
+    await inheritance.files(resolving: filesAsWritten)
   }
 
   package var rootName: String {
@@ -49,19 +67,39 @@ package struct ParsedCodebase: Sendable {
 private actor ParsedCodebaseProjections {
   private struct WeakStorage {
     weak var value: AnyObject?
+    let identity: UUID
   }
 
-  private var values: [ParsedCodebase.Projection: WeakStorage] = [:]
+  private struct Key: Hashable {
+    let category: ParsedCodebase.Projection
+    let declarations: ParsedCodebase.Declarations
+  }
+
+  private var values: [Key: WeakStorage] = [:]
 
   func value<Element: Sendable>(
     for category: ParsedCodebase.Projection,
+    declarations: ParsedCodebase.Declarations,
     create: @Sendable () -> [Element]
   ) -> SelectionStorage<Element> {
-    if let existing = values[category]?.value as? SelectionStorage<Element> {
+    let key = Key(category: category, declarations: declarations)
+    if let existing = values[key]?.value as? SelectionStorage<Element> {
       return existing
     }
-    let created = SelectionStorage(create())
-    values[category] = WeakStorage(value: created)
+    let identity = values[key]?.identity ?? UUID()
+    let created = SelectionStorage(create(), identity: identity)
+    values[key] = WeakStorage(value: created, identity: identity)
     return created
+  }
+}
+
+private actor ResolvedInheritance {
+  private var resolved: [SourceFile]?
+
+  func files(resolving files: [SourceFile]) -> [SourceFile] {
+    if let resolved { return resolved }
+    let resolved = InheritanceResolver.resolve(in: files)
+    self.resolved = resolved
+    return resolved
   }
 }

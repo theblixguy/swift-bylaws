@@ -71,6 +71,7 @@ To run rules from a `Bylaws.swift` file, follow <doc:RunningRulesFromTheCLI>.
 ### Querying
 
 - ``/BylawsCore/Selection``
+- ``/BylawsCore/SelectionCache``
 - ``/BylawsCore/Matcher``
 - ``/BylawsCore/Violations``
 

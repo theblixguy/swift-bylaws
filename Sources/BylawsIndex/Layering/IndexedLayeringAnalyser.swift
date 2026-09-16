@@ -22,7 +22,7 @@ package struct IndexedLayeringAnalyser {
       validatesModuleOwnership: false
     )
     var layerByFile: [String: Layer] = [:]
-    for file in parsedCodebase.files {
+    for file in parsedCodebase.filesAsWritten {
       if let layer = try plan.layer(
         containing: file.path,
         relativeTo: parsedCodebase.rootPath

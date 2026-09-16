@@ -204,7 +204,8 @@ enum CodebaseBuilder {
     forRoot rootPath: String,
     policy: ParseCachePolicy
   ) -> ParseCache? {
-    guard case let .enabled(directory, cachesTemporaryRoots) = policy else {
+    guard case let .enabled(directory, cachesTemporaryRoots, budget) = policy
+    else {
       return nil
     }
     let temporaryDirectories = [
@@ -218,7 +219,7 @@ enum CodebaseBuilder {
     else {
       return nil
     }
-    return try? ParseCache.opening(directory: directory)
+    return try? ParseCache.opening(directory: directory, budget: budget)
   }
 
   static func contains(_ path: String, in directory: String) -> Bool {

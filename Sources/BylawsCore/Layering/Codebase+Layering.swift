@@ -72,7 +72,7 @@ extension LayeringCheck {
     var layersWithFiles: Set<String> = []
     var usedEdges: Set<LayeringPlan.Edge> = []
 
-    for file in parsedCodebase.files {
+    for file in parsedCodebase.filesAsWritten {
       guard let layer = try plan.layer(
         containing: file.path,
         relativeTo: parsedCodebase.rootPath

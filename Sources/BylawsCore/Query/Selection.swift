@@ -1,6 +1,6 @@
 import BylawsPaths
 public import BylawsSemantics
-import Foundation
+package import Foundation
 
 /// The results of a codebase query.
 ///
@@ -77,7 +77,10 @@ package final class SelectionStorage<Element: Sendable>: Sendable {
   @usableFromInline
   package let elements: [Element]
 
-  package init(_ elements: [Element]) {
+  package let identity: UUID
+
+  package init(_ elements: [Element], identity: UUID = UUID()) {
+    self.identity = identity
     self.elements = elements
   }
 }
@@ -263,5 +266,27 @@ extension Selection: CustomStringConvertible {
   public var description: String {
     let elements = count == 1 ? "1 element" : "\(count) elements"
     return "\(elements): \(queryDescription)"
+  }
+}
+
+extension Selection where Element: Named {
+  package func filtering(_ filters: [NameFilter]) -> Selection {
+    guard !filters.isEmpty else { return self }
+    if QueryInspection.isEnabled {
+      return filters.reduce(self) { selection, filter in
+        selection.narrowed(
+          to: selection.elements.filter { filter.matches($0.name) },
+          appending: filter.description
+        )
+      }
+    }
+    return Selection(
+      elements: elements.filter { element in
+        filters.allSatisfy { $0.matches(element.name) }
+      },
+      queryDescription: ([queryDescription] + filters.map(\.description))
+        .joined(separator: " "),
+      rootPath: rootPath
+    )
   }
 }

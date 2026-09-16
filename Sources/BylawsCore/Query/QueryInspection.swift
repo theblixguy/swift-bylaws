@@ -2,6 +2,8 @@ package enum QueryInspection {
   @TaskLocal private static var sink: AsyncStream<SelectionInspection>
     .Continuation?
 
+  package static var isEnabled: Bool { sink != nil }
+
   package static func record(
     query: String,
     selected: @autoclosure () -> [SelectionInspection.Element],
