@@ -48,7 +48,10 @@ struct InitCommand: AsyncParsableCommand {
 
 enum RulesFileTemplate {
   static let content = """
-  let app = Codebase(including: ["Sources/**"])
+  let app = Codebase(
+    including: ["Sources/**"],
+    excluding: ["**/*.docc/**"]
+  )
 
   Rule(
     "public-api-docs",

@@ -45,6 +45,45 @@ struct InitTemplateTests {
     #expect(offendersByRule["final-classes"] == ["HomeScreen"])
   }
 
+  @Test(
+    "DocC examples are excluded unless the exclusion is removed",
+    arguments: [
+      "Sources/Guide.docc/Example.swift",
+      "Sources/App/Guide.docc/Steps/Example.swift",
+    ],
+    [false, true]
+  )
+  func doccExamples(path: String, includesExamples: Bool) async throws {
+    let root = try Self.project()
+    defer { try? FileManager.default.removeItem(atPath: root) }
+
+    let example = URL(fileURLWithPath: root).appendingPathComponent(path)
+    try FileManager.default.createDirectory(
+      at: example.deletingLastPathComponent(),
+      withIntermediateDirectories: true
+    )
+    try "class DocumentationExample {}".write(
+      to: example, atomically: true, encoding: .utf8
+    )
+    if includesExamples {
+      try RulesFileTemplate.content.replacing(
+        "\"**/*.docc/**\"", with: ""
+      ).write(toFile: "\(root)/Bylaws.swift", atomically: true, encoding: .utf8)
+    }
+
+    let program = await RuleProgram.discovered(atRoot: root)
+    #expect(program.diagnostics.isEmpty)
+    let rule = try #require(program.rules.first { $0.id == "final-classes" })
+    let offenders = try await rule.violations().offenders.compactMap(\.name)
+
+    let expected = if includesExamples {
+      ["DocumentationExample", "HomeScreen"]
+    } else {
+      ["HomeScreen"]
+    }
+    #expect(offenders.sorted() == expected)
+  }
+
   private static func project() throws -> String {
     let manager = FileManager.default
     let root = NSTemporaryDirectory() + "bylaws-init-\(UUID().uuidString)"
