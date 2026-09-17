@@ -65,7 +65,9 @@ enum RuleProgramLoader {
       loadedRules: declared.loadedRules + runtime.loadedRules,
       diagnostics: diagnostics,
       ruleFileStatus: .found,
-      pathsThatDidNotParse: pathsThatDidNotParse
+      pathsThatDidNotParse: pathsThatDidNotParse,
+      ruleSourcePaths: parsed.files.map(\.file.path)
+        + resolved.sourceModules.modules.flatMap(\.sourcePaths)
     )
   }
 

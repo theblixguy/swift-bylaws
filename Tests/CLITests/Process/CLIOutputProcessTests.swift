@@ -1,3 +1,4 @@
+import BylawsCore
 import Foundation
 import Testing
 
@@ -63,6 +64,48 @@ struct CLIOutputProcessTests {
 
     #expect(result.status == 0)
     #expect(entries.contains { $0.hasSuffix(".pack") })
+  }
+
+  @Test("Changed paths update affected cached results")
+  func changedPath() throws {
+    let project = try CLIProcessProject(
+      source: "class App {}",
+      rules: CLIProcessMock.finalClassesRule
+    )
+    let cache = project.root.appendingPathComponent("Cache")
+    let initial = try project.run("--cache-path", cache.path)
+    #expect(initial.status == 1)
+
+    try project.writeSource("final class App {}")
+    let updated = try project.run(
+      "--cache-path", cache.path,
+      "--changed-path", "Sources/App/App.swift"
+    )
+    let entries = FileManager.default.enumerator(atPath: cache.path)?
+      .compactMap { $0 as? String } ?? []
+
+    #expect(updated.status == 0)
+    #expect(updated.standardOutput.contains("0 violations"))
+    #expect(entries.contains { $0.hasPrefix("Bylaws/rule-results-") })
+  }
+
+  @Test("Changed paths enable the disk cache")
+  func changedPathEnablesCache() throws {
+    let project = try CLIProcessProject(
+      source: "final class App {}",
+      rules: CLIProcessMock.finalClassesRule
+    )
+    let cache = project.root.appendingPathComponent("Cache")
+
+    let result = try project.run(
+      arguments: ["--changed-path", "Sources/App/App.swift"],
+      environment: [ParseCachePolicy.directoryEnvironmentKey: cache.path]
+    )
+    let entries = FileManager.default.enumerator(atPath: cache.path)?
+      .compactMap { $0 as? String } ?? []
+
+    #expect(result.status == 0)
+    #expect(entries.contains { $0.hasPrefix("Bylaws/rule-results-") })
   }
 
   @Test("--cache-size applies a lower target on the next run")

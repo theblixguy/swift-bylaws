@@ -47,6 +47,18 @@ final class CLIProcessProject {
     )
   }
 
+  func run(
+    arguments: [String],
+    environment: [String: String]
+  ) throws -> Result {
+    try run(
+      "lint",
+      arguments: arguments,
+      usesExplicitRoot: true,
+      environment: environment
+    )
+  }
+
   func runRules(_ arguments: String...) throws -> Result {
     try run("rules", arguments: arguments, usesExplicitRoot: true)
   }
@@ -59,7 +71,8 @@ final class CLIProcessProject {
     _ command: String,
     arguments: [String],
     usesExplicitRoot: Bool,
-    directory: URL? = nil
+    directory: URL? = nil,
+    environment: [String: String] = [:]
   ) throws -> Result {
     let outputURL = root.appendingPathComponent("stdout-\(UUID().uuidString)")
     let errorURL = root.appendingPathComponent("stderr-\(UUID().uuidString)")
@@ -78,6 +91,10 @@ final class CLIProcessProject {
     process.arguments = [command]
       + (usesExplicitRoot ? ["--root", root.path] : [])
       + arguments
+    process.environment = ProcessInfo.processInfo.environment.merging(
+      environment,
+      uniquingKeysWith: { _, override in override }
+    )
     process.currentDirectoryURL = directory ?? root
     process.standardOutput = standardOutput
     process.standardError = standardError

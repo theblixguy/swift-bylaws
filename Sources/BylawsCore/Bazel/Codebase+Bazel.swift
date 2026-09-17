@@ -21,6 +21,7 @@ extension Codebase {
   {
     let rootPath = try resolvedRootPath()
     let file = LexicalFilePath(path, relativeTo: LexicalFilePath(rootPath))
+    await recordFileDependency(file.string, projectRoot: rootPath)
     do {
       let data: Data
       if case let .sources(files) = root.strategy {

@@ -52,6 +52,13 @@ struct LintCommand: AsyncParsableCommand {
   )
   var reportPaths: [String] = []
 
+  @Option(
+    name: .customLong("changed-path"),
+    parsing: .upToNextOption,
+    help: "Recheck rules affected by each path and reuse cached results for the rest. This option enables the disk cache."
+  )
+  var changedPaths: [String] = []
+
   @Flag(help: "Print violations without the summary line.")
   var quiet = false
 
@@ -67,12 +74,12 @@ struct LintCommand: AsyncParsableCommand {
   @Option(help: "Record the current violations as a baseline at this path.")
   var recordBaseline: String?
 
-  @Flag(help: "Read and write the parse cache that test runs use.")
+  @Flag(help: "Cache parsed files and rule results on disk.")
   var cache = false
 
   @Option(
     help: """
-    Keep the parse cache in this directory instead of the user's caches \
+    Keep the disk cache in this directory instead of the user's caches \
     directory. This option also enables --cache.
     """
   )
@@ -176,6 +183,7 @@ struct LintCommand: AsyncParsableCommand {
         baseline: baseline
           .map { LexicalFilePath($0, relativeTo: rootPath).string },
         reportPaths: reportPaths,
+        changedPaths: changedPaths,
         parseCachePolicy: parseCachePolicy,
         selectionCacheBudget: selectionCacheSize,
         swiftPackageModules: swiftPackageModules
@@ -212,7 +220,9 @@ struct LintCommand: AsyncParsableCommand {
   }
 
   private var parseCachePolicy: ParseCachePolicy {
-    if cache || cachePath != nil || cacheSize != nil || cacheValidation != nil {
+    if cache || cachePath != nil || cacheSize != nil || cacheValidation != nil
+      || !changedPaths.isEmpty
+    {
       return .configured(ParseCacheConfiguration(
         directory: cachePath.map { URL(fileURLWithPath: $0) },
         budget: cacheSize?.bytes ?? ParseCacheConfiguration.defaultBudget,

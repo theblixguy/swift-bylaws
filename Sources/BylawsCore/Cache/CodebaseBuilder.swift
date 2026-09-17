@@ -55,7 +55,7 @@ enum CodebaseBuilder {
       withOverlaidPathsUnder: rootPath,
       in: codebase
     )
-    let parseCache = parseCache(
+    let parseCache = ParseCache.opening(
       forRoot: rootPath,
       policy: codebase.parseCachePolicy
     )
@@ -198,35 +198,6 @@ enum CodebaseBuilder {
       throw CodebaseError.didNotParse(diagnostics: parseDiagnostics)
     }
     return files
-  }
-
-  private static func parseCache(
-    forRoot rootPath: String,
-    policy: ParseCachePolicy
-  ) -> ParseCache? {
-    guard case let .enabled(
-      directory,
-      cachesTemporaryRoots,
-      budget,
-      validation
-    ) = policy
-    else {
-      return nil
-    }
-    let temporaryDirectories = [
-      FileManager.default.temporaryDirectory.path,
-      "/tmp", "/private/tmp", "/var/folders", "/private/var/folders",
-    ]
-    guard cachesTemporaryRoots
-      || !temporaryDirectories.contains(where: {
-        contains(rootPath, in: $0)
-      })
-    else {
-      return nil
-    }
-    return try? ParseCache.opening(
-      directory: directory, budget: budget, validation: validation
-    )
   }
 
   static func contains(_ path: String, in directory: String) -> Bool {

@@ -6,6 +6,7 @@ import Foundation
 struct RuntimeSourceModule: Sendable {
   let name: String
   let file: ParsedRulesFile
+  let sourcePaths: [String]
   let importedModuleNames: [String]
   let exportedNames: Set<String>
 }
@@ -176,6 +177,7 @@ struct SourceModuleLoader {
       RuntimeSourceModule(
         name: name,
         file: parsed,
+        sourcePaths: module.sourceFiles,
         importedModuleNames: importedModuleNames,
         exportedNames: exportedNames
       )

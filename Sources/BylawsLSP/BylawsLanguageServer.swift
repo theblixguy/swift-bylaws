@@ -6,12 +6,30 @@ package final class BylawsLanguageServer: MessageHandler {
   private let messageQueue = AsyncQueue<Serial>()
   private let state: BylawsLanguageServerState
 
-  package init(
+  package convenience init(
     client: any Connection,
     clock: any Clock<Duration> = ContinuousClock(),
     onExit: @Sendable @escaping (Bool) -> Void
   ) {
-    state = BylawsLanguageServerState(clock: clock, client: client)
+    self.init(
+      client: client,
+      clock: clock,
+      runner: .standard,
+      onExit: onExit
+    )
+  }
+
+  init(
+    client: any Connection,
+    clock: any Clock<Duration>,
+    runner: RuleRunning,
+    onExit: @Sendable @escaping (Bool) -> Void
+  ) {
+    state = BylawsLanguageServerState(
+      clock: clock,
+      client: client,
+      runner: runner
+    )
     self.onExit = onExit
   }
 
