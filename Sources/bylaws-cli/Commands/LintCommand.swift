@@ -139,6 +139,13 @@ struct LintCommand: AsyncParsableCommand {
   )
   var swiftPackageModules: String?
 
+  @Option(
+    name: .customLong(InternalOptionName.parsedSources.rawValue),
+    parsing: .upToNextOption,
+    help: ArgumentHelp(visibility: .hidden)
+  )
+  var parsedSources: [String] = []
+
   func run() async throws {
     let rootPath: LexicalFilePath
     do {
@@ -170,6 +177,20 @@ struct LintCommand: AsyncParsableCommand {
       throw ExitCode(2)
     }
 
+    let preparedSources: PreparedSources?
+    do {
+      preparedSources = try parsedSources.isEmpty ? nil : ParsedSourceArchive
+        .load(parsedSources.map {
+          URL(fileURLWithPath: LexicalFilePath(
+            $0,
+            relativeTo: .currentDirectory
+          ).string)
+        }, rootedAt: rootPath.string)
+    } catch {
+      try reportError(error.description, rootPath: rootPath.string)
+      throw ExitCode(2)
+    }
+
     let result = try await RuleRunner.run(
       RuleRunConfiguration(
         root: rootPath,
@@ -186,7 +207,8 @@ struct LintCommand: AsyncParsableCommand {
         changedPaths: changedPaths,
         parseCachePolicy: parseCachePolicy,
         selectionCacheBudget: selectionCacheSize,
-        swiftPackageModules: swiftPackageModules
+        swiftPackageModules: swiftPackageModules,
+        preparedSources: preparedSources
       )
     )
 
@@ -249,5 +271,6 @@ struct LintCommand: AsyncParsableCommand {
 }
 
 enum InternalOptionName: String {
+  case parsedSources = "parsed-sources"
   case swiftPackageModules = "swift-package-modules"
 }

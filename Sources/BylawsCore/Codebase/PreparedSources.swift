@@ -13,8 +13,8 @@ package final class PreparedSources: Sendable, Hashable {
     }
   }
 
-  let files: [SourceFile]
-  let directories: Set<String>
+  package let files: [SourceFile]
+  package let directories: Set<String>
 
   package init(
     files: [SourceFile],

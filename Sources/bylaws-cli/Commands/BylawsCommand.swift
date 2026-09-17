@@ -12,7 +12,12 @@ struct BylawsCommand: AsyncParsableCommand {
     or from a test target.
     """,
     version: BylawsVersion.current,
-    subcommands: [LintCommand.self, RulesCommand.self, InitCommand.self],
+    subcommands: [
+      LintCommand.self,
+      RulesCommand.self,
+      InitCommand.self,
+      ParseSourcesCommand.self,
+    ],
     defaultSubcommand: LintCommand.self
   )
 }

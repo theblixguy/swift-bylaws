@@ -67,8 +67,7 @@ struct SourceModuleLoader {
   }
 
   private let modulesByName: [String: PackageModuleIndex.Module]
-  private let parseCachePolicy: ParseCachePolicy
-  private let overlay: SourceOverlay
+  private let codebaseLoading: CodebaseLoading
   private var states: [String: State] = [:]
   private var loadedModules: [RuntimeSourceModule] = []
   private var exportedSymbols: [
@@ -78,14 +77,12 @@ struct SourceModuleLoader {
 
   init(
     index: PackageModuleIndex?,
-    parseCachePolicy: ParseCachePolicy,
-    overlay: SourceOverlay
+    codebaseLoading: CodebaseLoading
   ) {
     modulesByName = Dictionary(
       uniqueKeysWithValues: (index?.modules ?? []).map { ($0.name, $0) }
     )
-    self.parseCachePolicy = parseCachePolicy
-    self.overlay = overlay
+    self.codebaseLoading = codebaseLoading
   }
 
   mutating func load(imports: [ParsedImport]) -> SourceModuleLoadResult {
@@ -206,7 +203,7 @@ struct SourceModuleLoader {
     var names: Set<String> = []
     for path in module.sourceFiles {
       let source: String
-      if let overlaid = overlay.text(forFileAt: path) {
+      if let overlaid = codebaseLoading.overlay.text(forFileAt: path) {
         source = overlaid
       } else {
         do {
@@ -252,8 +249,8 @@ struct SourceModuleLoader {
         )
       }
     }
-    combined.codebases = combined.codebases.mapValues {
-      $0.usingParseCache(parseCachePolicy).usingOverlay(overlay)
+    combined.codebases = combined.codebases.mapValues { codebase in
+      codebaseLoading.apply(to: codebase)
     }
     return combined
   }

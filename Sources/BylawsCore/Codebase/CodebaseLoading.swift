@@ -1,6 +1,6 @@
 package struct CodebaseLoading: Sendable {
-  package let parseCachePolicy: ParseCachePolicy
-  package let overlay: SourceOverlay
+  package var parseCachePolicy: ParseCachePolicy
+  package var overlay: SourceOverlay
   package let source: SourceLoading
 
   package init(

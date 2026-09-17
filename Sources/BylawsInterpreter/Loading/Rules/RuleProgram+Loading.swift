@@ -35,10 +35,27 @@ extension RuleProgram {
     indexProvider: (any RuntimeIndexProvider)? = nil,
     packageModuleIndex: PackageModuleIndex? = nil
   ) async -> RuleProgram {
+    await discovered(
+      atRoot: root,
+      codebaseLoading: CodebaseLoading(
+        parseCachePolicy: parseCachePolicy,
+        overlay: overlay
+      ),
+      indexProvider: indexProvider,
+      packageModuleIndex: packageModuleIndex
+    )
+  }
+
+  package static func discovered(
+    atRoot root: LexicalFilePath,
+    codebaseLoading: CodebaseLoading,
+    indexProvider: (any RuntimeIndexProvider)?,
+    packageModuleIndex: PackageModuleIndex?
+  ) async -> RuleProgram {
     let rootPath = root.string
     let discovery = await RulesDiscovery.rulesFiles(
       underRoot: rootPath,
-      overlay: overlay
+      overlay: codebaseLoading.overlay
     )
     guard discovery.diagnostics.isEmpty else {
       return RuleProgram(loadedRules: [], diagnostics: discovery.diagnostics)
@@ -62,8 +79,7 @@ extension RuleProgram {
     return await RuleProgramLoader.load(
       files,
       parsedRoot: discovery.parsedRoot,
-      parseCachePolicy: parseCachePolicy,
-      overlay: overlay,
+      codebaseLoading: codebaseLoading,
       indexProvider: indexProvider,
       packageModuleIndex: packageModuleIndex
     )
@@ -96,12 +112,28 @@ extension RuleProgram {
     indexProvider: (any RuntimeIndexProvider)? = nil,
     packageModuleIndex: PackageModuleIndex? = nil
   ) async -> RuleProgram {
+    await loaded(
+      fromFiles: paths,
+      codebaseLoading: CodebaseLoading(
+        parseCachePolicy: parseCachePolicy,
+        overlay: overlay
+      ),
+      indexProvider: indexProvider,
+      packageModuleIndex: packageModuleIndex
+    )
+  }
+
+  package static func loaded(
+    fromFiles paths: [LexicalFilePath],
+    codebaseLoading: CodebaseLoading,
+    indexProvider: (any RuntimeIndexProvider)?,
+    packageModuleIndex: PackageModuleIndex?
+  ) async -> RuleProgram {
     await RuleProgramLoader.load(
       paths.map { path in
         RulesDiscovery.DiscoveredFile(path: path.string, relativeDirectory: "")
       },
-      parseCachePolicy: parseCachePolicy,
-      overlay: overlay,
+      codebaseLoading: codebaseLoading,
       indexProvider: indexProvider,
       packageModuleIndex: packageModuleIndex
     )
