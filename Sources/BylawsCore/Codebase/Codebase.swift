@@ -100,6 +100,8 @@ public struct Codebase: Sendable, Hashable {
 
   package private(set) var overlay: SourceOverlay
 
+  package var sourceLoading: SourceLoading
+
   package private(set) var declarations: ParsedCodebase.Declarations = .resolved
 
   /// Creates a codebase at `root` with include and exclude globs.
@@ -124,6 +126,7 @@ public struct Codebase: Sendable, Hashable {
     self.swiftLanguageMode = swiftLanguageMode
     parseCachePolicy = parseCache.map { .configured($0) } ?? .environment()
     overlay = .empty
+    sourceLoading = .fileSystem
   }
 
   package func usingParseCache(_ policy: ParseCachePolicy) -> Codebase {

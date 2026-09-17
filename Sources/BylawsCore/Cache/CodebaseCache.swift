@@ -74,6 +74,7 @@ package actor CodebaseCache {
     private let excluding: Set<Glob>
     private let parseCachePolicy: ParseCachePolicy
     private let swiftLanguageMode: Codebase.LanguageMode
+    private let sourceLoading: SourceLoading
 
     var directoryRoot: String? {
       guard case let .directory(path) = root else { return nil }
@@ -91,6 +92,7 @@ package actor CodebaseCache {
       excluding = Set(codebase.excluding)
       parseCachePolicy = codebase.parseCachePolicy
       swiftLanguageMode = codebase.swiftLanguageMode
+      sourceLoading = codebase.sourceLoading
     }
 
     func hasDirectoryRoot(under directory: String) -> Bool {
@@ -111,6 +113,7 @@ package actor CodebaseCache {
     private let excluding: Set<Glob>
     private let parseCachePolicy: ParseCachePolicy
     private let swiftLanguageMode: Codebase.LanguageMode
+    private let sourceLoading: SourceLoading
 
     init(_ codebase: Codebase) {
       root = switch codebase.root.strategy {
@@ -125,6 +128,7 @@ package actor CodebaseCache {
       excluding = Set(codebase.excluding)
       parseCachePolicy = codebase.parseCachePolicy
       swiftLanguageMode = codebase.swiftLanguageMode
+      sourceLoading = codebase.sourceLoading
     }
   }
 

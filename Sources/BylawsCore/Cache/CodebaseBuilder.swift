@@ -46,6 +46,21 @@ enum CodebaseBuilder {
       )
     }
     let rootPath = try codebase.resolvedRootPath()
+    if case let .prepared(prepared) = codebase.sourceLoading {
+      let files = prepared.files.filter { file in
+        guard contains(file.path, in: rootPath),
+              let relativePath = LexicalFilePath(file.path)
+              .relative(to: LexicalFilePath(rootPath))?.string
+        else { return false }
+        return codebase.covers(Glob.Path(relativePath))
+      }
+      return Build(
+        parsed: ParsedCodebase(rootPath: rootPath, files: files),
+        rawFilesByPath: Dictionary(
+          uniqueKeysWithValues: files.map { ($0.path, $0) }
+        )
+      )
+    }
     let (diskPaths, unopenableDirectories) = await swiftFilePaths(
       under: rootPath,
       in: codebase

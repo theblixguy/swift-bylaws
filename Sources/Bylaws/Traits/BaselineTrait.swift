@@ -22,7 +22,7 @@
   /// deliberately fails. Remove record mode before the CI run.
   ///
   /// An entry names the rule, declaration and project-relative file path it
-  /// accepts. ``Rule/report(enforcement:sourceLocation:)`` includes the
+  /// accepts. `Rule.report(enforcement:sourceLocation:)` includes the
   /// declaration. For assertions on individual declarations, apply
   /// ``AnnotatesViolationsTrait``. Other failures share one entry for each
   /// rule and file.
