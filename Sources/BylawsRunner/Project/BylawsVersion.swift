@@ -1,3 +1,3 @@
 package enum BylawsVersion {
-  package static let current = "0.3.1"
+  package static let current = "0.4.0"
 }
