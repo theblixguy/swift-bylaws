@@ -9,6 +9,11 @@ the files you declare and writes a JSON report, with enforced violations causing
 the build to fail. Bazel can reuse a successful result from its local or remote
 cache when the inputs and tool are unchanged.
 
+Bazel caches each parse action separately, which lets a rule or data edit rerun
+the checks without reparsing the sources. A source edit reruns only the parse
+action that contains it, and Bylaws divides large source groups across several
+actions.
+
 ## Add a lint target
 
 Add `swift-bylaws` to your `MODULE.bazel` as shown in the
@@ -55,6 +60,27 @@ bazel build //:architecture
 The target writes `bazel-bin/architecture.json` and reports violations and
 warnings in the build output. Set `strict = True` on the target to fail the
 build on advisory violations as well.
+
+Sources use Swift 6 language mode by default. Set `swift_language_mode = "5"`
+or `swift_language_mode = "4"` when the checked targets use an earlier mode.
+
+## Tune parse actions
+
+By default, each parse action reads at most 512 source files. Set
+`sources_per_parse_action` when you want to divide the work into smaller or
+larger actions:
+
+```starlark
+bylaws_lint(
+    name = "architecture",
+    srcs = ["//Sources:lint_sources"],
+    rules = ["Bylaws.swift"],
+    sources_per_parse_action = 256,
+)
+```
+
+This setting changes how Bylaws divides the work between parse actions without
+changing which files the rules check.
 
 ## Set the selection-cache budget
 
@@ -127,7 +153,8 @@ Bazel runs the generator before the lint action. An output declared as
 `Schema/Models/Order.swift` appears at that path to the rules, without the
 `bazel-out` prefix. Generated directories work the same way, including their
 contents. Rules can check the generated code and folder layout together with
-the checked-in source.
+the checked-in source. Bazel presents a generated directory as one input, so
+Bylaws parses it in one action.
 
 A generated directory must have its own path, separate from other inputs.
 For example, use `Sources/Generated` when checked-in files use `Sources/App`.
