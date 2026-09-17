@@ -147,7 +147,7 @@ struct ParseCachePortabilityTests {
     ).filter { $0.pathExtension == "pack" }
     let contentKey = ParseCache.key(forSource: source)
     let models = try entries.map { try ParseCachePack(url: $0) }
-      .count { $0.entries[contentKey] != nil }
+      .count { $0.keys.contains(contentKey) }
     #expect(models == 1)
     #expect(attributes[.modificationDate] as? Date == savedDate)
   }

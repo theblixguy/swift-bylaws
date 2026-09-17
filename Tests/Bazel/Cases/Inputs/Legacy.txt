@@ -1,0 +1,2 @@
+@available (swift, obsoleted: 1.0)
+final class Legacy {}

@@ -69,6 +69,8 @@ changed_source() {
     passes //Cases:cache
     cp "$repository/Tests/Bazel/Updates/$2" "$1"
     fails //Cases:cache "$3"
+    jq -se '[.[] | select(.mnemonic == "BylawsParse")] | length == 1' \
+        "$work/actions.json" > /dev/null
     cp "$repository/Tests/Bazel/$1" "$1"
 }
 
@@ -92,9 +94,11 @@ fails //Cases:selection_cache_invalid "Size must be a non-negative whole number 
 
 passes //Cases:cache
 grep -q '"mnemonic": "BylawsLint"' "$work/actions.json"
+jq -se '[.[] | select(.mnemonic == "BylawsParse")] | length == 3' \
+    "$work/actions.json" > /dev/null
 passes //Cases:cache
-if grep -q '"mnemonic": "BylawsLint"' "$work/actions.json"; then
-    echo "Unchanged inputs ran the lint action again."
+if grep -Eq '"mnemonic": "Bylaws(Parse|Lint)"' "$work/actions.json"; then
+    echo "Unchanged inputs ran a Bylaws action again."
     exit 1
 fi
 
@@ -107,12 +111,20 @@ passes //Cases:cache
 cp "$repository/Tests/Bazel/Updates/Data.txt" Cases/Inputs/Data.txt
 passes //Cases:cache
 grep -q '"mnemonic": "BylawsLint"' "$work/actions.json"
+if grep -q '"mnemonic": "BylawsParse"' "$work/actions.json"; then
+    echo "A data edit parsed the sources again."
+    exit 1
+fi
 cp "$repository/Tests/Bazel/Cases/Inputs/Data.txt" Cases/Inputs/Data.txt
 
 passes //Cases:cache
 cp "$repository/Tests/Bazel/Updates/Final.swift" Cases/Rules/Final.swift
 passes //Cases:cache
 jq -e '.rules[0].name == "Final types"' bazel-bin/Cases/cache.json > /dev/null
+if grep -q '"mnemonic": "BylawsParse"' "$work/actions.json"; then
+    echo "A rule edit parsed the sources again."
+    exit 1
+fi
 cp "$repository/Tests/Bazel/Cases/Rules/Final.swift" Cases/Rules/Final.swift
 
 build //Cases:advisory
@@ -122,13 +134,29 @@ fails //Cases:strict "Violation violates 'Final classes'"
 passes //Cases:baseline
 fails //Cases:stale_baseline "baseline entry no longer matches a violation"
 passes //Cases:discovery
+passes //Cases:discovery_from_srcs
 fails //Cases:index "index queries need a completed build"
 fails //Cases:overlap "bylaws_lint must have separate input paths"
+passes //Cases:language_mode_5
+fails //Cases:language_mode_6 "extraneous whitespace before '(' is not permitted"
+build //Cases:empty_sources
+jq -e '.summary.checkedRules == 1 and .summary.violations == 0 and .events[0].level == "warning"' \
+    bazel-bin/Cases/empty_sources.json > /dev/null
+passes //Cases:direct_files
+jq -se '[.[] | select(.mnemonic == "BylawsParse")] | length == 1' \
+    "$work/actions.json" > /dev/null
+passes //Cases:parse_action_size
+jq -se '[.[] | select(.mnemonic == "BylawsParse")] | length == 2' \
+    "$work/actions.json" > /dev/null
+fails //Cases:invalid_parse_action_size \
+    "sources_per_parse_action must be greater than zero"
 
 passes //Cases:cache
 bazel --output_base="$work/output" clean > "$work/clean.log" 2>&1
 passes //Cases:cache
 jq -se 'any(.[]; .mnemonic == "BylawsLint" and .cacheHit == true)' \
+    "$work/actions.json" > /dev/null
+jq -se 'any(.[]; .mnemonic == "BylawsParse" and .cacheHit == true)' \
     "$work/actions.json" > /dev/null
 
 echo "Bazel lint checks passed with Bazel $USE_BAZEL_VERSION."

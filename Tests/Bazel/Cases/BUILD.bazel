@@ -23,11 +23,25 @@ generated_directory(
     src = "Inputs/GeneratedTree.swift",
 )
 
-bylaws_lint(
-    name = "cache",
+genrule(
+    name = "legacy_source",
+    srcs = ["Inputs/Legacy.txt"],
+    outs = ["Sources/Legacy.swift"],
+    cmd = "cp $(location Inputs/Legacy.txt) $@",
+)
+
+filegroup(
+    name = "checked_sources",
     srcs = [
         "Sources/Model.swift",
         "Sources/Other folder/Model.swift",
+    ],
+)
+
+bylaws_lint(
+    name = "cache",
+    srcs = [
+        ":checked_sources",
         ":generated_file",
         ":generated_tree",
     ],
@@ -103,8 +117,68 @@ bylaws_lint(
 )
 
 bylaws_lint(
+    name = "discovery_from_srcs",
+    srcs = [
+        "Sources/Model.swift",
+        "//:Bylaws.swift",
+    ],
+    data = ["//:MODULE.bazel"],
+)
+
+bylaws_lint(
     name = "index",
     srcs = ["Sources/Model.swift"],
     data = ["//:MODULE.bazel"],
     rules = ["Rules/Index.swift"],
+)
+
+bylaws_lint(
+    name = "language_mode_5",
+    srcs = [":legacy_source"],
+    data = ["//:MODULE.bazel"],
+    rules = ["Rules/Final.swift"],
+    swift_language_mode = "5",
+)
+
+bylaws_lint(
+    name = "language_mode_6",
+    srcs = [":legacy_source"],
+    data = ["//:MODULE.bazel"],
+    rules = ["Rules/Final.swift"],
+    swift_language_mode = "6",
+)
+
+bylaws_lint(
+    name = "empty_sources",
+    data = ["//:MODULE.bazel"],
+    rules = ["Rules/Final.swift"],
+)
+
+bylaws_lint(
+    name = "direct_files",
+    srcs = [
+        "Sources/Model.swift",
+        "Sources/Other folder/Model.swift",
+    ],
+    data = ["//:MODULE.bazel"],
+    rules = ["Rules/Final.swift"],
+)
+
+bylaws_lint(
+    name = "parse_action_size",
+    srcs = [
+        "Sources/Model.swift",
+        "Sources/Other folder/Model.swift",
+    ],
+    data = ["//:MODULE.bazel"],
+    rules = ["Rules/Final.swift"],
+    sources_per_parse_action = 1,
+)
+
+bylaws_lint(
+    name = "invalid_parse_action_size",
+    srcs = ["Sources/Model.swift"],
+    data = ["//:MODULE.bazel"],
+    rules = ["Rules/Final.swift"],
+    sources_per_parse_action = 0,
 )

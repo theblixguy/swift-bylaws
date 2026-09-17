@@ -26,23 +26,20 @@ enum RuleProgramLoader {
   static func load(
     _ files: [RulesDiscovery.DiscoveredFile],
     parsedRoot: ParsedRulesFile? = nil,
-    parseCachePolicy: ParseCachePolicy,
-    overlay: SourceOverlay,
+    codebaseLoading: CodebaseLoading,
     indexProvider: (any RuntimeIndexProvider)?,
     packageModuleIndex: PackageModuleIndex?
   ) async -> RuleProgram {
     var parsed = parseFiles(
       files,
       parsedRoot: parsedRoot,
-      parseCachePolicy: parseCachePolicy,
-      overlay: overlay
+      codebaseLoading: codebaseLoading
     )
     var diagnostics = parsed.diagnostics
     let resolved = resolveSourceModules(
       in: &parsed.files,
       packageModuleIndex: packageModuleIndex,
-      parseCachePolicy: parseCachePolicy,
-      overlay: overlay
+      codebaseLoading: codebaseLoading
     )
     diagnostics.append(contentsOf: resolved.diagnostics)
     let declared = compileDeclaredRules(in: parsed.files)
@@ -74,8 +71,7 @@ enum RuleProgramLoader {
   static func parseFiles(
     _ files: [RulesDiscovery.DiscoveredFile],
     parsedRoot: ParsedRulesFile? = nil,
-    parseCachePolicy: ParseCachePolicy,
-    overlay: SourceOverlay = .empty
+    codebaseLoading: CodebaseLoading
   ) -> (files: [LoadedRulesFile], diagnostics: [Diagnostic]) {
     var parsedFiles: [LoadedRulesFile] = []
     var diagnostics: [Diagnostic] = []
@@ -83,13 +79,13 @@ enum RuleProgramLoader {
       var parsed = if let parsedRoot, parsedRoot.path == file.path {
         parsedRoot
       } else {
-        ParsedRulesFile.loaded(at: file.path, overlay: overlay)
+        ParsedRulesFile.loaded(at: file.path, overlay: codebaseLoading.overlay)
       }
       if !file.isRoot, let diagnostic = parsed.discoveryOutsideRootDiagnostic {
         diagnostics.append(diagnostic)
       }
-      parsed.codebases = parsed.codebases.mapValues {
-        $0.usingParseCache(parseCachePolicy).usingOverlay(overlay)
+      parsed.codebases = parsed.codebases.mapValues { codebase in
+        codebaseLoading.apply(to: codebase)
       }
       parsedFiles.append(LoadedRulesFile(file: file, parsed: parsed))
     }
@@ -99,13 +95,11 @@ enum RuleProgramLoader {
   static func resolveSourceModules(
     in parsedFiles: inout [LoadedRulesFile],
     packageModuleIndex: PackageModuleIndex?,
-    parseCachePolicy: ParseCachePolicy,
-    overlay: SourceOverlay
+    codebaseLoading: CodebaseLoading
   ) -> (sourceModules: SourceModuleLoadResult, diagnostics: [Diagnostic]) {
     var sourceModuleLoader = SourceModuleLoader(
       index: packageModuleIndex,
-      parseCachePolicy: parseCachePolicy,
-      overlay: overlay
+      codebaseLoading: codebaseLoading
     )
     let sourceModules = sourceModuleLoader.load(
       imports: parsedFiles.flatMap(\.parsed.imports)

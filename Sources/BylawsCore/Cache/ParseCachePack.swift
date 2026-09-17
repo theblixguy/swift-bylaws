@@ -1,18 +1,20 @@
 import Crypto
-import Foundation
+package import Foundation
 
-struct ParseCachePack: Sendable {
-  struct Entry: Codable, Sendable {
+package struct ParseCachePack: Sendable {
+  private struct Entry: Codable, Sendable {
     let offset: Int
     let count: Int
     let digest: Data
   }
 
   private static let marker = Data("BylawsPack1".utf8)
-  let bytes: Data
-  let entries: [String: Entry]
+  private let bytes: Data
+  private let entries: [String: Entry]
 
-  init(url: URL) throws {
+  package var keys: [String] { Array(entries.keys) }
+
+  package init(url: URL) throws {
     // Published packs stay immutable while readers retain their mappings.
     let bytes = try Data(contentsOf: url, options: .mappedIfSafe)
     let trailerCount = Self.marker.count + MemoryLayout<UInt64>.size
@@ -40,7 +42,10 @@ struct ParseCachePack: Sendable {
     self.entries = entries
   }
 
-  static func write(_ values: [String: Data], to url: URL) throws -> Self {
+  package static func write(
+    _ values: [String: Data],
+    to url: URL
+  ) throws -> Self {
     var bytes = Data()
     var entries: [String: Entry] = [:]
     for (key, value) in values.sorted(by: { $0.key < $1.key }) {
@@ -61,12 +66,16 @@ struct ParseCachePack: Sendable {
     return try Self(url: url)
   }
 
-  func value(for key: String) -> Data? {
+  package func value(for key: String) -> Data? {
     guard let entry = entries[key] else { return nil }
     let value = bytes[entry.offset..<(entry.offset + entry.count)]
     guard Self.digest(for: key, value: value) == entry.digest
     else { return nil }
     return value
+  }
+
+  func byteCount(for key: String) -> Int? {
+    entries[key]?.count
   }
 
   private static func digest(for key: String, value: Data) -> Data {

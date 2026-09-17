@@ -95,6 +95,12 @@ extension Codebase {
         }
       }
     case .directory, .automatic:
+      if case let .prepared(sources) = sourceLoading {
+        directories.formUnion(
+          sources.relativeDirectories(under: rootPath)
+        )
+        return directories
+      }
       let failures = await DirectoryWalker.walk(rootPath) { path, entry in
         guard entry == .directory else { return .skipDescendants }
         directories.insert(path)

@@ -15,10 +15,19 @@ package struct RuleRunConfiguration {
   package var baseline: String?
   package var reportPaths: [String]
   package var changedPaths: [String]
-  package var parseCachePolicy: ParseCachePolicy
   package var selectionCacheBudget: UInt
-  package var overlay: SourceOverlay
   package var swiftPackageModules: String?
+  package var codebaseLoading: CodebaseLoading
+
+  package var parseCachePolicy: ParseCachePolicy {
+    get { codebaseLoading.parseCachePolicy }
+    set { codebaseLoading.parseCachePolicy = newValue }
+  }
+
+  package var overlay: SourceOverlay {
+    get { codebaseLoading.overlay }
+    set { codebaseLoading.overlay = newValue }
+  }
 
   package init(
     root: LexicalFilePath,
@@ -33,7 +42,8 @@ package struct RuleRunConfiguration {
     parseCachePolicy: ParseCachePolicy = .disabled,
     selectionCacheBudget: UInt = SelectionCache.defaultBudget,
     overlay: SourceOverlay = .empty,
-    swiftPackageModules: String? = nil
+    swiftPackageModules: String? = nil,
+    preparedSources: PreparedSources? = nil
   ) {
     self.root = root
     self.ruleFilePaths = ruleFilePaths
@@ -44,10 +54,13 @@ package struct RuleRunConfiguration {
     self.baseline = baseline
     self.reportPaths = reportPaths
     self.changedPaths = changedPaths
-    self.parseCachePolicy = parseCachePolicy
     self.selectionCacheBudget = selectionCacheBudget
-    self.overlay = overlay
     self.swiftPackageModules = swiftPackageModules
+    codebaseLoading = CodebaseLoading(
+      parseCachePolicy: parseCachePolicy,
+      overlay: overlay,
+      preparedSources: preparedSources
+    )
   }
 }
 
@@ -103,16 +116,14 @@ package enum RuleRunner {
       if configuration.ruleFilePaths.isEmpty {
         await RuleProgram.discovered(
           atRoot: configuration.root,
-          parseCachePolicy: configuration.parseCachePolicy,
-          overlay: configuration.overlay,
+          codebaseLoading: configuration.codebaseLoading,
           indexProvider: configuration.sourceOnly ? nil : BylawsIndexProvider(),
           packageModuleIndex: packageModuleIndex
         )
       } else {
         await RuleProgram.loaded(
           fromFiles: configuration.ruleFilePaths,
-          parseCachePolicy: configuration.parseCachePolicy,
-          overlay: configuration.overlay,
+          codebaseLoading: configuration.codebaseLoading,
           indexProvider: configuration.sourceOnly ? nil : BylawsIndexProvider(),
           packageModuleIndex: packageModuleIndex
         )

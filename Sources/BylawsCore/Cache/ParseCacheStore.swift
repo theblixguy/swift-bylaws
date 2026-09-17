@@ -30,7 +30,7 @@ actor ParseCacheStore {
     var initial = State()
     for url in Self.files(in: directory, suffix: suffix) {
       guard let pack = try? ParseCachePack(url: url) else { continue }
-      for key in pack.entries.keys { initial.entries[key] = pack }
+      for key in pack.keys { initial.entries[key] = pack }
     }
     state = initial
   }
@@ -55,7 +55,7 @@ actor ParseCacheStore {
     state.entries.removeAll()
     for url in Self.files(in: directory, suffix: suffix) {
       guard let pack = try? ParseCachePack(url: url) else { continue }
-      for key in pack.entries.keys { state.entries[key] = pack }
+      for key in pack.keys { state.entries[key] = pack }
     }
   }
 
@@ -66,10 +66,10 @@ actor ParseCacheStore {
     var entries: [String: ParseCachePack] = [:]
     for url in files {
       guard let pack = try? ParseCachePack(url: url) else { continue }
-      for key in pack.entries.keys { entries[key] = pack }
+      for key in pack.keys { entries[key] = pack }
     }
     let liveBytes = entries.reduce(0) { total, entry in
-      total + (entry.value.entries[entry.key]?.count ?? 0)
+      total + (entry.value.byteCount(for: entry.key) ?? 0)
     }
     let expectedCount = liveBytes / Self.batchSize + 1
     guard expectedCount < files.count / 2 else { return }
@@ -83,14 +83,14 @@ actor ParseCacheStore {
         byteCount += value.count
         if byteCount >= Self.batchSize {
           let pack = try publish(values)
-          for key in pack.entries.keys { replacement[key] = pack }
+          for key in pack.keys { replacement[key] = pack }
           values.removeAll()
           byteCount = 0
         }
       }
       if !values.isEmpty {
         let pack = try publish(values)
-        for key in pack.entries.keys { replacement[key] = pack }
+        for key in pack.keys { replacement[key] = pack }
       }
     } catch { return }
     state.entries = replacement
@@ -100,7 +100,7 @@ actor ParseCacheStore {
   private func flushPending() {
     guard !state.pending.isEmpty else { return }
     if let pack = try? publish(state.pending) {
-      for key in pack.entries.keys { state.entries[key] = pack }
+      for key in pack.keys { state.entries[key] = pack }
     }
     state.pending.removeAll()
     state.pendingBytes = 0

@@ -5,7 +5,7 @@ package struct ParseCache: Sendable {
   package static let defaultBudget = ParseCacheConfiguration.defaultBudget
 
   // Increase this when the model or a collector changes.
-  private static let schemaVersion = 11
+  package static let schemaVersion = 11
   private static let keySeparator: UInt8 = 0
   private static let entryVersionMarker = "-v"
   private static let entryNameExtension = ".pack"
