@@ -279,7 +279,7 @@ Add the package and the `Bylaws` product to a test target:
 dependencies: [
   .package(
     url: "https://github.com/theblixguy/swift-bylaws.git",
-    from: "0.3.1",
+    from: "0.4.0",
     traits: []
   )
 ],
@@ -405,7 +405,7 @@ macOS and Linux.
 Add the dependency from the Bazel Central Registry to `MODULE.bazel`:
 
 ```starlark
-bazel_dep(name = "swift-bylaws", version = "0.3.1")
+bazel_dep(name = "swift-bylaws", version = "0.4.0")
 ```
 
 Put `Bylaws.swift` at the workspace root, then run:
