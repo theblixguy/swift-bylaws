@@ -6,6 +6,18 @@ Bylaws is an architectural linter for Swift.
 
 Read the [documentation] for guides and the API reference.
 
+## Contents
+
+- [Why Bylaws?](#why-bylaws)
+- [Enforce a module boundary](#enforce-a-module-boundary)
+- [Practical rules](#practical-rules)
+- [What a rule can check](#what-a-rule-can-check)
+- [Get started](#get-started)
+- [Run checks during development](#run-checks-during-development)
+- [How it compares](#how-it-compares)
+- [Benchmarks](#benchmarks)
+- [Documentation](#documentation)
+
 ## Why Bylaws?
 
 In any small project, the same few people make most of the architectural
@@ -268,8 +280,10 @@ project that has no `Bylaws.swift` file. Set a rule's enforcement to `.enforced`
 when its violations should fail the check. You can also record a baseline to
 permit existing violations while rejecting new ones.
 
-[Running rules from the CLI] covers discovery, shared rule packages, baselines
-and CI.
+In CI, you can pass the complete list of files changed since the previous run
+with `--changed-path`. Bylaws reruns the rules affected by those files and uses
+cached results for the rest. [Running rules from the CLI] covers this workflow,
+discovery, shared rule packages, baselines and CI.
 
 ### Run rules with Swift Testing
 
@@ -416,9 +430,9 @@ bazel run @swift-bylaws//:bylaws -- lint
 
 To check rules during `bazel build`, add a [Bazel lint target]. It checks the
 declared source files, including generated files, and produces a JSON report.
-Bazel can reuse successful checks from its local or remote cache. You can also
-[check Bazel target dependencies] using an exported graph, without a
-`Package.swift`.
+Bazel caches parsed source groups separately, so a rule change can reuse all of
+them and a source change only reparses its group. You can also [check Bazel
+target dependencies] using an exported graph, without a `Package.swift`.
 
 ### Show violations in an editor
 
