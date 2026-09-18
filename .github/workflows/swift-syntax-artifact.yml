@@ -39,7 +39,7 @@ jobs:
           case "${SWIFT_VERSION}" in
             6.2)
               echo "configuration=Distribution/SwiftSyntax/602.json" >> "${GITHUB_OUTPUT}"
-              echo "xcode_version=26.3" >> "${GITHUB_OUTPUT}"
+              echo "xcode_version=26.2" >> "${GITHUB_OUTPUT}"
               echo "runner=macos-26" >> "${GITHUB_OUTPUT}"
               ;;
             6.3)
