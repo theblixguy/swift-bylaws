@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 class LexicalRegionVisitor: SyntaxVisitor {
   private let visitsTopLevelAccessors: Bool

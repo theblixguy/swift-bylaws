@@ -17,9 +17,10 @@ let projectCode = Codebase(
 
 let architecture = Layering(
   Layer("BylawsPaths", files: ["Sources/BylawsPaths/**"]),
+  Layer("BylawsSyntax", files: ["Sources/BylawsSyntax/**"]),
   Layer(
     "BylawsSemantics", files: ["Sources/BylawsSemantics/**"],
-    mayImport: ["BylawsPaths"]
+    mayImport: ["BylawsPaths", "BylawsSyntax"]
   ),
   Layer(
     "BylawsCore", files: ["Sources/BylawsCore/**"],
@@ -27,7 +28,9 @@ let architecture = Layering(
   ),
   Layer(
     "BylawsInterpreter", files: ["Sources/BylawsInterpreter/**"],
-    mayImport: ["BylawsCore", "BylawsPaths", "BylawsSemantics"]
+    mayImport: [
+      "BylawsCore", "BylawsPaths", "BylawsSemantics", "BylawsSyntax",
+    ]
   ),
   Layer(
     "Bylaws", files: ["Sources/Bylaws/**"],
@@ -85,14 +88,19 @@ let rules: [Rule] = [
   },
 
   Rule(
-    "parser-imports",
-    "Only parsers import SwiftSyntax and SwiftParser"
+    "syntax-imports",
+    "Only syntax processing modules import syntax APIs"
   ) {
     try await sourcesAndBenchmarks.files.outside(
       "Sources/BylawsSemantics",
-      "Sources/BylawsInterpreter"
+      "Sources/BylawsInterpreter",
+      "Sources/BylawsSyntax"
     )
-    .violations(matching: .imports("SwiftSyntax") || .imports("SwiftParser"))
+    .violations(
+      matching: .imports("BylawsSyntax")
+        || .imports("SwiftSyntax")
+        || .imports("SwiftParser")
+    )
   },
 
   Rule(

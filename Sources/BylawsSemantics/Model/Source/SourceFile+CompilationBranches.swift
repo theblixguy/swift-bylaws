@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 extension SourceFile {
   /// The conditional-compilation branches in source order, including nested

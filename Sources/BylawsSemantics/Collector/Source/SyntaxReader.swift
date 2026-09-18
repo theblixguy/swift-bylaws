@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 struct SyntaxReader {
   let path: String

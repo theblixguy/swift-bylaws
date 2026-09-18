@@ -1,6 +1,6 @@
 import BylawsCore
 import BylawsSemantics
-import SwiftSyntax
+import BylawsSyntax
 
 enum RuntimeModelValue: Sendable, Equatable {
   case check(RuntimeCheckValue)

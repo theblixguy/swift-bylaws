@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 extension SourceFile {
   /// The expressions in the file, including those in local declarations and

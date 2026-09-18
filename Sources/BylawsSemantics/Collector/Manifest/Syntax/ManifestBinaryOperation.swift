@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 // SwiftSyntax writes `a + b` as an InfixOperatorExprSyntax in a parsed
 // expression and as a three-element SequenceExprSyntax before the operator

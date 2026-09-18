@@ -1,5 +1,4 @@
-import SwiftParser
-import SwiftSyntax
+import BylawsSyntax
 
 /// The Swift language mode used to parse a source file.
 public enum SwiftLanguageMode: String, Sendable, Hashable, Codable,

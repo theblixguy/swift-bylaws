@@ -1,22 +1,18 @@
-import Foundation
-
-package struct ArtifactLayout: Sendable {
-  package struct Module: Equatable, Sendable {
-    package let name: String
-    package let sourceDirectory: String
+struct ArtifactLayout: Sendable {
+  struct Module: Equatable, Sendable {
+    let name: String
+    let sourceDirectory: String
   }
 
-  package let configuration: ArtifactConfiguration
-
-  package var artifactName: String {
+  var artifactName: String {
     "BylawsSwiftSyntaxArtifact"
   }
 
-  package var cModule: String {
+  var cModule: String {
     "BylawsSwiftSyntaxCShims"
   }
 
-  package var swiftModules: [Module] {
+  var swiftModules: [Module] {
     [
       module("SwiftSyntax"),
       module("SwiftParser"),
@@ -27,17 +23,17 @@ package struct ArtifactLayout: Sendable {
     ]
   }
 
-  package var moduleNames: [String: String] {
+  var moduleNames: [String: String] {
     Dictionary(uniqueKeysWithValues: swiftModules.map {
       ($0.sourceDirectory, $0.name)
     } + [("_SwiftSyntaxCShims", cModule)])
   }
 
-  package var privateCSymbolPrefix: String {
+  var privateCSymbolPrefix: String {
     "bylaws_swiftsyntax_"
   }
 
-  package var packageManifest: String {
+  var packageManifest: String {
     let syntax = moduleName(for: "SwiftSyntax")
     let parser = moduleName(for: "SwiftParser")
     let diagnostics = moduleName(for: "SwiftDiagnostics")
@@ -111,7 +107,7 @@ package struct ArtifactLayout: Sendable {
     """
   }
 
-  package func moduleName(for sourceDirectory: String) -> String {
+  func moduleName(for sourceDirectory: String) -> String {
     "Bylaws\(sourceDirectory)"
   }
 

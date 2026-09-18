@@ -1,6 +1,4 @@
-import SwiftParser
-
-package import SwiftSyntax
+package import BylawsSyntax
 
 /// A type as written in source, such as `[Order]?` or `Result<Order, Error>`.
 ///

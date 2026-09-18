@@ -1,7 +1,5 @@
+import BylawsSyntax
 import Foundation
-import SwiftDiagnostics
-import SwiftParserDiagnostics
-import SwiftSyntax
 
 /// Parses Swift source from a file or string into ``SourceFile`` models.
 public enum FileCollector {

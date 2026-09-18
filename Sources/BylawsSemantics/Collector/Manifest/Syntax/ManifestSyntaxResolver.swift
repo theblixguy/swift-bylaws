@@ -1,5 +1,4 @@
-import SwiftParser
-import SwiftSyntax
+import BylawsSyntax
 
 struct ManifestSyntaxResolver {
   struct Expressions {

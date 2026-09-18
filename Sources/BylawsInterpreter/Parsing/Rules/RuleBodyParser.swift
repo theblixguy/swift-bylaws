@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 struct RuleBodyParser {
   let syntax: RulesSyntaxContext

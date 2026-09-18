@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 extension SourceFile {
   /// The assignments in the file, including those inside local functions and

@@ -1,7 +1,7 @@
 import Bylaws
+import BylawsSyntax
 import BylawsTestSupport
 import Foundation
-import SwiftSyntax
 import Testing
 
 @Suite("Codebase queries")

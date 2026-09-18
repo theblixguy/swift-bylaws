@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 final class SourceNodeCollector: SyntaxAnyVisitor {
   private let context: SourceContext

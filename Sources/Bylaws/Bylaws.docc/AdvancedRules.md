@@ -186,7 +186,7 @@ check. If your domain switches must name every case, you can enforce that
 convention with a custom visitor in a Swift Testing target:
 
 ```swift
-import SwiftSyntax
+import BylawsSyntax
 
 @Test(
   "Switches name every case rather than using default",

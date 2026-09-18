@@ -1,6 +1,6 @@
 import BylawsCore
 import BylawsPaths
-import SwiftSyntax
+import BylawsSyntax
 
 extension RulesBindingParser {
   func parseCodebase(

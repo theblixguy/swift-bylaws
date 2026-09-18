@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 enum ManifestMutationApplier {
   static func apply(

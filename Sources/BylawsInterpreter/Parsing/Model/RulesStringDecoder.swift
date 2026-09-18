@@ -1,5 +1,4 @@
-import SwiftParser
-import SwiftSyntax
+import BylawsSyntax
 
 enum RulesStringDecoder {
   static func string(_ expression: ExprSyntax) -> String? {

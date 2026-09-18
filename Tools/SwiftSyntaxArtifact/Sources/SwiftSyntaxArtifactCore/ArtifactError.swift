@@ -1,5 +1,3 @@
-import Foundation
-
 package struct ArtifactError: Error, CustomStringConvertible, Equatable {
   package let description: String
 

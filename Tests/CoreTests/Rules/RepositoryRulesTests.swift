@@ -88,22 +88,34 @@ struct RepositoryRulesTests {
       0
     ),
     (
-      "parser-imports",
+      "syntax-imports",
       "Sources/BylawsCore/Mock.swift",
       "import SwiftSyntax",
       1
     ),
-    ("parser-imports", "Sources/Bylaws/Mock.swift", "import SwiftParser", 1),
+    ("syntax-imports", "Sources/Bylaws/Mock.swift", "import SwiftParser", 1),
     (
-      "parser-imports",
+      "syntax-imports",
+      "Sources/BylawsCore/Mock.swift",
+      "import BylawsSyntax",
+      1
+    ),
+    (
+      "syntax-imports",
       "Sources/BylawsSemantics/Mock.swift",
       "import SwiftSyntax",
       0
     ),
     (
-      "parser-imports",
+      "syntax-imports",
       "Sources/BylawsInterpreter/Mock.swift",
       "import SwiftParser",
+      0
+    ),
+    (
+      "syntax-imports",
+      "Sources/BylawsSyntax/Mock.swift",
+      "import SwiftSyntax",
       0
     ),
     ("final-classes", "Sources/BylawsCore/Mock.swift", "class Mock {}", 1),

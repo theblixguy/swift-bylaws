@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 enum ManifestProductCollector {
   static func products(

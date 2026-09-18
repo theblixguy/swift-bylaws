@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 struct SourceContext: Sendable {
   let source: SourceText

@@ -1,7 +1,7 @@
 import BylawsCore
 import BylawsSemantics
+import BylawsSyntax
 import Foundation
-import SwiftSyntax
 
 extension RuntimeEvaluator {
   func modelMethod(

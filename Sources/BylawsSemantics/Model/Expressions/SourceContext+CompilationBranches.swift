@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 extension SourceContext {
   func compilationBranches(of syntax: some SyntaxProtocol)

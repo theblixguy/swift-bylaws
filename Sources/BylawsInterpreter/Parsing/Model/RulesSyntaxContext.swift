@@ -1,5 +1,5 @@
 import BylawsSemantics
-import SwiftSyntax
+import BylawsSyntax
 
 struct RulesSyntaxContext {
   let path: String

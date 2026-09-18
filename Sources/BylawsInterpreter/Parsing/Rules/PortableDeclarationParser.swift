@@ -1,5 +1,5 @@
 import BylawsCore
-import SwiftSyntax
+import BylawsSyntax
 
 struct PortableDeclarationParser {
   let syntax: RulesSyntaxContext

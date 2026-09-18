@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 extension RuntimeEvaluator {
   func syntaxClassMember(

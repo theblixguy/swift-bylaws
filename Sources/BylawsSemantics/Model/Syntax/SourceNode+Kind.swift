@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 extension SourceNode {
   /// A stable description of a Swift syntax node.

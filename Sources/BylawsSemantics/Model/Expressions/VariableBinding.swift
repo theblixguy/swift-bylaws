@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 /// A variable declaration or optional binding, including local bindings.
 public struct VariableBinding: Declaration {

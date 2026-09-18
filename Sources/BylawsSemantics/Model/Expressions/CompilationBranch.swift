@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 /// A conditional-compilation branch in the source file.
 public struct CompilationBranch: Declaration {

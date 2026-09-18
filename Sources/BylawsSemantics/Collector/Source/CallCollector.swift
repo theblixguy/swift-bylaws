@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 final class CallCollector: LexicalRegionVisitor {
   private let reader: SyntaxReader
