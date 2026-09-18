@@ -1,5 +1,5 @@
 import BylawsSemantics
-import SwiftSyntax
+import BylawsSyntax
 
 extension DeclarationLocation {
   init(

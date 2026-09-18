@@ -1,7 +1,7 @@
 import RegexBuilder
 
-package struct TextRewriter: Sendable {
-  package func replacingModuleReferences(
+struct TextRewriter: Sendable {
+  func replacingModuleReferences(
     in source: String,
     from original: String,
     to replacement: String
@@ -15,7 +15,7 @@ package struct TextRewriter: Sendable {
       .replacing(qualifiedNamePattern(original), with: "\(replacement).")
   }
 
-  package func containsModuleReference(
+  func containsModuleReference(
     _ module: String,
     in source: String
   ) -> Bool {
@@ -24,27 +24,25 @@ package struct TextRewriter: Sendable {
       || source.contains(qualifiedNamePattern(module))
   }
 
-  package func replacingCSymbols(
+  func replacingCPrefix(
     in source: String,
     with prefix: String
   ) -> String {
-    source.replacing(cSymbolPattern) {
-      "\(prefix)\($0.1)"
-    }
+    source.replacing("swiftsyntax_", with: prefix)
   }
 
-  package func containsCSymbol(in source: String) -> Bool {
-    source.contains(cSymbolPattern)
+  func containsOriginalCPrefix(in source: String) -> Bool {
+    source.contains(originalCPrefixPattern)
   }
 
-  package func replacingCModuleName(
+  func replacingCModuleName(
     in source: String,
     with replacement: String
   ) -> String {
     source.replacing(cModuleNamePattern, with: replacement)
   }
 
-  package func containsCModuleName(in source: String) -> Bool {
+  func containsCModuleName(in source: String) -> Bool {
     source.contains(cModuleNamePattern)
   }
 
@@ -53,6 +51,13 @@ package struct TextRewriter: Sendable {
       Anchor.wordBoundary
       "_SwiftSyntaxCShims"
       Anchor.wordBoundary
+    }
+  }
+
+  private var originalCPrefixPattern: Regex<Substring> {
+    Regex {
+      Anchor.wordBoundary
+      "swiftsyntax_"
     }
   }
 
@@ -81,17 +86,6 @@ package struct TextRewriter: Sendable {
       Anchor.wordBoundary
       module
       "."
-    }
-  }
-
-  private var cSymbolPattern: Regex<(Substring, Substring)> {
-    Regex {
-      Anchor.wordBoundary
-      "swiftsyntax_"
-      Capture {
-        OneOrMore(.word)
-      }
-      Anchor.wordBoundary
     }
   }
 }

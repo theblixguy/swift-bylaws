@@ -1,9 +1,6 @@
 import BylawsCore
 import BylawsSemantics
-import SwiftDiagnostics
-import SwiftParser
-import SwiftParserDiagnostics
-import SwiftSyntax
+import BylawsSyntax
 
 struct BaselineFileParser {
   let path: String

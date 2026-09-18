@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 struct SourceText: Sendable {
   let buffer: SourceBuffer

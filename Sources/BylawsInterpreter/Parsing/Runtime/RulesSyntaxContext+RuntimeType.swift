@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 extension RulesSyntaxContext {
   func runtimeType(

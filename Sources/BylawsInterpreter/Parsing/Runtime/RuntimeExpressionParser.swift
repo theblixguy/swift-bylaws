@@ -1,5 +1,4 @@
-import SwiftParser
-import SwiftSyntax
+import BylawsSyntax
 
 struct RuntimeExpressionParser {
   let syntax: RulesSyntaxContext
@@ -137,17 +136,22 @@ struct RuntimeExpressionParser {
       diagnostics.append(unsupported(closure))
       return nil
     }
-    let parameters: [String] =
-      switch closure.signature?.parameterClause {
-      case nil:
-        []
-      case let .simpleInput(input):
-        input.map(\.name.text)
-      case let .parameterClause(clause):
-        clause.parameters.map {
-          $0.secondName?.text ?? $0.firstName.text
-        }
+    let parameters: [String]? = switch closure.signature?.parameterClause {
+    case nil:
+      []
+    case let .simpleInput(input):
+      input.map(\.name.text)
+    case let .parameterClause(clause):
+      clause.parameters.map {
+        $0.secondName?.text ?? $0.firstName.text
       }
+    case .some:
+      nil
+    }
+    guard let parameters else {
+      diagnostics.append(unsupported(closure))
+      return nil
+    }
     guard let body = RuntimeStatementParser(syntax: syntax).parse(
       closure.statements,
       diagnostics: &diagnostics

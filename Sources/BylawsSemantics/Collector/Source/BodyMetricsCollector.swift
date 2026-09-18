@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 final class BodyMetricsCollector: LexicalRegionVisitor {
   private(set) var awaitCount = 0

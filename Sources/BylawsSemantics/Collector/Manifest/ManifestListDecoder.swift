@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 enum ManifestListDecoder {
   static func list<Element: Sendable & Hashable & Codable>(

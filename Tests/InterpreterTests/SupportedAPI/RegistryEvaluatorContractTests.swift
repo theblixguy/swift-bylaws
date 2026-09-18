@@ -1,7 +1,7 @@
 import BylawsCore
 import BylawsSemantics
+import BylawsSyntax
 import BylawsTestSupport
-import SwiftSyntax
 import Testing
 @testable import BylawsInterpreter
 

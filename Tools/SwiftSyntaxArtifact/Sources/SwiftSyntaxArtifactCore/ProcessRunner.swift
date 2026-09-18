@@ -6,10 +6,8 @@ import Foundation
   import Glibc
 #endif
 
-package struct ProcessRunner: Sendable {
-  package init() {}
-
-  package func run(
+struct ProcessRunner: Sendable {
+  func run(
     _ executable: String,
     arguments: [String],
     currentDirectory: URL? = nil
@@ -24,7 +22,7 @@ package struct ProcessRunner: Sendable {
     try check(process, executable: executable, arguments: arguments)
   }
 
-  package func output(
+  func output(
     _ executable: String,
     arguments: [String],
     currentDirectory: URL? = nil

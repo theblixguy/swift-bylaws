@@ -1,5 +1,4 @@
-import SwiftParser
-import SwiftSyntax
+import BylawsSyntax
 
 /// An expression from a Swift source file.
 public struct SourceExpression: Declaration {

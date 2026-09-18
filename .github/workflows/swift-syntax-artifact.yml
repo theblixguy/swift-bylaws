@@ -11,42 +11,45 @@ on:
           - "6.2"
           - "6.3"
           - "6.4"
-      publish:
-        description: Publish the checked artifact as a release
-        default: false
-        type: boolean
+      mode:
+        description: Build and check the artifact or publish it
+        default: check
+        type: choice
+        options:
+          - check
+          - publish
 
 permissions:
   contents: read
 
 jobs:
   configure:
-    name: Select toolchain
+    name: Configure build
     runs-on: ubuntu-latest
     outputs:
-      configuration: ${{ steps.toolchain.outputs.configuration }}
-      developer_directory: ${{ steps.toolchain.outputs.developer_directory }}
-      runner: ${{ steps.toolchain.outputs.runner }}
+      configuration: ${{ steps.settings.outputs.configuration }}
+      xcode_version: ${{ steps.settings.outputs.xcode_version }}
+      runner: ${{ steps.settings.outputs.runner }}
     steps:
-      - name: Select toolchain
-        id: toolchain
+      - name: Select build settings
+        id: settings
         env:
           SWIFT_VERSION: ${{ inputs.version }}
         run: |
           case "${SWIFT_VERSION}" in
             6.2)
               echo "configuration=Distribution/SwiftSyntax/602.json" >> "${GITHUB_OUTPUT}"
-              echo "developer_directory=/Applications/Xcode_26.0.1.app/Contents/Developer" >> "${GITHUB_OUTPUT}"
+              echo "xcode_version=26.3" >> "${GITHUB_OUTPUT}"
               echo "runner=macos-26" >> "${GITHUB_OUTPUT}"
               ;;
             6.3)
               echo "configuration=Distribution/SwiftSyntax/603.json" >> "${GITHUB_OUTPUT}"
-              echo "developer_directory=/Applications/Xcode_26.6.app/Contents/Developer" >> "${GITHUB_OUTPUT}"
+              echo "xcode_version=26.6" >> "${GITHUB_OUTPUT}"
               echo "runner=macos-26" >> "${GITHUB_OUTPUT}"
               ;;
             6.4)
               echo "configuration=Distribution/SwiftSyntax/604.json" >> "${GITHUB_OUTPUT}"
-              echo "developer_directory=/Applications/Xcode.app/Contents/Developer" >> "${GITHUB_OUTPUT}"
+              echo "xcode_version=27.0" >> "${GITHUB_OUTPUT}"
               echo "runner=xcode-27" >> "${GITHUB_OUTPUT}"
               ;;
           esac
@@ -57,9 +60,12 @@ jobs:
     runs-on: ${{ needs.configure.outputs.runner }}
     env:
       CONFIGURATION: ${{ needs.configure.outputs.configuration }}
-      DEVELOPER_DIR: ${{ needs.configure.outputs.developer_directory }}
-      SCIPIO_REVISION: 0499f7daf0f3dae777d77895814ef06542663ac2
+      SCIPIO_REVISION: 07f39464fe52b220ac624a89aa79013e3fb5d2e1
     steps:
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: ${{ needs.configure.outputs.xcode_version }}
       - name: Check out Bylaws
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check out Scipio
@@ -68,7 +74,7 @@ jobs:
           repository: giginet/Scipio
           ref: ${{ env.SCIPIO_REVISION }}
           path: .scipio
-      - name: Check toolchain
+      - name: Check Swift version
         run: |
           FOUND_VERSION=$(swift --version | sed -nE 's/.*Swift version ([0-9]+\.[0-9]+).*/\1/p')
           if [ "${FOUND_VERSION}" != "${{ inputs.version }}" ]; then
@@ -80,20 +86,22 @@ jobs:
         run: |
           VERSION=$(jq -er .swiftSyntaxVersion "${CONFIGURATION}")
           REVISION=$(jq -er .artifactRevision "${CONFIGURATION}")
+          SOURCE_REVISION=$(jq -er .sourceRevision "${CONFIGURATION}")
           echo "swift_syntax_version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "source_revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
           echo "release_tag=swift-syntax-${VERSION}-${REVISION}" \
             >> "${GITHUB_OUTPUT}"
       - name: Check out SwiftSyntax
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: swiftlang/swift-syntax
-          ref: ${{ steps.metadata.outputs.swift_syntax_version }}
+          ref: ${{ steps.metadata.outputs.source_revision }}
           path: .swift-syntax-source
       - name: Prepare private modules
         run: >-
           swift run --package-path Tools/SwiftSyntaxArtifact -c release
-          swift-syntax-artifact prepare "${CONFIGURATION}"
-          .swift-syntax-source .swift-syntax-package
+          swift-syntax-artifact prepare .swift-syntax-source
+          .swift-syntax-package
       - name: Build frameworks
         run: >-
           swift run --package-path .scipio scipio create
@@ -102,14 +110,14 @@ jobs:
           --framework-type static
           --enable-library-evolution
           --strip-static-lib-dwarf-symbols
+          --verbose
           --platforms macOS
           --platforms iOS
           --support-simulators
       - name: Combine frameworks
         run: >-
           swift run --package-path Tools/SwiftSyntaxArtifact -c release
-          swift-syntax-artifact combine "${CONFIGURATION}"
-          .swift-syntax-frameworks
+          swift-syntax-artifact combine .swift-syntax-frameworks
           .swift-syntax-package
           .swift-syntax-artifacts/BylawsSwiftSyntaxArtifact.xcframework
       - name: Check Bylaws with the artifact
@@ -137,14 +145,14 @@ jobs:
             BylawsSwiftSyntaxArtifact.xcframework.zip
             swift-syntax-checksum.txt
       - name: Create release app token
-        if: inputs.publish
+        if: inputs.mode == 'publish'
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
       - name: Publish artifact
-        if: inputs.publish
+        if: inputs.mode == 'publish'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           RELEASE_TAG: ${{ steps.metadata.outputs.release_tag }}

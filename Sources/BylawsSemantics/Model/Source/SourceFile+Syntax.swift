@@ -1,4 +1,4 @@
-public import SwiftSyntax
+public import BylawsSyntax
 
 extension SourceFile {
   /// Runs `body` with a freshly parsed syntax tree for this file.

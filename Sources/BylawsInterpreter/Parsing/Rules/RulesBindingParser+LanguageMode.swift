@@ -1,5 +1,5 @@
 import BylawsCore
-import SwiftSyntax
+import BylawsSyntax
 
 extension RulesBindingParser {
   func parseLanguageMode(_ expression: ExprSyntax) -> Codebase.LanguageMode? {

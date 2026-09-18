@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 enum ManifestBuildSettingCollector {
   private enum Field: String, CaseIterable {

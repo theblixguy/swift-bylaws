@@ -24,30 +24,24 @@ struct BylawsOwnRulesTests {
           "binaryTarget",
           "conditional target declarations",
           "pluginTool.dependency",
+          "swiftSyntax.dependencies",
           "swift-docc-plugin",
         ].contains { value.expression.contains($0) }
       }
     )
   }
 
-  @Test("Dependencies use exact versions except SwiftSyntax")
+  @Test("Dependencies use exact versions")
   func packageDependenciesUseRequiredVersions() async throws {
     let manifest = try await Codebase.bylaws.packageManifest
-    let swiftSyntaxDependencies = manifest.dependencies(named: "swift-syntax")
-    #expect(swiftSyntaxDependencies.possibleValues.count == 1)
-    let swiftSyntax = try #require(swiftSyntaxDependencies.possibleValues.first)
-    #expect(
-      swiftSyntax.requirement
-        == .range(from: .init(602, 0, 0), upTo: .init(604, 0, 0))
-    )
-    let otherNonExactDependencies = manifest.dependencies.possibleValues
-      .filter {
-        $0.name != "swift-syntax" && !$0.requirement.isExactVersion
-      }
-    #expect(otherNonExactDependencies.isEmpty)
+    let nonExactDependencies = manifest.dependencies.possibleValues.filter {
+      !$0.requirement.isExactVersion
+    }
+    #expect(nonExactDependencies.isEmpty)
     #expect(
       manifest.dependencies.unresolvedValues.allSatisfy {
         $0.expression.contains("exact:")
+          || $0.expression.contains("swiftSyntaxPackageDependency")
       }
     )
   }

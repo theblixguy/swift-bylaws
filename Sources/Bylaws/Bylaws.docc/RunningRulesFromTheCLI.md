@@ -678,12 +678,15 @@ other APIs.
 <!-- runtime-capabilities:end -->
 
 Portable files may import `Bylaws`, `Testing`, `Foundation`, `BylawsIndex`,
-`BylawsIndexStore` and `SwiftSyntax`. The SwiftPM command can also import
-portable source targets from the resolved package graph.
+`BylawsIndexStore` and `BylawsSyntax`, while existing rules can continue to
+import `SwiftSyntax`. Use `BylawsSyntax` for new rules that work with syntax
+types. The SwiftPM command can also import portable source targets from the
+resolved package graph.
 
-Declare the package products for imported modules such as `Bylaws`,
-`BylawsIndex`, `BylawsIndexStore` and `SwiftSyntax`. `Testing` comes from the
-Swift toolchain and needs no package dependency.
+Add the package products for the modules you import, such as `Bylaws`,
+`BylawsIndex` and `BylawsIndexStore`. `BylawsSyntax` is part of the `Bylaws`
+product, while `Testing` comes from the Swift toolchain. A rule that imports
+`SwiftSyntax` directly also needs the `SwiftSyntax` product.
 
 Shared rule modules support public functions and bindings with internal
 helpers. Reserve the top-level name `rules` for a `[Rule]` array. The module's

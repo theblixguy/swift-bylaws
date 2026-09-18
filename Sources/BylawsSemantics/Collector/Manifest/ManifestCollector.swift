@@ -1,5 +1,5 @@
+import BylawsSyntax
 import Foundation
-import SwiftSyntax
 
 enum ManifestCollector {
   static func manifest(in source: String) -> PackageManifest {

@@ -4,20 +4,15 @@ package struct XCFrameworkCombiner {
   private let fileManager = FileManager.default
   private let processRunner = ProcessRunner()
   private let textRewriter = TextRewriter()
-  private let layout: ArtifactLayout
+  private let layout = ArtifactLayout()
 
-  package init(configuration: ArtifactConfiguration) {
-    layout = ArtifactLayout(configuration: configuration)
-  }
+  package init() {}
 
   package func combine(
     frameworks: URL,
     sourcePackage: URL,
     output: URL
   ) throws {
-    guard output.pathExtension == "xcframework" else {
-      throw ArtifactError("Output must end in .xcframework: \(output.path)")
-    }
     guard output.lastPathComponent == "\(layout.artifactName).xcframework"
     else {
       throw ArtifactError(

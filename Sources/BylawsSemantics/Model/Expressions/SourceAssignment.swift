@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 /// An assignment using `=` or a standard compound-assignment operator.
 public struct SourceAssignment: Declaration {

@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 final class DeclarationVisitor: SyntaxVisitor {
   private let reader: SyntaxReader

@@ -1,5 +1,5 @@
 import BylawsPaths
-import SwiftSyntax
+import BylawsSyntax
 
 enum ManifestDependencyCollector {
   static func dependencies(

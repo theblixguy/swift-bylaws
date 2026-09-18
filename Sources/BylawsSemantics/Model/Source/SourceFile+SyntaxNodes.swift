@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 extension SourceFile {
   /// Returns the syntax nodes of the requested kinds in source order.

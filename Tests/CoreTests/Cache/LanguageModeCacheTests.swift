@@ -1,6 +1,6 @@
 import BylawsCore
 import BylawsSemantics
-import SwiftSyntax
+import BylawsSyntax
 import Testing
 
 @Suite("Cached language modes")

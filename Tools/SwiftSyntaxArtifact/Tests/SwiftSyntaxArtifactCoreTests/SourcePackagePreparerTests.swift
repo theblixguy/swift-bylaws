@@ -4,15 +4,15 @@ import Testing
 
 @Suite("Source package preparation")
 struct SourcePackagePreparerTests {
-  @Test("Renames module references and C symbols")
-  func renamesModuleReferencesAndCSymbols() throws {
-    try withSourceRepository { repository, configuration in
-      let output = repository
+  @Test("Renames SwiftSyntax references")
+  func renamesSwiftSyntaxReferences() throws {
+    try withSourceDirectory { source in
+      let output = source
         .deletingLastPathComponent()
         .appendingPathComponent("Prepared")
 
-      try SourcePackagePreparer(configuration: configuration).prepare(
-        source: repository,
+      try SourcePackagePreparer().prepare(
+        source: source,
         output: output
       )
 
@@ -39,6 +39,29 @@ struct SourcePackagePreparerTests {
         .fileExists(atPath: output.appendingPathComponent(
           "Sources/_SwiftSyntaxCShims/include/bylaws_swiftsyntax_future.h"
         ).path))
+      #expect(FileManager.default
+        .fileExists(atPath: output.appendingPathComponent(
+          "Sources/_SwiftSyntaxCShims/include/BylawsSwiftSyntaxCShims.h"
+        ).path))
+      #expect(!FileManager.default
+        .fileExists(atPath: output.appendingPathComponent(
+          "Sources/_SwiftSyntaxCShims/include/SwiftSyntaxCShims.h"
+        ).path))
+      let moduleMap = try String(
+        contentsOf: output.appendingPathComponent(
+          "Sources/_SwiftSyntaxCShims/include/module.modulemap"
+        ),
+        encoding: .utf8
+      )
+      #expect(moduleMap.contains("header \"bylaws_swiftsyntax_future.h\""))
+      let umbrellaHeader = try String(
+        contentsOf: output.appendingPathComponent(
+          "Sources/_SwiftSyntaxCShims/include/BylawsSwiftSyntaxCShims.h"
+        ),
+        encoding: .utf8
+      )
+      #expect(umbrellaHeader
+        .contains("#include \"bylaws_swiftsyntax_future.h\""))
       #expect(try String(
         contentsOf: output.appendingPathComponent("LICENSE.txt"),
         encoding: .utf8
@@ -46,36 +69,20 @@ struct SourcePackagePreparerTests {
     }
   }
 
-  @Test("Rejects a different source revision")
-  func rejectsDifferentSourceRevision() throws {
-    try withSourceRepository { repository, configuration in
-      try "change".write(
-        to: repository.appendingPathComponent("Change.txt"),
-        atomically: true,
-        encoding: .utf8
+  @Test("Rejects a missing C umbrella header")
+  func rejectsMissingCUmbrellaHeader() throws {
+    try withSourceDirectory { source in
+      let header = source.appendingPathComponent(
+        "Sources/_SwiftSyntaxCShims/include/SwiftSyntaxCShims.h"
       )
-      try ProcessRunner().run(
-        "/usr/bin/git",
-        arguments: ["add", "."],
-        currentDirectory: repository
-      )
-      try ProcessRunner().run(
-        "/usr/bin/git",
-        arguments: ["commit", "--quiet", "-m", "Change"],
-        currentDirectory: repository
-      )
-      let revision = try ProcessRunner().output(
-        "/usr/bin/git",
-        arguments: ["rev-parse", "HEAD"],
-        currentDirectory: repository
-      )
+      try FileManager.default.removeItem(at: header)
 
       #expect(throws: ArtifactError(
-        "SwiftSyntax is at \(revision). Use \(configuration.sourceRevision)."
+        "SwiftSyntax C umbrella header is missing. Use an unmodified SwiftSyntax checkout."
       )) {
-        try SourcePackagePreparer(configuration: configuration).prepare(
-          source: repository,
-          output: repository
+        try SourcePackagePreparer().prepare(
+          source: source,
+          output: source
             .deletingLastPathComponent()
             .appendingPathComponent("Prepared")
         )
@@ -84,65 +91,17 @@ struct SourcePackagePreparerTests {
   }
 }
 
-private func withSourceRepository(
-  _ body: (URL, ArtifactConfiguration) throws -> Void
+private func withSourceDirectory(
+  _ body: (URL) throws -> Void
 ) throws {
   try withTemporaryDirectory { directory in
-    let repository = directory.appendingPathComponent("SwiftSyntax")
+    let source = directory.appendingPathComponent("SwiftSyntax")
     try FileManager.default.createDirectory(
-      at: repository,
+      at: source,
       withIntermediateDirectories: true
     )
-    try writeSourceFiles(to: repository)
-    let runner = ProcessRunner()
-    try runner.run(
-      "/usr/bin/git",
-      arguments: ["init", "--quiet"],
-      currentDirectory: repository
-    )
-    try runner.run(
-      "/usr/bin/git",
-      arguments: ["config", "user.name", "Artifact Tests"],
-      currentDirectory: repository
-    )
-    try runner.run(
-      "/usr/bin/git",
-      arguments: ["config", "user.email", "artifact-tests@example.com"],
-      currentDirectory: repository
-    )
-    try runner.run(
-      "/usr/bin/git",
-      arguments: ["add", "."],
-      currentDirectory: repository
-    )
-    try runner.run(
-      "/usr/bin/git",
-      arguments: ["commit", "--quiet", "-m", "Source"],
-      currentDirectory: repository
-    )
-    let revision = try runner.output(
-      "/usr/bin/git",
-      arguments: ["rev-parse", "HEAD"],
-      currentDirectory: repository
-    )
-    let configurationURL = directory.appendingPathComponent("604.json")
-    try """
-    {
-      "mode": "source",
-      "swiftCompilerVersion": "6.4",
-      "swiftSyntaxVersion": "604.0.0",
-      "sourceRevision": "\(revision)",
-      "artifactRevision": 1
-    }
-    """.write(
-      to: configurationURL,
-      atomically: true,
-      encoding: .utf8
-    )
-    try body(
-      repository,
-      ArtifactConfiguration.load(from: configurationURL)
-    )
+    try writeSourceFiles(to: source)
+    try body(source)
   }
 }
 
@@ -198,6 +157,11 @@ private func writeSourceFiles(to repository: URL) throws {
   )
   try "void swiftsyntax_future_header(void);".write(
     to: include.appendingPathComponent("swiftsyntax_future.h"),
+    atomically: true,
+    encoding: .utf8
+  )
+  try "#include \"swiftsyntax_future.h\"".write(
+    to: include.appendingPathComponent("SwiftSyntaxCShims.h"),
     atomically: true,
     encoding: .utf8
   )

@@ -13,7 +13,7 @@ struct RuntimeSyntaxAndTypeCheckingTests {
       "Package.swift": "",
       "ProjectRules.swift": """
       import Bylaws
-      import SwiftSyntax
+      import BylawsSyntax
 
       let app = Codebase(root: .automatic(), including: ["Sources/**"])
 

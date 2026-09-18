@@ -2,21 +2,15 @@ import Foundation
 
 package struct SourcePackagePreparer {
   private let fileManager = FileManager.default
-  private let fileSystem = FileSystem()
-  private let processRunner = ProcessRunner()
   private let textRewriter = TextRewriter()
-  private let layout: ArtifactLayout
+  private let layout = ArtifactLayout()
 
-  package init(configuration: ArtifactConfiguration) {
-    layout = ArtifactLayout(configuration: configuration)
-  }
+  package init() {}
 
   package func prepare(source: URL, output: URL) throws {
     guard !fileManager.fileExists(atPath: output.path) else {
       throw ArtifactError("Output already exists at \(output.path).")
     }
-    try checkRevision(of: source)
-
     let work = output
       .deletingLastPathComponent()
       .appendingPathComponent(".\(output.lastPathComponent).\(UUID())")
@@ -54,18 +48,6 @@ package struct SourcePackagePreparer {
     shouldRemoveWork = false
   }
 
-  private func checkRevision(of source: URL) throws {
-    let revision = try processRunner.output(
-      "/usr/bin/git",
-      arguments: ["-C", source.path, "rev-parse", "HEAD"]
-    )
-    guard revision == layout.configuration.sourceRevision else {
-      throw ArtifactError(
-        "SwiftSyntax is at \(revision). Use \(layout.configuration.sourceRevision)."
-      )
-    }
-  }
-
   private func copySourceDirectory(
     named name: String,
     from source: URL,
@@ -91,7 +73,7 @@ package struct SourcePackagePreparer {
   }
 
   private func removeBuildFiles(from sources: URL) throws {
-    for url in try fileSystem.files(under: sources) where
+    for url in try files(under: sources) where
       url.lastPathComponent == "CMakeLists.txt"
       || url.lastPathComponent == "README.md"
       || url.pathComponents.contains("Documentation.docc")
@@ -101,7 +83,7 @@ package struct SourcePackagePreparer {
   }
 
   private func rewriteSwiftModules(in sources: URL) throws {
-    let swiftFiles = try fileSystem.files(under: sources).filter {
+    let swiftFiles = try files(under: sources).filter {
       $0.pathExtension == "swift"
     }
     for url in swiftFiles {
@@ -113,7 +95,7 @@ package struct SourcePackagePreparer {
           to: replacement
         )
       }
-      source = textRewriter.replacingCSymbols(
+      source = textRewriter.replacingCPrefix(
         in: source,
         with: layout.privateCSymbolPrefix
       )
@@ -133,32 +115,32 @@ package struct SourcePackagePreparer {
           )
         }
       }
-      guard !textRewriter.containsCSymbol(in: source) else {
+      guard !textRewriter.containsOriginalCPrefix(in: source) else {
         throw ArtifactError(
-          "Source still contains a swiftsyntax_ C symbol at \(url.path)."
+          "Source still contains the SwiftSyntax C prefix at \(url.path)."
         )
       }
     }
   }
 
   private func rewriteCModule(in source: URL) throws {
-    let files = try fileSystem.files(under: source).filter {
+    let cFiles = try files(under: source).filter {
       ["c", "h", "modulemap"].contains($0.pathExtension)
         || $0.lastPathComponent == "module.modulemap"
     }
-    for url in files {
+    for url in cFiles {
       var contents = try String(contentsOf: url, encoding: .utf8)
       contents = textRewriter.replacingCModuleName(
         in: contents,
         with: layout.cModule
       )
-      contents = textRewriter.replacingCSymbols(
+      contents = textRewriter.replacingCPrefix(
         in: contents,
         with: layout.privateCSymbolPrefix
       )
       try contents.write(to: url, atomically: true, encoding: .utf8)
     }
-    for url in files where url.lastPathComponent.hasPrefix("swiftsyntax_") {
+    for url in cFiles where url.lastPathComponent.hasPrefix("swiftsyntax_") {
       let name = url.lastPathComponent.dropFirst("swiftsyntax_".count)
       try fileManager.moveItem(
         at: url,
@@ -167,19 +149,50 @@ package struct SourcePackagePreparer {
         )
       )
     }
-    try checkCReferences(in: fileSystem.files(under: source))
+    try renameCUmbrellaHeader(in: source)
+    try checkCReferences(in: files(under: source))
+  }
+
+  private func renameCUmbrellaHeader(in source: URL) throws {
+    let original = source.appendingPathComponent("include/SwiftSyntaxCShims.h")
+    guard fileManager.fileExists(atPath: original.path) else {
+      throw ArtifactError(
+        "SwiftSyntax C umbrella header is missing. Use an unmodified SwiftSyntax checkout."
+      )
+    }
+    try fileManager.moveItem(
+      at: original,
+      to: original
+        .deletingLastPathComponent()
+        .appendingPathComponent("\(layout.cModule).h")
+    )
   }
 
   private func checkCReferences(in files: [URL]) throws {
     for url in files {
       let contents = try String(contentsOf: url, encoding: .utf8)
       guard !textRewriter.containsCModuleName(in: contents),
-            !textRewriter.containsCSymbol(in: contents)
+            !textRewriter.containsOriginalCPrefix(in: contents)
       else {
         throw ArtifactError(
           "Source still contains an original SwiftSyntax C name at \(url.path)."
         )
       }
+    }
+  }
+
+  private func files(under directory: URL) throws -> [URL] {
+    guard let enumerator = fileManager.enumerator(
+      at: directory,
+      includingPropertiesForKeys: [.isRegularFileKey],
+      options: [.skipsHiddenFiles]
+    ) else {
+      throw ArtifactError("Cannot read directory at \(directory.path).")
+    }
+    return try enumerator.compactMap { entry in
+      guard let url = entry as? URL else { return nil }
+      let values = try url.resourceValues(forKeys: [.isRegularFileKey])
+      return values.isRegularFile == true ? url : nil
     }
   }
 }

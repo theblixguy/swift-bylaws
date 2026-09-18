@@ -1,5 +1,5 @@
 import Bylaws
-import SwiftSyntax
+import BylawsSyntax
 import Testing
 
 @Suite("Test conventions", .codebase(.bylaws), .tags(.layering))

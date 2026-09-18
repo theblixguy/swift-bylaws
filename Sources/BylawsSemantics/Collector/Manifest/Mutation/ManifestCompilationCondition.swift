@@ -1,5 +1,4 @@
-import SwiftOperators
-import SwiftSyntax
+import BylawsSyntax
 
 func evaluateCompilationClause(_ clause: IfConfigClauseSyntax) -> Bool? {
   guard let clauseList = Syntax(clause).parent?

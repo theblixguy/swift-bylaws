@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 final class ClosureEffects: SyntaxVisitor {
   private(set) var usesAwait = false

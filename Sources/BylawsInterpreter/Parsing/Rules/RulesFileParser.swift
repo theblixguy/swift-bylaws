@@ -1,10 +1,6 @@
 import BylawsCore
 import BylawsPaths
-import SwiftDiagnostics
-import SwiftOperators
-import SwiftParser
-import SwiftParserDiagnostics
-import SwiftSyntax
+import BylawsSyntax
 
 struct RulesFileParser {
   let syntax: RulesSyntaxContext
@@ -110,6 +106,8 @@ struct RulesFileParser {
       parsed.diagnostics.append(unsupported(item))
     case .stmt:
       parsed.diagnostics.append(unsupported(item))
+    @unknown default:
+      parsed.diagnostics.append(unsupported(item))
     }
   }
 
@@ -149,6 +147,7 @@ enum PortableImportedModule: String, CaseIterable {
   case bylaws = "Bylaws"
   case bylawsIndex = "BylawsIndex"
   case bylawsIndexStore = "BylawsIndexStore"
+  case bylawsSyntax = "BylawsSyntax"
   case swiftSyntax = "SwiftSyntax"
   case testing = "Testing"
 }
@@ -161,6 +160,7 @@ extension OperatorError {
     case let .incomparableOperators(leftOperator, _, _, _):
       Syntax(leftOperator)
     case .groupAlreadyExists, .operatorAlreadyExists: nil
+    @unknown default: nil
     }
   }
 }

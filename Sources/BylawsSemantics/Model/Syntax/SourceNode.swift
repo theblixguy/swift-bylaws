@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 /// A syntax node from a Swift source file.
 public struct SourceNode: Located, Summarised, Hashable, Sendable {

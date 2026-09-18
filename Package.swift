@@ -92,6 +92,198 @@ private enum PluginToolSelection {
   }
 }
 
+private enum SwiftSyntaxArtifact {
+  static let target = "BylawsSwiftSyntaxArtifact"
+  static let sourcePackage = "https://github.com/swiftlang/swift-syntax.git"
+  static let minimumSourceVersion = Version(602, 0, 0)
+  static let releaseRoot =
+    "https://github.com/theblixguy/swift-bylaws/releases/download"
+
+  static var compiler: (version: String, configuration: String) {
+    #if compiler(>=6.5) && compiler(<6.6)
+      ("6.5", "605")
+    #elseif compiler(>=6.4) && compiler(<6.5)
+      ("6.4", "604")
+    #elseif compiler(>=6.3) && compiler(<6.4)
+      ("6.3", "603")
+    #elseif compiler(>=6.2) && compiler(<6.3)
+      ("6.2", "602")
+    #else
+      fatalError("Bylaws supports Swift 6.2 through 6.5.")
+    #endif
+  }
+
+  static var configuration: String {
+    "Distribution/SwiftSyntax/\(compiler.configuration).json"
+  }
+}
+
+private struct SwiftSyntaxArtifactConfiguration: Decodable {
+  enum Mode: String, Decodable {
+    case remote
+    case source
+  }
+
+  let mode: Mode
+  let swiftCompilerVersion: String
+  let swiftSyntaxVersion: String
+  let artifactRevision: Int
+  let checksum: String?
+
+  var version: Version {
+    guard let version = Version(swiftSyntaxVersion) else {
+      fatalError("SwiftSyntax version is malformed: \(swiftSyntaxVersion)")
+    }
+    return version
+  }
+
+  var releaseTag: String {
+    "swift-syntax-\(swiftSyntaxVersion)-\(artifactRevision)"
+  }
+
+  var archiveName: String {
+    "\(SwiftSyntaxArtifact.target).xcframework.zip"
+  }
+
+  var downloadURL: String {
+    "\(SwiftSyntaxArtifact.releaseRoot)/\(releaseTag)/\(archiveName)"
+  }
+}
+
+private enum SwiftSyntaxSelection {
+  case localArtifact(path: String)
+  case remoteArtifact(url: String, checksum: String)
+  case source(configuration: SwiftSyntaxArtifactConfiguration)
+
+  static func load() -> Self {
+    let configuration = loadConfiguration()
+
+    #if os(macOS)
+      if let path = Context.environment["BYLAWS_SWIFT_SYNTAX_ARTIFACT_PATH"] {
+        return .localArtifact(path: path)
+      }
+    #endif
+
+    if Context.environment["BYLAWS_BUILD_SWIFT_SYNTAX_FROM_SOURCE"] != nil
+      || Context.environment["SPI_PROCESSING"] == "1"
+    {
+      return .source(configuration: configuration)
+    }
+
+    #if os(macOS)
+      switch configuration.mode {
+      case .source:
+        return .source(configuration: configuration)
+      case .remote:
+        guard let checksum = configuration.checksum else {
+          fatalError("SwiftSyntax artifact checksum is missing.")
+        }
+        return .remoteArtifact(
+          url: configuration.downloadURL,
+          checksum: checksum
+        )
+      }
+    #else
+      return .source(configuration: configuration)
+    #endif
+  }
+
+  private static func loadConfiguration()
+    -> SwiftSyntaxArtifactConfiguration
+  {
+    let manifestDirectory = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+    let configurationURL = manifestDirectory
+      .appendingPathComponent(SwiftSyntaxArtifact.configuration)
+    do {
+      let configuration = try JSONDecoder().decode(
+        SwiftSyntaxArtifactConfiguration.self,
+        from: Data(contentsOf: configurationURL)
+      )
+      guard configuration.swiftCompilerVersion ==
+        SwiftSyntaxArtifact.compiler.version
+      else {
+        fatalError(
+          "SwiftSyntax configuration must match Swift \(SwiftSyntaxArtifact.compiler.version)."
+        )
+      }
+      guard let expectedMajor = Int(
+        SwiftSyntaxArtifact.compiler.configuration
+      ), configuration.version.major == expectedMajor
+      else {
+        fatalError(
+          "SwiftSyntax version must match Swift \(SwiftSyntaxArtifact.compiler.version)."
+        )
+      }
+      return configuration
+    } catch {
+      fatalError("Cannot read \(SwiftSyntaxArtifact.configuration): \(error)")
+    }
+  }
+
+  var dependencies: [Target.Dependency] {
+    switch self {
+    case .localArtifact, .remoteArtifact:
+      [.target(name: SwiftSyntaxArtifact.target)]
+    case .source:
+      [
+        .product(name: "SwiftDiagnostics", package: "swift-syntax"),
+        .product(name: "SwiftParserDiagnostics", package: "swift-syntax"),
+        .product(name: "SwiftSyntax", package: "swift-syntax"),
+        .product(name: "SwiftParser", package: "swift-syntax"),
+        .product(name: "SwiftOperators", package: "swift-syntax"),
+      ]
+    }
+  }
+
+  var swiftSettings: [SwiftSetting] {
+    switch self {
+    case .localArtifact, .remoteArtifact:
+      [.define("BYLAWS_PREBUILT_SWIFT_SYNTAX")]
+    case .source:
+      []
+    }
+  }
+
+  var packageDependency: Package.Dependency? {
+    switch self {
+    case .localArtifact, .remoteArtifact:
+      nil
+    case let .source(configuration):
+      if configuration.version.prereleaseIdentifiers.isEmpty {
+        .package(
+          url: SwiftSyntaxArtifact.sourcePackage,
+          SwiftSyntaxArtifact.minimumSourceVersion..<Version(
+            configuration.version.major + 1,
+            0,
+            0
+          )
+        )
+      } else {
+        .package(
+          url: SwiftSyntaxArtifact.sourcePackage,
+          exact: configuration.version
+        )
+      }
+    }
+  }
+
+  var binaryTarget: Target? {
+    switch self {
+    case let .localArtifact(path):
+      .binaryTarget(name: SwiftSyntaxArtifact.target, path: path)
+    case let .remoteArtifact(url, checksum):
+      .binaryTarget(
+        name: SwiftSyntaxArtifact.target,
+        url: url,
+        checksum: checksum
+      )
+    case .source:
+      nil
+    }
+  }
+}
+
 let warningsAsErrorsEnabled =
   Context.environment["BYLAWS_STRICT_BUILD"] != nil
 
@@ -107,12 +299,13 @@ let swiftSettings: [SwiftSetting] =
   ] + (warningsAsErrorsEnabled ? [.treatAllWarnings(as: .error)] : [])
 
 private let pluginTool = PluginToolSelection.load()
+private let swiftSyntax = SwiftSyntaxSelection.load()
 
 let package = Package(
   name: "swift-bylaws",
   platforms: [.macOS(.v14), .iOS(.v13)],
   products: [
-    .library(name: "Bylaws", targets: ["Bylaws"]),
+    .library(name: "Bylaws", targets: ["Bylaws", "BylawsSyntax"]),
     .library(name: "BylawsCore", targets: ["BylawsCore"]),
     .library(name: "BylawsSemantics", targets: ["BylawsSemantics"]),
     .library(name: "BylawsIndexStore", targets: ["BylawsIndexStore"]),
@@ -121,6 +314,7 @@ let package = Package(
       targets: ["BylawsIndex", "BylawsIndexStore"]
     ),
     .library(name: "BylawsInterpreter", targets: ["BylawsInterpreter"]),
+    .library(name: "BylawsSyntax", targets: ["BylawsSyntax"]),
     .executable(name: "bylaws", targets: ["bylaws-cli"]),
     .plugin(name: "BylawsPlugin", targets: ["BylawsPlugin"]),
     .plugin(name: "BylawsBuildToolPlugin", targets: ["BylawsBuildToolPlugin"]),
@@ -145,12 +339,6 @@ let package = Package(
       url: "https://github.com/apple/swift-system.git",
       exact: "1.7.5"
     ),
-    // A range here lets a host project pick the SwiftSyntax major version its
-    // own toolchain and macros need.
-    .package(
-      url: "https://github.com/swiftlang/swift-syntax.git",
-      "602.0.0"..<"604.0.0"
-    ),
     .package(
       url: "https://github.com/apple/swift-argument-parser.git",
       exact: "1.8.2"
@@ -166,6 +354,11 @@ let package = Package(
   ],
   targets: [
     .target(
+      name: "BylawsSyntax",
+      dependencies: swiftSyntax.dependencies,
+      swiftSettings: swiftSettings + swiftSyntax.swiftSettings
+    ),
+    .target(
       name: "BylawsPaths",
       dependencies: [
         .product(name: "SystemPackage", package: "swift-system"),
@@ -176,11 +369,7 @@ let package = Package(
       name: "BylawsSemantics",
       dependencies: [
         "BylawsPaths",
-        .product(name: "SwiftDiagnostics", package: "swift-syntax"),
-        .product(name: "SwiftParserDiagnostics", package: "swift-syntax"),
-        .product(name: "SwiftSyntax", package: "swift-syntax"),
-        .product(name: "SwiftParser", package: "swift-syntax"),
-        .product(name: "SwiftOperators", package: "swift-syntax"),
+        "BylawsSyntax",
       ],
       swiftSettings: swiftSettings
     ),
@@ -200,14 +389,7 @@ let package = Package(
         "BylawsCore",
         "BylawsPaths",
         "BylawsSemantics",
-        .product(name: "SwiftSyntax", package: "swift-syntax"),
-        .product(name: "SwiftParser", package: "swift-syntax"),
-        .product(name: "SwiftDiagnostics", package: "swift-syntax"),
-        .product(
-          name: "SwiftParserDiagnostics",
-          package: "swift-syntax"
-        ),
-        .product(name: "SwiftOperators", package: "swift-syntax"),
+        "BylawsSyntax",
       ],
       swiftSettings: swiftSettings
     ),
@@ -302,8 +484,7 @@ let package = Package(
       name: "SemanticsTests",
       dependencies: [
         "BylawsSemantics",
-        .product(name: "SwiftParser", package: "swift-syntax"),
-        .product(name: "SwiftSyntax", package: "swift-syntax"),
+        "BylawsSyntax",
       ],
       swiftSettings: swiftSettings
     ),
@@ -325,7 +506,7 @@ let package = Package(
         "Bylaws",
         "BylawsTestSupport",
         "PortableRules",
-        .product(name: "SwiftSyntax", package: "swift-syntax"),
+        "BylawsSyntax",
       ],
       swiftSettings: swiftSettings
     ),
@@ -358,7 +539,7 @@ let package = Package(
         "BylawsPaths",
         "BylawsSemantics",
         "BylawsTestSupport",
-        .product(name: "SwiftSyntax", package: "swift-syntax"),
+        "BylawsSyntax",
       ],
       swiftSettings: swiftSettings
     ),
@@ -436,6 +617,14 @@ let package = Package(
 #endif
 
 if let binaryTarget = pluginTool.binaryTarget {
+  package.targets.append(binaryTarget)
+}
+
+if let swiftSyntaxPackageDependency = swiftSyntax.packageDependency {
+  package.dependencies.append(swiftSyntaxPackageDependency)
+}
+
+if let binaryTarget = swiftSyntax.binaryTarget {
   package.targets.append(binaryTarget)
 }
 

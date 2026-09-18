@@ -1,4 +1,4 @@
-import SwiftSyntax
+import BylawsSyntax
 
 struct RuntimeStatementParser {
   let syntax: RulesSyntaxContext
@@ -128,6 +128,9 @@ struct RuntimeStatementParser {
         ),
         location: location
       )
+    @unknown default:
+      diagnostics.append(unsupported(item))
+      return nil
     }
   }
 
@@ -171,6 +174,9 @@ struct RuntimeStatementParser {
       guard let statement = parse(nested, diagnostics: &diagnostics)
       else { return nil }
       failure = RuntimeBody(statements: [statement])
+    case .some:
+      diagnostics.append(unsupported(conditional))
+      return nil
     }
     return RuntimeStatement(
       kind: .ifStatement(
@@ -204,6 +210,8 @@ struct RuntimeStatementParser {
       else { return nil }
       return .optionalBinding(name: name, value: value)
     case .availability, .matchingPattern:
+      return nil
+    @unknown default:
       return nil
     }
   }

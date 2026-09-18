@@ -15,9 +15,6 @@ struct SwiftSyntaxArtifact: ParsableCommand {
       abstract: "Prepares private SwiftSyntax modules for a framework build."
     )
 
-    @Argument(help: "Artifact configuration file.")
-    var configuration: String
-
     @Argument(help: "SwiftSyntax source checkout.")
     var source: String
 
@@ -25,10 +22,7 @@ struct SwiftSyntaxArtifact: ParsableCommand {
     var output: String
 
     mutating func run() throws {
-      let configuration = try ArtifactConfiguration.load(
-        from: fileURL(configuration)
-      )
-      try SourcePackagePreparer(configuration: configuration).prepare(
+      try SourcePackagePreparer().prepare(
         source: fileURL(source),
         output: fileURL(output)
       )
@@ -40,9 +34,6 @@ struct SwiftSyntaxArtifact: ParsableCommand {
       abstract: "Combines the module frameworks into one XCFramework."
     )
 
-    @Argument(help: "Artifact configuration file.")
-    var configuration: String
-
     @Argument(help: "Directory that contains the module frameworks.")
     var frameworks: String
 
@@ -53,10 +44,7 @@ struct SwiftSyntaxArtifact: ParsableCommand {
     var output: String
 
     mutating func run() throws {
-      let configuration = try ArtifactConfiguration.load(
-        from: fileURL(configuration)
-      )
-      try XCFrameworkCombiner(configuration: configuration).combine(
+      try XCFrameworkCombiner().combine(
         frameworks: fileURL(frameworks),
         sourcePackage: fileURL(sourcePackage),
         output: fileURL(output)

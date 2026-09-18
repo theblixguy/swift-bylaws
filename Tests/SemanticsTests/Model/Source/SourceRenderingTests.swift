@@ -1,6 +1,5 @@
 import BylawsSemantics
-import SwiftParser
-import SwiftSyntax
+import BylawsSyntax
 import Testing
 
 @Suite("Source rendering")
