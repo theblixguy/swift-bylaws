@@ -33,6 +33,7 @@ package struct ParsedCodebase: Sendable {
   package let filesAsWritten: [SourceFile]
   private let inheritance = ResolvedInheritance()
   private let projections = ParsedCodebaseProjections()
+  private let syntaxNodeProjections = ParsedSyntaxNodeProjections()
 
   package func projection<Element: Sendable>(
     for category: Projection,
@@ -57,6 +58,16 @@ package struct ParsedCodebase: Sendable {
 
   package func resolvedFiles() async -> [SourceFile] {
     await inheritance.files(resolving: filesAsWritten)
+  }
+
+  package func syntaxNodeProjection(
+    of kinds: Set<SourceNode.Kind>
+  ) async -> SelectionStorage<SourceNode> {
+    let files = await resolvedFiles()
+    return await syntaxNodeProjections.value(
+      for: kinds,
+      files: files
+    )
   }
 
   package var rootName: String {

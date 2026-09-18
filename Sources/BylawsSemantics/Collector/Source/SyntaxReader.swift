@@ -13,6 +13,26 @@ struct SyntaxReader {
     )
   }
 
+  func call(_ node: FunctionCallExprSyntax) -> FunctionCall {
+    FunctionCall(
+      calledExpression: text.trimmedText(of: node.calledExpression),
+      arguments: node.arguments.map(argument),
+      location: location(of: node.calledExpression)
+    )
+  }
+
+  func call(
+    named name: String,
+    arguments: LabeledExprListSyntax,
+    at node: some SyntaxProtocol
+  ) -> FunctionCall {
+    FunctionCall(
+      calledExpression: "#\(name)",
+      arguments: arguments.map(argument),
+      location: location(of: node)
+    )
+  }
+
   func genericParameters(
     of clause: GenericParameterClauseSyntax?
   ) -> [GenericParameter] {
