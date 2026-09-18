@@ -9,6 +9,9 @@ extension SupportedAPI.RuntimeCallArguments {
       return !labels.isEmpty && labels.allSatisfy { $0 == nil }
     case let .optional(parameter):
       return labels.isEmpty || labels == [parameter.writtenLabel]
+    case let .variadic(first, additional):
+      return labels.first == first.writtenLabel
+        && labels.dropFirst().allSatisfy { $0 == additional.writtenLabel }
     case let .indexQuery(leading, optional):
       guard labels.count >= leading.count,
             Array(labels.prefix(leading.count)) == leading.map(\.writtenLabel)
@@ -50,6 +53,8 @@ extension SupportedAPI.RuntimeCallArguments {
       }
     case let .optional(parameter):
       return labels.isEmpty ? [] : [parameter]
+    case let .variadic(first, additional):
+      return [first] + labels.dropFirst().map { _ in additional }
     case let .indexQuery(leading, optional):
       return leading + labels.dropFirst(leading.count).compactMap { label in
         optional.first { $0.writtenLabel == label }
@@ -61,13 +66,16 @@ extension SupportedAPI.RuntimeCallArguments {
     switch self {
     case let .exact(parameters): parameters.compactMap(\.label)
     case let .indexQuery(leading, _): leading.compactMap(\.label)
+    case let .variadic(first, _): first.label.map { [$0] } ?? []
     case .alternatives, .unlabelledStrings, .optional: []
     }
   }
 
   var trailingLabels: [SupportedAPI.ArgumentLabel] {
-    guard case let .indexQuery(_, optional) = self else { return [] }
-    return optional.compactMap(\.label)
+    switch self {
+    case let .indexQuery(_, optional): optional.compactMap(\.label)
+    default: []
+    }
   }
 
   var rendered: String {
@@ -80,6 +88,9 @@ extension SupportedAPI.RuntimeCallArguments {
         }.joined(separator: " or ")
     case .unlabelledStrings: "one or more unlabelled strings"
     case let .optional(parameter): "() or \(labelList(of: [parameter]))"
+    case let .variadic(first, additional):
+      "\(labelList(of: [first])) followed by zero or more "
+        + "\(labelList(of: [additional])) arguments"
     case let .indexQuery(leading, optional):
       labelList(of: leading + optional)
     }

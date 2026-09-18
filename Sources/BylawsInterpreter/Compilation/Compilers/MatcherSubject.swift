@@ -192,7 +192,7 @@ extension FunctionCall: MatcherSubject {
 }
 
 extension SupportedAPI.DeclarationFamily {
-  var subject: any MatcherSubject.Type {
+  var subject: (any MatcherSubject.Type)? {
     switch self {
     case .file: SourceFile.self
     case .class: Class.self
@@ -208,6 +208,7 @@ extension SupportedAPI.DeclarationFamily {
     case .import: Import.self
     case .typealias: Typealias.self
     case .functionCall: FunctionCall.self
+    case .sourceNode: nil
     case .sourceExpression: SourceExpression.self
     case .sourceAssignment: SourceAssignment.self
     case .variableBinding: VariableBinding.self
@@ -237,7 +238,7 @@ extension RuntimeModelValue {
     case let .sourceAssignment(value): value
     case let .variableBinding(value): value
     case let .compilationBranch(value): value
-    case .callArgument, .expressionArgument, .enclosingDeclaration,
+    case .sourceNode, .callArgument, .expressionArgument, .enclosingDeclaration,
          .dictionaryElement,
          .check, .typeReference, .parameter, .attribute, .genericParameter,
          .enumCase, .importGraph, .importGraphTarget, .bazelGraph, .bazelTarget,
@@ -251,6 +252,7 @@ extension RuntimeModelValue {
   }
 
   var family: SupportedAPI.DeclarationFamily? {
-    matcherSubject.map { type(of: $0).family }
+    if case .sourceNode = self { return .sourceNode }
+    return matcherSubject.map { type(of: $0).family }
   }
 }

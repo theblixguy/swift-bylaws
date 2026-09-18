@@ -228,7 +228,12 @@ extension Codebase {
     of kind: SourceNode.Kind,
     _ additionalKinds: SourceNode.Kind...
   ) async throws(CodebaseError) -> Selection<SourceNode> {
-    let kinds = Set([kind] + additionalKinds)
+    try await syntaxNodes(of: Set([kind] + additionalKinds))
+  }
+
+  package func syntaxNodes(
+    of kinds: Set<SourceNode.Kind>
+  ) async throws(CodebaseError) -> Selection<SourceNode> {
     let names = kinds.map(\.rawValue).sorted().joined(separator: ", ")
     let parsedCodebase = try await CodebaseCache.shared
       .parsedCodebase(for: self)

@@ -53,22 +53,22 @@ extension SupportedAPI {
     Matcher(
       id: .named,
       arguments: .strings(startingWith: nil),
-      declarationFamilies: allDeclarationFamilies
+      declarationFamilies: namedDeclarationFamilies
     ),
     Matcher(
       id: .suffixed,
       arguments: .strings(startingWith: nil),
-      declarationFamilies: allDeclarationFamilies
+      declarationFamilies: namedDeclarationFamilies
     ),
     Matcher(
       id: .prefixed,
       arguments: .strings(startingWith: nil),
-      declarationFamilies: allDeclarationFamilies
+      declarationFamilies: namedDeclarationFamilies
     ),
     Matcher(
       id: .nameMatching,
       arguments: .oneString(labelled: nil),
-      declarationFamilies: allDeclarationFamilies
+      declarationFamilies: namedDeclarationFamilies
     ),
     Matcher(
       id: .inherits,

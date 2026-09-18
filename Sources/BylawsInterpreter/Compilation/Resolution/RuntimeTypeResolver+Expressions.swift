@@ -88,6 +88,20 @@ extension RuntimeTypeResolver {
     case let .member(base, name):
       let baseType = resolve(base)
       return resolveMember(name, of: baseType, at: expression.location)
+    case let .qualifiedMember(base, literal):
+      let baseType = resolve(base)
+      guard case let .staticType(typeName) = baseType,
+            let owner = SupportedAPI.StaticMemberType(rawValue: typeName)?
+            .owner,
+            literal.owners.contains(owner)
+      else {
+        diagnose(
+          "'\(literal.rawValue)' is not a supported member of \(baseType.writtenName)",
+          at: expression.location
+        )
+        return .unknown
+      }
+      return .staticMember([owner])
     case let .call(callee, arguments, trailingClosure):
       let callable: RuntimeType
       if case .implicitConstructor = callee.kind,
@@ -166,8 +180,7 @@ extension RuntimeTypeResolver {
     _ name: SupportedAPI.Member,
     of type: RuntimeType
   ) -> RuntimeType? {
-    guard let receiver = type.receiver,
-          let api = SupportedAPI.runtimeMethod(named: name, on: receiver),
+    guard let api = runtimeMethod(named: name, on: type),
           case let .method(call) = api.kind
     else { return nil }
     return .boundMethod(
@@ -187,11 +200,11 @@ extension RuntimeTypeResolver {
     }
     if case let .staticType(typeName) = type {
       if name == .selfType { return type }
-      if typeName == SupportedAPI.ModelType.indexSymbol.rawValue,
-         name == .kindType
+      if name == .kindType,
+         let nestedType = SupportedAPI.ModelType(rawValue: typeName)?
+         .nestedStaticMemberType
       {
-        return .staticType(SupportedAPI.StaticMemberType.indexSymbolKind
-          .rawValue)
+        return .staticType(nestedType.rawValue)
       }
       guard let owner = SupportedAPI.StaticMemberType(rawValue: typeName)?.owner
       else { return .unknown }
@@ -207,7 +220,7 @@ extension RuntimeTypeResolver {
       return .unknown
     }
     guard let api = SupportedAPI.runtimeProperty(named: name, on: receiver)
-      ?? SupportedAPI.runtimeMethod(named: name, on: receiver)
+      ?? runtimeMethod(named: name, on: type)
     else {
       diagnose(
         "'\(name.rawValue)' is not a supported member of \(type.receiverName)",
@@ -228,5 +241,20 @@ extension RuntimeTypeResolver {
         canSuspend: api.canSuspend
       )
     }
+  }
+
+  private func runtimeMethod(
+    named name: SupportedAPI.Member,
+    on type: RuntimeType
+  ) -> SupportedAPI.RuntimeMemberAPI? {
+    guard let receiver = type.receiver else { return nil }
+    if case let .selection(family) = type,
+       let filter = SupportedAPI.filter(named: name.rawValue),
+       filter.requiresNames,
+       !SupportedAPI.namedDeclarationFamilies.contains(family)
+    {
+      return nil
+    }
+    return SupportedAPI.runtimeMethod(named: name, on: receiver)
   }
 }

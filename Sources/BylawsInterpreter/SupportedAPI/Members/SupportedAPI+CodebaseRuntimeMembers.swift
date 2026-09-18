@@ -37,6 +37,22 @@ extension SupportedAPI {
     codebaseSelection(.assignments, family: .sourceAssignment),
     codebaseSelection(.variableBindings, family: .variableBinding),
     codebaseSelection(.compilationBranches, family: .compilationBranch),
+    method(
+      .syntaxNodes,
+      on: [.codebase],
+      arguments: .variadic(
+        first: .init(
+          .of,
+          .exact(.staticMember([.sourceNodeKind]))
+        ),
+        additional: .init(
+          nil,
+          .exact(.staticMember([.sourceNodeKind]))
+        )
+      ),
+      result: .fixed(.selection(.sourceNode)),
+      canSuspend: true
+    ),
     property(
       .packageManifest,
       on: [.codebase],

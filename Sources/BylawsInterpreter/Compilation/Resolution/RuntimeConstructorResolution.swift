@@ -26,6 +26,8 @@ struct RuntimeConstructorResolution {
         arguments: arguments
       )
     case let .member(base, name): .member(base: resolve(base), name: name)
+    case let .qualifiedMember(base, literal):
+      .qualifiedMember(base: resolve(base), literal: literal)
     case let .prefix(op, value): .prefix(operator: op, resolve(value))
     case let .binary(left, op, right): .binary(
         left: resolve(left),

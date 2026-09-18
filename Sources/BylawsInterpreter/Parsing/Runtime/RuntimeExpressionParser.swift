@@ -205,14 +205,20 @@ struct RuntimeExpressionParser {
     guard let base = parse(baseSyntax, diagnostics: &diagnostics) else {
       return nil
     }
-    guard let name = SupportedAPI.Member(rawValue: writtenName) else {
-      diagnostics.append(unsupported(member))
-      return nil
+    if let name = SupportedAPI.Member(rawValue: writtenName) {
+      return RuntimeExpression(
+        kind: .member(base: base, name: name),
+        location: location
+      )
     }
-    return RuntimeExpression(
-      kind: .member(base: base, name: name),
-      location: location
-    )
+    if let literal = SupportedAPI.MemberLiteral(rawValue: writtenName) {
+      return RuntimeExpression(
+        kind: .qualifiedMember(base: base, literal: literal),
+        location: location
+      )
+    }
+    diagnostics.append(unsupported(member))
+    return nil
   }
 
   private func parseGenericSpecialization(
