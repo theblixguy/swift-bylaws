@@ -108,6 +108,26 @@ Rule("central-logging", "Console output goes through the logging layer") {
 }
 ```
 
+### Prefer scoped locking
+
+If your project uses `NSLock.withLock`, you can report direct `lock()` and
+`unlock()` calls without writing a SwiftSyntax visitor:
+
+```swift
+let manualLocking = Matcher<SourceNode>("call lock or unlock directly") {
+  $0.call?.references("lock.lock") == true
+    || $0.call?.references("lock.unlock") == true
+}
+
+Rule("scoped-locking", "Locks use withLock") {
+  try await app.syntaxNodes(of: .functionCall)
+    .violations(matching: manualLocking)
+}
+```
+
+A rule can use the node's parent or ancestors to distinguish the same call in
+different contexts.
+
 ### Require a shared base class for screen models
 
 If your app keeps shared screen behaviour in `BaseScreenModel`, a class that

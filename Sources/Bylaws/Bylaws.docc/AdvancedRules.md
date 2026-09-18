@@ -1,13 +1,13 @@
 # Advanced rules
 
-Use compiler data, source text or SwiftSyntax for checks outside the declaration
-model.
+Use compiler data or source syntax for checks outside the declaration model.
 
 ## Overview
 
 If a declaration query cannot answer your question, you can inspect the source
-text or syntax tree. Use `BylawsIndex` when the check needs a reference or
-conformance resolved by the compiler.
+text or select the statements and expressions that matter to the rule. Use
+`BylawsIndex` when the check needs a reference or conformance resolved by the
+compiler.
 
 The Swift Testing examples use `Codebase.app` from <doc:GettingStarted>.
 
@@ -140,12 +140,46 @@ func hasCopyrightComment(_ file: SourceFile) {
 ```
 
 A text search treats comments, string literals and identifiers alike. To find a
-word such as `TODO` only in comments, inspect the syntax tree as shown below.
+word such as `TODO` only in comments, inspect SwiftSyntax trivia as shown below.
 
-## Reach the syntax tree
+## Check syntax patterns
 
-You can use `withSyntax` to inspect a file's syntax tree when a check needs
-statements or expressions that the declaration queries do not expose.
+Use `syntaxNodes(of:_:)` to select specific statements, expressions and
+declarations. Each `SourceNode` gives you its source text and location, along
+with its children, descendants, parent and ancestors. For a call node, you can
+also use the same `FunctionCall` API as `Codebase.calls`.
+
+For example, a project that uses `NSLock.withLock` can report a manual unlock
+inside `defer`:
+
+```swift
+let deferredUnlock = Matcher<SourceNode>("call unlock from defer") { node in
+  node.call?.references("lock.unlock") == true
+    && node.ancestors.contains { $0.kind == .deferStatement }
+}
+
+Rule("scoped-locking", "Locks use withLock") {
+  try await Codebase.app.syntaxNodes(of: .functionCall)
+    .violations(matching: deferredUnlock)
+}
+```
+
+You can select several kinds in one query:
+
+```swift
+let nodes = try await Codebase.app.syntaxNodes(
+  of: .functionCall,
+  .awaitExpression,
+  .deferStatement
+)
+```
+
+These rules work in compiled tests and the CLI.
+
+## Use SwiftSyntax directly
+
+When a check needs more detail, `withSyntax` gives you access to the full
+SwiftSyntax tree, including its tokens and trivia.
 
 A `default` case can hide a new enum case from the compiler's exhaustiveness
 check. If your domain switches must name every case, you can enforce that
@@ -208,9 +242,8 @@ func hasNoTODO(_ file: SourceFile) {
 }
 ```
 
-The class-member and comment checks above can also run in the CLI. Its
-supported SwiftSyntax APIs include `SourceFileSyntax.tokens(viewMode:)`,
-token trivia, `TriviaPiece.isComment` and `ClassDeclSyntax.memberBlock.members`.
-Use a test target for other SwiftSyntax APIs or a custom `SyntaxVisitor`.
+The class-member and comment checks above use SwiftSyntax APIs supported by the
+CLI, so you can run them from the CLI or as compiled tests. If a rule defines a
+custom `SyntaxVisitor`, run it as a compiled Swift test.
 
 See <doc:RunningRulesFromTheCLI> for CLI setup and its supported APIs.

@@ -555,8 +555,8 @@ For rules that compare folders, you can use `URL(fileURLWithPath:)` with
 
 You can use Bylaws queries, matchers, layering and package checks, including
 `importGraph()` and the Bazel graph queries in <doc:BazelDependencies>.
-The index queries in <doc:AdvancedRules> are also supported,
-along with selected SwiftSyntax APIs for comments and class members.
+The index and source-node queries in <doc:AdvancedRules> are also supported,
+along with the SwiftSyntax APIs listed in the table below.
 
 For example, a portable rule can inspect dependency requirements without
 executing `Package.swift`:

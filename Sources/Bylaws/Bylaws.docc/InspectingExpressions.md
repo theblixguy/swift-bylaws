@@ -110,5 +110,5 @@ You can get this context through `codebase.expressions` or `file.expressions`.
 An expression from `call.arguments` has only the declarations inside that
 argument because it is parsed separately from the file.
 
-Use <doc:AdvancedRules> when you need SwiftSyntax access beyond these
-properties.
+Use <doc:AdvancedRules> when you need statements or other Swift syntax beyond
+these properties.
