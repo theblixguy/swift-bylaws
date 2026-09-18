@@ -93,21 +93,42 @@ private enum PluginToolSelection {
 }
 
 private enum SwiftSyntaxArtifact {
-  static let target = "BylawsSwiftSyntaxArtifact"
   static let sourcePackage = "https://github.com/swiftlang/swift-syntax.git"
   static let minimumSourceVersion = Version(602, 0, 0)
   static let releaseRoot =
     "https://github.com/theblixguy/swift-bylaws/releases/download"
 
-  static var compiler: (version: String, configuration: String) {
+  static var compiler: Compiler {
     #if compiler(>=6.5) && compiler(<6.6)
-      ("6.5", "605")
+      Compiler(series: "6.5", configuration: "605")
+    #elseif compiler(>=6.4.1) && compiler(<6.5)
+      Compiler(series: "6.4", configuration: "604")
     #elseif compiler(>=6.4) && compiler(<6.5)
-      ("6.4", "604")
+      Compiler(
+        series: "6.4",
+        configuration: "604",
+        artifactCompilerVersion: "6.4"
+      )
+    #elseif compiler(>=6.3.4) && compiler(<6.4)
+      Compiler(series: "6.3", configuration: "603")
+    #elseif compiler(>=6.3.3) && compiler(<6.4)
+      Compiler(
+        series: "6.3",
+        configuration: "603",
+        artifactCompilerVersion: "6.3.3"
+      )
     #elseif compiler(>=6.3) && compiler(<6.4)
-      ("6.3", "603")
+      Compiler(series: "6.3", configuration: "603")
+    #elseif compiler(>=6.2.4) && compiler(<6.3)
+      Compiler(series: "6.2", configuration: "602")
+    #elseif compiler(>=6.2.3) && compiler(<6.3)
+      Compiler(
+        series: "6.2",
+        configuration: "602",
+        artifactCompilerVersion: "6.2.3"
+      )
     #elseif compiler(>=6.2) && compiler(<6.3)
-      ("6.2", "602")
+      Compiler(series: "6.2", configuration: "602")
     #else
       fatalError("Bylaws supports Swift 6.2 through 6.5.")
     #endif
@@ -115,6 +136,40 @@ private enum SwiftSyntaxArtifact {
 
   static var configuration: String {
     "Distribution/SwiftSyntax/\(compiler.configuration).json"
+  }
+
+  struct Compiler {
+    let series: String
+    let configuration: String
+    let artifactCompilerVersion: String?
+
+    init(
+      series: String,
+      configuration: String,
+      artifactCompilerVersion: String? = nil
+    ) {
+      self.series = series
+      self.configuration = configuration
+      self.artifactCompilerVersion = artifactCompilerVersion
+    }
+  }
+
+  enum Component: CaseIterable {
+    case swift
+    case c
+
+    var target: String {
+      switch self {
+      case .swift:
+        "BylawsSwiftSyntaxArtifact"
+      case .c:
+        "BylawsSwiftSyntaxCShims"
+      }
+    }
+
+    var archiveName: String {
+      "\(target).xcframework.zip"
+    }
   }
 }
 
@@ -128,7 +183,8 @@ private struct SwiftSyntaxArtifactConfiguration: Decodable {
   let swiftCompilerVersion: String
   let swiftSyntaxVersion: String
   let artifactRevision: Int
-  let checksum: String?
+  let swiftArtifactChecksum: String?
+  let cArtifactChecksum: String?
 
   var version: Version {
     guard let version = Version(swiftSyntaxVersion) else {
@@ -141,26 +197,39 @@ private struct SwiftSyntaxArtifactConfiguration: Decodable {
     "swift-syntax-\(swiftSyntaxVersion)-\(artifactRevision)"
   }
 
-  var archiveName: String {
-    "\(SwiftSyntaxArtifact.target).xcframework.zip"
+  func checksum(for component: SwiftSyntaxArtifact.Component) -> String {
+    let checksum = switch component {
+    case .swift:
+      swiftArtifactChecksum
+    case .c:
+      cArtifactChecksum
+    }
+    guard let checksum else {
+      fatalError(
+        "SwiftSyntax artifact checksum is missing for \(component.target)."
+      )
+    }
+    return checksum
   }
 
-  var downloadURL: String {
-    "\(SwiftSyntaxArtifact.releaseRoot)/\(releaseTag)/\(archiveName)"
+  func downloadURL(for component: SwiftSyntaxArtifact.Component) -> String {
+    "\(SwiftSyntaxArtifact.releaseRoot)/\(releaseTag)/\(component.archiveName)"
   }
 }
 
 private enum SwiftSyntaxSelection {
-  case localArtifact(path: String)
-  case remoteArtifact(url: String, checksum: String)
+  case localArtifacts(directory: String)
+  case remoteArtifacts(configuration: SwiftSyntaxArtifactConfiguration)
   case source(configuration: SwiftSyntaxArtifactConfiguration)
 
   static func load() -> Self {
     let configuration = loadConfiguration()
 
     #if os(macOS)
-      if let path = Context.environment["BYLAWS_SWIFT_SYNTAX_ARTIFACT_PATH"] {
-        return .localArtifact(path: path)
+      if let directory = Context.environment[
+        "BYLAWS_SWIFT_SYNTAX_ARTIFACTS_PATH"
+      ] {
+        return .localArtifacts(directory: directory)
       }
     #endif
 
@@ -175,12 +244,13 @@ private enum SwiftSyntaxSelection {
       case .source:
         return .source(configuration: configuration)
       case .remote:
-        guard let checksum = configuration.checksum else {
-          fatalError("SwiftSyntax artifact checksum is missing.")
+        guard SwiftSyntaxArtifact.compiler.artifactCompilerVersion ==
+          configuration.swiftCompilerVersion
+        else {
+          return .source(configuration: configuration)
         }
-        return .remoteArtifact(
-          url: configuration.downloadURL,
-          checksum: checksum
+        return .remoteArtifacts(
+          configuration: configuration
         )
       }
     #else
@@ -200,11 +270,13 @@ private enum SwiftSyntaxSelection {
         SwiftSyntaxArtifactConfiguration.self,
         from: Data(contentsOf: configurationURL)
       )
-      guard configuration.swiftCompilerVersion ==
-        SwiftSyntaxArtifact.compiler.version
+      let compilerSeries = SwiftSyntaxArtifact.compiler.series
+      guard configuration.swiftCompilerVersion == compilerSeries
+        || configuration.swiftCompilerVersion
+        .hasPrefix("\(compilerSeries).")
       else {
         fatalError(
-          "SwiftSyntax configuration must match Swift \(SwiftSyntaxArtifact.compiler.version)."
+          "SwiftSyntax configuration must match Swift \(SwiftSyntaxArtifact.compiler.series)."
         )
       }
       guard let expectedMajor = Int(
@@ -212,7 +284,7 @@ private enum SwiftSyntaxSelection {
       ), configuration.version.major == expectedMajor
       else {
         fatalError(
-          "SwiftSyntax version must match Swift \(SwiftSyntaxArtifact.compiler.version)."
+          "SwiftSyntax version must match Swift \(SwiftSyntaxArtifact.compiler.series)."
         )
       }
       return configuration
@@ -223,8 +295,8 @@ private enum SwiftSyntaxSelection {
 
   var dependencies: [Target.Dependency] {
     switch self {
-    case .localArtifact, .remoteArtifact:
-      [.target(name: SwiftSyntaxArtifact.target)]
+    case .localArtifacts, .remoteArtifacts:
+      SwiftSyntaxArtifact.Component.allCases.map { .target(name: $0.target) }
     case .source:
       [
         .product(name: "SwiftDiagnostics", package: "swift-syntax"),
@@ -238,7 +310,7 @@ private enum SwiftSyntaxSelection {
 
   var swiftSettings: [SwiftSetting] {
     switch self {
-    case .localArtifact, .remoteArtifact:
+    case .localArtifacts, .remoteArtifacts:
       [.define("BYLAWS_PREBUILT_SWIFT_SYNTAX")]
     case .source:
       []
@@ -247,7 +319,7 @@ private enum SwiftSyntaxSelection {
 
   var packageDependency: Package.Dependency? {
     switch self {
-    case .localArtifact, .remoteArtifact:
+    case .localArtifacts, .remoteArtifacts:
       nil
     case let .source(configuration):
       if configuration.version.prereleaseIdentifiers.isEmpty {
@@ -268,18 +340,25 @@ private enum SwiftSyntaxSelection {
     }
   }
 
-  var binaryTarget: Target? {
+  var binaryTargets: [Target] {
     switch self {
-    case let .localArtifact(path):
-      .binaryTarget(name: SwiftSyntaxArtifact.target, path: path)
-    case let .remoteArtifact(url, checksum):
-      .binaryTarget(
-        name: SwiftSyntaxArtifact.target,
-        url: url,
-        checksum: checksum
-      )
+    case let .localArtifacts(directory):
+      SwiftSyntaxArtifact.Component.allCases.map { component in
+        .binaryTarget(
+          name: component.target,
+          path: "\(directory)/\(component.target).xcframework"
+        )
+      }
+    case let .remoteArtifacts(configuration):
+      SwiftSyntaxArtifact.Component.allCases.map { component in
+        .binaryTarget(
+          name: component.target,
+          url: configuration.downloadURL(for: component),
+          checksum: configuration.checksum(for: component)
+        )
+      }
     case .source:
-      nil
+      []
     }
   }
 }
@@ -624,9 +703,7 @@ if let swiftSyntaxPackageDependency = swiftSyntax.packageDependency {
   package.dependencies.append(swiftSyntaxPackageDependency)
 }
 
-if let binaryTarget = swiftSyntax.binaryTarget {
-  package.targets.append(binaryTarget)
-}
+package.targets.append(contentsOf: swiftSyntax.binaryTargets)
 
 if Context.environment["BYLAWS_BUILD_DOCS"] != nil {
   package.dependencies.append(

@@ -6,7 +6,7 @@ import SwiftSyntaxArtifactCore
 struct SwiftSyntaxArtifact: ParsableCommand {
   static let configuration = CommandConfiguration(
     commandName: "swift-syntax-artifact",
-    abstract: "Builds the SwiftSyntax XCFramework used by Bylaws.",
+    abstract: "Builds the SwiftSyntax artifacts used by Bylaws.",
     subcommands: [Prepare.self, Combine.self]
   )
 
@@ -31,7 +31,7 @@ struct SwiftSyntaxArtifact: ParsableCommand {
 
   struct Combine: ParsableCommand {
     static let configuration = CommandConfiguration(
-      abstract: "Combines the module frameworks into one XCFramework."
+      abstract: "Creates the SwiftSyntax artifacts used by Bylaws."
     )
 
     @Argument(help: "Directory that contains the module frameworks.")
@@ -40,7 +40,7 @@ struct SwiftSyntaxArtifact: ParsableCommand {
     @Argument(help: "Prepared SwiftSyntax package.")
     var sourcePackage: String
 
-    @Argument(help: "Path for the combined XCFramework.")
+    @Argument(help: "Directory for the completed artifacts.")
     var output: String
 
     mutating func run() throws {

@@ -1,8 +1,7 @@
 {
-  "mode": "remote",
-  "swiftCompilerVersion": "6.2",
+  "mode": "source",
+  "swiftCompilerVersion": "6.2.3",
   "swiftSyntaxVersion": "602.0.0",
   "sourceRevision": "4799286537280063c85a32f09884cfbca301b1a1",
-  "artifactRevision": 1,
-  "checksum": "fd5c66f432693159cb43dc9583b461fa873505082a66a9adcce7661b680fbc7e"
+  "artifactRevision": 2
 }
