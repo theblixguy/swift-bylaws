@@ -3,8 +3,8 @@ import Foundation
 package struct XCFrameworkCombiner {
   private let fileManager = FileManager.default
   private let processRunner = ProcessRunner()
-  private let textRewriter = TextRewriter()
   private let layout = ArtifactLayout()
+  private let validator = XCFrameworkValidator()
 
   package init() {}
 
@@ -13,12 +13,6 @@ package struct XCFrameworkCombiner {
     sourcePackage: URL,
     output: URL
   ) throws {
-    guard output.lastPathComponent == "\(layout.artifactName).xcframework"
-    else {
-      throw ArtifactError(
-        "Output must be named \(layout.artifactName).xcframework."
-      )
-    }
     guard !fileManager.fileExists(atPath: output.path) else {
       throw ArtifactError("Output already exists at \(output.path).")
     }
@@ -28,6 +22,11 @@ package struct XCFrameworkCombiner {
       .appendingPathComponent(".\(output.lastPathComponent).\(UUID())")
     try fileManager.createDirectory(at: work, withIntermediateDirectories: true)
     defer { try? fileManager.removeItem(at: work) }
+    let artifacts = work.appendingPathComponent("artifacts")
+    try fileManager.createDirectory(
+      at: artifacts,
+      withIntermediateDirectories: false
+    )
 
     let artifactMetadata = try metadata(
       for: xcframework(
@@ -45,12 +44,11 @@ package struct XCFrameworkCombiner {
         at: stagedLibrary.deletingLastPathComponent(),
         withIntermediateDirectories: true
       )
-      let modules = layout.swiftModules.map(\.name) + [layout.cModule]
-      let inputLibraries = try modules.map {
+      let inputLibraries = try layout.swiftModules.map {
         (
-          module: $0,
+          module: $0.name,
           binary: try binary(
-            module: $0,
+            module: $0.name,
             identifier: identifier,
             frameworks: frameworks
           )
@@ -65,14 +63,14 @@ package struct XCFrameworkCombiner {
       stagedLibraries.append((identifier, stagedLibrary))
     }
 
-    let temporaryOutput = work.appendingPathComponent(
+    let swiftArtifact = artifacts.appendingPathComponent(
       "\(layout.artifactName).xcframework"
     )
     try processRunner.run(
       "/usr/bin/xcodebuild",
       arguments: ["-create-xcframework"] + stagedLibraries.flatMap {
         ["-library", $0.url.path]
-      } + ["-output", temporaryOutput.path]
+      } + ["-output", swiftArtifact.path]
     )
 
     for (identifier, _) in stagedLibraries {
@@ -82,25 +80,34 @@ package struct XCFrameworkCombiner {
           identifier: identifier,
           frameworks: frameworks
         )
-        let destination = temporaryOutput
+        let destination = swiftArtifact
           .appendingPathComponent(identifier)
           .appendingPathComponent("\(module.name).swiftmodule")
         try fileManager.copyItem(at: source, to: destination)
-        try validateInterfaces(in: destination, moduleName: module.name)
       }
-      try validateSymbols(
-        in: temporaryOutput
-          .appendingPathComponent(identifier)
-          .appendingPathComponent("lib\(layout.artifactName).a")
-      )
     }
-    try copyLicence(from: sourcePackage, to: temporaryOutput)
+    try validator.validateSwiftArtifact(
+      swiftArtifact,
+      modules: layout.swiftModules.map(\.name)
+    )
+
+    let cArtifact = artifacts.appendingPathComponent(
+      "\(layout.cModule).xcframework"
+    )
+    try fileManager.copyItem(
+      at: xcframework(named: layout.cModule, under: frameworks),
+      to: cArtifact
+    )
+    try validator.validateCArtifact(cArtifact)
+
+    try copyLicence(from: sourcePackage, to: swiftArtifact)
+    try copyLicence(from: sourcePackage, to: cArtifact)
 
     try fileManager.createDirectory(
       at: output.deletingLastPathComponent(),
       withIntermediateDirectories: true
     )
-    try fileManager.moveItem(at: temporaryOutput, to: output)
+    try fileManager.moveItem(at: artifacts, to: output)
   }
 
   private func combineLibraries(
@@ -244,71 +251,6 @@ package struct XCFrameworkCombiner {
 
   private func xcframework(named module: String, under directory: URL) -> URL {
     directory.appendingPathComponent("\(module).xcframework")
-  }
-
-  private func validateInterfaces(in module: URL, moduleName: String) throws {
-    let interfaces = try fileManager.contentsOfDirectory(
-      at: module,
-      includingPropertiesForKeys: nil
-    ).filter { $0.pathExtension == "swiftinterface" }
-    guard !interfaces.isEmpty else {
-      throw ArtifactError("Swift module has no interfaces at \(module.path).")
-    }
-    for interface in interfaces {
-      let contents = try String(contentsOf: interface, encoding: .utf8)
-      guard contents.contains("-O") else {
-        throw ArtifactError(
-          "Swift interface is not optimised at \(interface.path)."
-        )
-      }
-      guard contents.contains("-enable-library-evolution") else {
-        throw ArtifactError(
-          "Swift interface has no library evolution at \(interface.path)."
-        )
-      }
-      guard contents.contains("-module-name \(moduleName)") else {
-        throw ArtifactError(
-          "Swift interface has the wrong module name at \(interface.path)."
-        )
-      }
-      guard !contents.contains("-module-alias") else {
-        throw ArtifactError(
-          "Swift interface contains a module alias at \(interface.path)."
-        )
-      }
-      for original in layout.moduleNames.keys {
-        guard !textRewriter.containsModuleReference(original, in: contents)
-        else {
-          throw ArtifactError(
-            "Swift interface contains \(original) at \(interface.path)."
-          )
-        }
-      }
-    }
-  }
-
-  private func validateSymbols(in library: URL) throws {
-    let output = try processRunner.output(
-      "/usr/bin/nm",
-      arguments: ["-g", library.path]
-    )
-    let symbols = output.split(separator: "\n").compactMap {
-      $0.split(whereSeparator: \.isWhitespace).last.map(String.init)
-    }
-    guard symbols.contains(where: {
-      $0.contains(layout.privateCSymbolPrefix)
-    }) else {
-      throw ArtifactError(
-        "Archive has no private SwiftSyntax C symbols at \(library.path)."
-      )
-    }
-    guard !symbols.contains(where: {
-      $0.hasPrefix("swiftsyntax_") || $0.hasPrefix("_swiftsyntax_")
-    }) else {
-      throw ArtifactError(
-        "Archive contains a public SwiftSyntax C symbol at \(library.path)."
-      )
-    }
   }
 
   private func copyLicence(from sourcePackage: URL, to output: URL) throws {

@@ -74,23 +74,27 @@ jobs:
           repository: giginet/Scipio
           ref: ${{ env.SCIPIO_REVISION }}
           path: .scipio
-      - name: Check Swift version
-        run: |
-          FOUND_VERSION=$(swift --version | sed -nE 's/.*Swift version ([0-9]+\.[0-9]+).*/\1/p')
-          if [ "${FOUND_VERSION}" != "${{ inputs.version }}" ]; then
-            echo "::error::Expected Swift ${{ inputs.version }}, but found ${FOUND_VERSION}."
-            exit 1
-          fi
       - name: Read artifact metadata
         id: metadata
         run: |
+          COMPILER_VERSION=$(jq -er .swiftCompilerVersion "${CONFIGURATION}")
           VERSION=$(jq -er .swiftSyntaxVersion "${CONFIGURATION}")
           REVISION=$(jq -er .artifactRevision "${CONFIGURATION}")
           SOURCE_REVISION=$(jq -er .sourceRevision "${CONFIGURATION}")
+          echo "compiler_version=${COMPILER_VERSION}" >> "${GITHUB_OUTPUT}"
           echo "swift_syntax_version=${VERSION}" >> "${GITHUB_OUTPUT}"
           echo "source_revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
           echo "release_tag=swift-syntax-${VERSION}-${REVISION}" \
             >> "${GITHUB_OUTPUT}"
+      - name: Check Swift version
+        env:
+          EXPECTED_VERSION: ${{ steps.metadata.outputs.compiler_version }}
+        run: |
+          FOUND_VERSION=$(swift --version | sed -nE 's/.*Swift version ([0-9]+(\.[0-9]+){1,2}).*/\1/p')
+          if [ "${FOUND_VERSION}" != "${EXPECTED_VERSION}" ]; then
+            echo "::error::Expected Swift ${EXPECTED_VERSION}, but found ${FOUND_VERSION}."
+            exit 1
+          fi
       - name: Check out SwiftSyntax
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -108,7 +112,6 @@ jobs:
           .swift-syntax-package
           --output .swift-syntax-frameworks
           --framework-type static
-          --enable-library-evolution
           --strip-static-lib-dwarf-symbols
           --verbose
           --platforms macOS
@@ -119,31 +122,39 @@ jobs:
           swift run --package-path Tools/SwiftSyntaxArtifact -c release
           swift-syntax-artifact combine .swift-syntax-frameworks
           .swift-syntax-package
-          .swift-syntax-artifacts/BylawsSwiftSyntaxArtifact.xcframework
+          .swift-syntax-artifacts
       - name: Check Bylaws with the artifact
         env:
           BYLAWS_BUILD_PLUGIN_FROM_SOURCE: "1"
           BYLAWS_STRICT_BUILD: "1"
-          BYLAWS_SWIFT_SYNTAX_ARTIFACT_PATH: >-
-            .swift-syntax-artifacts/BylawsSwiftSyntaxArtifact.xcframework
+          BYLAWS_SWIFT_SYNTAX_ARTIFACTS_PATH: .swift-syntax-artifacts
           SWIFT_SYNTAX_VERSION: ${{ steps.metadata.outputs.swift_syntax_version }}
         run: >-
           swift run --package-path Tests/PackageConsumer/SwiftSyntaxCoexistence
           -c release
-      - name: Create archive
+      - name: Create archives
         run: |
           ditto -c -k --sequesterRsrc --keepParent \
             .swift-syntax-artifacts/BylawsSwiftSyntaxArtifact.xcframework \
             BylawsSwiftSyntaxArtifact.xcframework.zip
+          ditto -c -k --sequesterRsrc --keepParent \
+            .swift-syntax-artifacts/BylawsSwiftSyntaxCShims.xcframework \
+            BylawsSwiftSyntaxCShims.xcframework.zip
           swift package compute-checksum \
-            BylawsSwiftSyntaxArtifact.xcframework.zip > swift-syntax-checksum.txt
+            BylawsSwiftSyntaxArtifact.xcframework.zip \
+            > BylawsSwiftSyntaxArtifact.checksum.txt
+          swift package compute-checksum \
+            BylawsSwiftSyntaxCShims.xcframework.zip \
+            > BylawsSwiftSyntaxCShims.checksum.txt
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: BylawsSwiftSyntax-${{ inputs.version }}
           path: |
             BylawsSwiftSyntaxArtifact.xcframework.zip
-            swift-syntax-checksum.txt
+            BylawsSwiftSyntaxArtifact.checksum.txt
+            BylawsSwiftSyntaxCShims.xcframework.zip
+            BylawsSwiftSyntaxCShims.checksum.txt
       - name: Create release app token
         if: inputs.mode == 'publish'
         id: app-token
@@ -160,7 +171,9 @@ jobs:
         run: >-
           gh release create "${RELEASE_TAG}"
           BylawsSwiftSyntaxArtifact.xcframework.zip
-          swift-syntax-checksum.txt
+          BylawsSwiftSyntaxArtifact.checksum.txt
+          BylawsSwiftSyntaxCShims.xcframework.zip
+          BylawsSwiftSyntaxCShims.checksum.txt
           --repo "${GITHUB_REPOSITORY}"
           --target "${GITHUB_SHA}"
           --title "SwiftSyntax ${SWIFT_SYNTAX_VERSION} artifact"

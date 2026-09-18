@@ -533,51 +533,51 @@ projects. The times below are in seconds and exclude compilation.
 <td>RxSwift</td>
 <td align="right">264</td>
 <td align="right">30,294</td>
-<td align="right">0.06</td>
-<td align="right">1.27</td>
-<td align="right">0.75</td>
-<td align="right">0.15</td>
+<td align="right">0.07</td>
+<td align="right">1.46</td>
+<td align="right">1.34</td>
+<td align="right">0.14</td>
 <td align="right">0.10</td>
 </tr>
 <tr>
 <td>Realm</td>
 <td align="right">130</td>
 <td align="right">76,507</td>
-<td align="right">0.14</td>
-<td align="right">3.91</td>
-<td align="right">0.84</td>
+<td align="right">0.19</td>
+<td align="right">1.66</td>
+<td align="right">1.25</td>
 <td align="right">0.34</td>
-<td align="right">0.11</td>
+<td align="right">0.10</td>
 </tr>
 <tr>
 <td>Kickstarter</td>
 <td align="right">1,631</td>
 <td align="right">261,712</td>
-<td align="right">0.30</td>
-<td align="right">5.87</td>
-<td align="right">1.09</td>
-<td align="right">1.28</td>
-<td align="right">0.94</td>
+<td align="right">0.33</td>
+<td align="right">6.66</td>
+<td align="right">5.52</td>
+<td align="right">0.68</td>
+<td align="right">0.33</td>
 </tr>
 <tr>
 <td>WordPress</td>
 <td align="right">3,260</td>
 <td align="right">428,267</td>
-<td align="right">0.45</td>
-<td align="right">8.13</td>
-<td align="right">1.35</td>
-<td align="right">1.28</td>
-<td align="right">0.51</td>
+<td align="right">0.50</td>
+<td align="right">10.53</td>
+<td align="right">8.68</td>
+<td align="right">0.99</td>
+<td align="right">0.40</td>
 </tr>
 <tr>
 <td>Firefox</td>
 <td align="right">3,013</td>
 <td align="right">407,427</td>
-<td align="right">0.51</td>
-<td align="right">7.88</td>
-<td align="right">1.47</td>
-<td align="right">2.80</td>
-<td align="right">2.02</td>
+<td align="right">0.53</td>
+<td align="right">10.05</td>
+<td align="right">8.29</td>
+<td align="right">1.45</td>
+<td align="right">0.91</td>
 </tr>
 </tbody>
 </table>

@@ -167,7 +167,7 @@ language.
 ## Is it fast enough for a large repository?
 
 In the [benchmarks](README.md#benchmarks), `bylaws lint` checked ten rules
-across 3,013 Firefox iOS files in 0.51 seconds. The time depends on your rules
+across 3,013 Firefox iOS files in 0.53 seconds. The time depends on your rules
 and project, so measure a run with your own code before adding it to a build or
 CI.
 
