@@ -143,6 +143,9 @@ jobs:
         env:
           BYLAWS_REQUIRE_INDEX_STORE: "1"
         run: swift test --skip-build
+      - name: Test SwiftSyntax artifact tool
+        if: needs.changes.outputs.consumers == 'true'
+        run: swift test --package-path Tools/SwiftSyntaxArtifact
       - name: Check optional package dependencies
         if: needs.changes.outputs.consumers == 'true'
         run: |
