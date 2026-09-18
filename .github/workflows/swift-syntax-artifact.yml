@@ -1,0 +1,160 @@
+name: Build SwiftSyntax artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Swift version
+        required: true
+        type: choice
+        options:
+          - "6.2"
+          - "6.3"
+          - "6.4"
+      publish:
+        description: Publish the checked artifact as a release
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  configure:
+    name: Select toolchain
+    runs-on: ubuntu-latest
+    outputs:
+      configuration: ${{ steps.toolchain.outputs.configuration }}
+      developer_directory: ${{ steps.toolchain.outputs.developer_directory }}
+      runner: ${{ steps.toolchain.outputs.runner }}
+    steps:
+      - name: Select toolchain
+        id: toolchain
+        env:
+          SWIFT_VERSION: ${{ inputs.version }}
+        run: |
+          case "${SWIFT_VERSION}" in
+            6.2)
+              echo "configuration=Distribution/SwiftSyntax/602.json" >> "${GITHUB_OUTPUT}"
+              echo "developer_directory=/Applications/Xcode_26.0.1.app/Contents/Developer" >> "${GITHUB_OUTPUT}"
+              echo "runner=macos-26" >> "${GITHUB_OUTPUT}"
+              ;;
+            6.3)
+              echo "configuration=Distribution/SwiftSyntax/603.json" >> "${GITHUB_OUTPUT}"
+              echo "developer_directory=/Applications/Xcode_26.6.app/Contents/Developer" >> "${GITHUB_OUTPUT}"
+              echo "runner=macos-26" >> "${GITHUB_OUTPUT}"
+              ;;
+            6.4)
+              echo "configuration=Distribution/SwiftSyntax/604.json" >> "${GITHUB_OUTPUT}"
+              echo "developer_directory=/Applications/Xcode.app/Contents/Developer" >> "${GITHUB_OUTPUT}"
+              echo "runner=xcode-27" >> "${GITHUB_OUTPUT}"
+              ;;
+          esac
+
+  build:
+    name: Build Swift ${{ inputs.version }} artifact
+    needs: configure
+    runs-on: ${{ needs.configure.outputs.runner }}
+    env:
+      CONFIGURATION: ${{ needs.configure.outputs.configuration }}
+      DEVELOPER_DIR: ${{ needs.configure.outputs.developer_directory }}
+      SCIPIO_REVISION: 0499f7daf0f3dae777d77895814ef06542663ac2
+    steps:
+      - name: Check out Bylaws
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check out Scipio
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: giginet/Scipio
+          ref: ${{ env.SCIPIO_REVISION }}
+          path: .scipio
+      - name: Check toolchain
+        run: |
+          FOUND_VERSION=$(swift --version | sed -nE 's/.*Swift version ([0-9]+\.[0-9]+).*/\1/p')
+          if [ "${FOUND_VERSION}" != "${{ inputs.version }}" ]; then
+            echo "::error::Expected Swift ${{ inputs.version }}, but found ${FOUND_VERSION}."
+            exit 1
+          fi
+      - name: Read artifact metadata
+        id: metadata
+        run: |
+          VERSION=$(jq -er .swiftSyntaxVersion "${CONFIGURATION}")
+          REVISION=$(jq -er .artifactRevision "${CONFIGURATION}")
+          echo "swift_syntax_version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "release_tag=swift-syntax-${VERSION}-${REVISION}" \
+            >> "${GITHUB_OUTPUT}"
+      - name: Check out SwiftSyntax
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: swiftlang/swift-syntax
+          ref: ${{ steps.metadata.outputs.swift_syntax_version }}
+          path: .swift-syntax-source
+      - name: Prepare private modules
+        run: >-
+          swift run --package-path Tools/SwiftSyntaxArtifact -c release
+          swift-syntax-artifact prepare "${CONFIGURATION}"
+          .swift-syntax-source .swift-syntax-package
+      - name: Build frameworks
+        run: >-
+          swift run --package-path .scipio scipio create
+          .swift-syntax-package
+          --output .swift-syntax-frameworks
+          --framework-type static
+          --enable-library-evolution
+          --strip-static-lib-dwarf-symbols
+          --platforms macOS
+          --platforms iOS
+          --support-simulators
+      - name: Combine frameworks
+        run: >-
+          swift run --package-path Tools/SwiftSyntaxArtifact -c release
+          swift-syntax-artifact combine "${CONFIGURATION}"
+          .swift-syntax-frameworks
+          .swift-syntax-package
+          .swift-syntax-artifacts/BylawsSwiftSyntaxArtifact.xcframework
+      - name: Check Bylaws with the artifact
+        env:
+          BYLAWS_BUILD_PLUGIN_FROM_SOURCE: "1"
+          BYLAWS_STRICT_BUILD: "1"
+          BYLAWS_SWIFT_SYNTAX_ARTIFACT_PATH: >-
+            .swift-syntax-artifacts/BylawsSwiftSyntaxArtifact.xcframework
+          SWIFT_SYNTAX_VERSION: ${{ steps.metadata.outputs.swift_syntax_version }}
+        run: >-
+          swift run --package-path Tests/PackageConsumer/SwiftSyntaxCoexistence
+          -c release
+      - name: Create archive
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            .swift-syntax-artifacts/BylawsSwiftSyntaxArtifact.xcframework \
+            BylawsSwiftSyntaxArtifact.xcframework.zip
+          swift package compute-checksum \
+            BylawsSwiftSyntaxArtifact.xcframework.zip > swift-syntax-checksum.txt
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: BylawsSwiftSyntax-${{ inputs.version }}
+          path: |
+            BylawsSwiftSyntaxArtifact.xcframework.zip
+            swift-syntax-checksum.txt
+      - name: Create release app token
+        if: inputs.publish
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+      - name: Publish artifact
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          RELEASE_TAG: ${{ steps.metadata.outputs.release_tag }}
+          SWIFT_SYNTAX_VERSION: ${{ steps.metadata.outputs.swift_syntax_version }}
+        run: >-
+          gh release create "${RELEASE_TAG}"
+          BylawsSwiftSyntaxArtifact.xcframework.zip
+          swift-syntax-checksum.txt
+          --repo "${GITHUB_REPOSITORY}"
+          --target "${GITHUB_SHA}"
+          --title "SwiftSyntax ${SWIFT_SYNTAX_VERSION} artifact"
+          --notes "Prebuilt SwiftSyntax ${SWIFT_SYNTAX_VERSION} for Bylaws."
+          --latest=false

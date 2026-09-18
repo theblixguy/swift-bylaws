@@ -25,10 +25,12 @@ consumers:
   - 'Tests/Bazel/**'
   - 'Scripts/make-plugin-artifact-bundle.swift'
   - 'Scripts/test-release.swift'
+  - 'Tools/SwiftSyntaxArtifact/**'
   - '.github/ci-paths.yml'
   - '.github/actions/swift-cache/**'
   - '.github/workflows/ci.yml'
   - '.github/workflows/release.yml'
+  - '.github/workflows/swift-syntax-artifact.yml'
   - '!Sources/**/*.docc/**'
   - '!**/*.md'
 
