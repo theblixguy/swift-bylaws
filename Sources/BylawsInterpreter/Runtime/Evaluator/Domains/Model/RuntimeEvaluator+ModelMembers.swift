@@ -32,6 +32,7 @@ extension RuntimeEvaluator {
     case let .importDeclaration(value): importMember(name, value)
     case let .typealiasDeclaration(value): typealiasMember(name, value)
     case let .functionCall(value): callMember(name, value)
+    case let .sourceNode(value): sourceNodeMember(name, value)
     case let .sourceExpression(value): expressionMember(name, value)
     case let .sourceAssignment(value): assignmentMember(name, value)
     case let .compilationBranch(value): compilationBranchMember(name, value)
@@ -69,6 +70,27 @@ extension RuntimeEvaluator {
       syntaxTokenMember(name, value)
     case let .syntaxTriviaPiece(value):
       syntaxTriviaMember(name, value)
+    }
+  }
+
+  private func sourceNodeMember(
+    _ name: SupportedAPI.Member,
+    _ value: SourceNode
+  ) -> RuntimeValue? {
+    switch name {
+    case .kind: .member(.sourceNodeKind(value.kind))
+    case .text, .description: .string(value.text)
+    case .call: optionalModel(value.call, RuntimeModelValue.functionCall)
+    case .expression:
+      optionalModel(value.expression, RuntimeModelValue.sourceExpression)
+    case .children:
+      modelArray(value.children, RuntimeModelValue.sourceNode)
+    case .descendants:
+      modelArray(value.descendants, RuntimeModelValue.sourceNode)
+    case .parent: optionalModel(value.parent, RuntimeModelValue.sourceNode)
+    case .ancestors:
+      modelArray(value.ancestors, RuntimeModelValue.sourceNode)
+    default: nil
     }
   }
 

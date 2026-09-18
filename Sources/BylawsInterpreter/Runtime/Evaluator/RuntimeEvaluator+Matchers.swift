@@ -126,7 +126,7 @@ extension RuntimeEvaluator {
       call,
       for: family
     ) else { return nil }
-    return family.subject.requirement(of: matcher, call)
+    return family.subject?.requirement(of: matcher, call)
   }
 }
 

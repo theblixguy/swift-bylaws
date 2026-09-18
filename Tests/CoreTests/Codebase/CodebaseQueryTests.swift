@@ -109,6 +109,36 @@ struct CodebaseQueryTests {
     #expect(memberCount == 1)
   }
 
+  @Test("Syntax query finds source shapes")
+  func syntaxNodes() async throws {
+    let codebase = Codebase(root: .sources([
+      "Sources/Tasks.swift": "func run() { Task.detached { work() } }",
+    ]))
+
+    let calls = try await codebase.syntaxNodes(of: .functionCall)
+
+    #expect(calls.map(\.text) == ["Task.detached { work() }", "work()"])
+  }
+
+  @Test("Equivalent syntax queries share one projection")
+  func sharesSyntaxProjection() async throws {
+    let codebase = Codebase(root: .sources([
+      "Sources/Tasks.swift": "func run() { Task.detached { work() } }",
+    ]))
+
+    async let first = codebase.syntaxNodes(
+      of: .functionCall,
+      .closureExpression
+    )
+    async let second = codebase.syntaxNodes(
+      of: .closureExpression,
+      .functionCall
+    )
+    let selections = try await (first, second)
+
+    #expect(selections.0.storage === selections.1.storage)
+  }
+
   @Test("Syntax lookup rejects a declaration from another file")
   func syntaxLookupRejectsAnotherFile() throws {
     let first = try FileCollector.collect(

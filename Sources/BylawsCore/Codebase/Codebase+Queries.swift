@@ -221,6 +221,35 @@ extension Codebase {
     }
   }
 
+  /// Returns the syntax nodes of the requested kinds in source order.
+  ///
+  /// - Throws: A codebase error if Bylaws cannot read or parse a source file.
+  public func syntaxNodes(
+    of kind: SourceNode.Kind,
+    _ additionalKinds: SourceNode.Kind...
+  ) async throws(CodebaseError) -> Selection<SourceNode> {
+    try await syntaxNodes(of: Set([kind] + additionalKinds))
+  }
+
+  package func syntaxNodes(
+    of kinds: Set<SourceNode.Kind>
+  ) async throws(CodebaseError) -> Selection<SourceNode> {
+    let names = kinds.map(\.rawValue).sorted().joined(separator: ", ")
+    let parsedCodebase = try await CodebaseCache.shared
+      .parsedCodebase(for: self)
+    let storage = await parsedCodebase.syntaxNodeProjection(of: kinds)
+    let description = "syntaxNodes of \(names) in \(parsedCodebase.rootName)"
+    QueryInspection.record(
+      query: description,
+      selected: storage.elements.compactMap(SelectionInspection.Element.init)
+    )
+    return Selection(
+      storage: storage,
+      queryDescription: description,
+      rootPath: parsedCodebase.rootPath
+    )
+  }
+
   private func selection<Element>(
     of category: ParsedCodebase.Projection,
     labelled label: String,

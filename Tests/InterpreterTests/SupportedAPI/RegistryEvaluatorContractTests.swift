@@ -231,6 +231,14 @@ extension ModelSamples {
       as: RuntimeModelValue.typealiasDeclaration
     )
     add(try await codebase.calls, as: RuntimeModelValue.functionCall)
+    add(
+      try await codebase.syntaxNodes(
+        of: .functionCall,
+        .functionDeclaration,
+        .codeBlock
+      ),
+      as: RuntimeModelValue.sourceNode
+    )
     for function in try await codebase.functions {
       add(function.parameters, as: RuntimeModelValue.parameter)
       add(function.genericParameters, as: RuntimeModelValue.genericParameter)

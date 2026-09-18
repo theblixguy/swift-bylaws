@@ -19,6 +19,10 @@ struct RuntimeExpression: Sendable {
     case interpolatedString([RuntimeStringSegment])
     case keyPath([SupportedAPI.Member])
     case member(base: RuntimeExpression, name: SupportedAPI.Member)
+    case qualifiedMember(
+      base: RuntimeExpression,
+      literal: SupportedAPI.MemberLiteral
+    )
     case subscriptCall(base: RuntimeExpression, key: RuntimeExpression)
     case nilLiteral
     case prefix(operator: String, RuntimeExpression)

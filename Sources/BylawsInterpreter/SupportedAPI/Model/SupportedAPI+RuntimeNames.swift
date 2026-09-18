@@ -21,6 +21,7 @@ extension SupportedAPI {
     case all, any, none
     case `where`
     case actors
+    case ancestors
     case affectedPath
     case aliasedTypeName
     case allInheritedTypes
@@ -42,7 +43,9 @@ extension SupportedAPI {
     case buildMetadataIdentifiers
     case buildSettings
     case calledExpression
+    case call
     case calls
+    case children
     case cases
     case checkDependencyStability
     case checkDependencies
@@ -77,6 +80,7 @@ extension SupportedAPI {
     case definitions
     case dependencies
     case dependencyNames
+    case descendants
     case description
     case directConformers
     case directlyConforms
@@ -195,6 +199,7 @@ extension SupportedAPI {
     case offenders
     case outside
     case ownership
+    case parent
     case packageAccess
     case packageManifest
     case packageName
@@ -238,6 +243,7 @@ extension SupportedAPI {
     case simpleExtendedTypeName
     case sourceDirectory
     case sourceKind
+    case syntaxNodes
     case sourceLocation
     case sourceRange
     case sources
@@ -337,6 +343,7 @@ extension SupportedAPI {
     case products
     case projectIndex
     case references
+    case syntaxNodes
     case suffixed
     case targets
     case testTargets
@@ -363,6 +370,7 @@ extension SupportedAPI {
   }
 
   package enum ModelType: String, CaseIterable, Sendable {
+    case sourceNode = "SourceNode"
     case sourceExpression = "SourceExpression"
     case sourceAssignment = "SourceAssignment"
     case variableBinding = "VariableBinding"
@@ -455,6 +463,7 @@ extension SupportedAPI {
       case .import: self = .importDeclaration
       case .typealias: self = .typealiasDeclaration
       case .functionCall: self = .functionCall
+      case .sourceNode: self = .sourceNode
       case .sourceExpression: self = .sourceExpression
       case .sourceAssignment: self = .sourceAssignment
       case .variableBinding: self = .variableBinding

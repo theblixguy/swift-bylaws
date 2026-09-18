@@ -22,7 +22,7 @@ and conditions.
 | Literal values, interpolation arguments and member references | <doc:InspectingExpressions> |
 | Code permitted only inside a particular `#if` branch | <doc:ConditionalCompilation> |
 | Logging, keychain access, authentication code and security settings | <doc:SecurityCookbook> |
-| Compiler-resolved symbols, source text or SwiftSyntax nodes | <doc:AdvancedRules> |
+| Compiler-resolved symbols, source text or other Swift syntax | <doc:AdvancedRules> |
 
 ## Set up and run a recipe
 
@@ -31,11 +31,10 @@ used by the Swift Testing examples. Those examples use `import Bylaws` and
 `import Testing`. Add the `BylawsIndex` product and imports where a guide uses
 compiler data.
 
-You can run a complete `Bylaws.swift` example through the CLI or as Swift tests
-and add individual `Rule` examples to its `[Rule]` array. For setup and the
-Swift features supported by the CLI, see <doc:RunningRulesFromTheCLI>. Examples
-that use other features, such as a custom `SyntaxVisitor`, belong in a Swift
-Testing target.
+You can run a complete `Bylaws.swift` example through the CLI or as Swift tests,
+then add individual `Rule` examples to its `[Rule]` array.
+<doc:RunningRulesFromTheCLI> covers CLI setup and the Swift features you can use
+in portable rules.
 
 The CLI can check your Swift files without building the project first. Rules
 that use the compiler index need data from a build of the code they check.

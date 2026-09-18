@@ -18,7 +18,8 @@ enclosing function, initialiser or property.
 | --- | --- |
 | Written declarations, imports, types or calls | The `Codebase` query model |
 | Cyclomatic complexity | `Function.cyclomaticComplexity` or `Initializer.cyclomaticComplexity` |
-| Other control flow, local syntax or comment trivia | `withSyntax` |
+| Statements, expressions or other source syntax | `syntaxNodes(of:_:)` |
+| Comment trivia or another SwiftSyntax detail | `withSyntax` |
 | Resolved definitions, references or conformances | The `BylawsIndex` product |
 
 ## Every branch of an `#if` is read
@@ -132,9 +133,10 @@ diagnostics. Directory links are skipped to avoid loops and repeated checks.
 Use `cyclomaticComplexity` to count branches in a function or initialiser.
 The count includes `if` and `switch` expressions and `for await` loops.
 
-For other control-flow rules, use `withSyntax` to inspect the syntax tree.
-For example, you can require a `switch` to name every case as shown in
-<doc:AdvancedRules#Reach-the-syntax-tree>.
+For other control-flow rules, select the relevant syntax nodes with
+`syntaxNodes(of:_:)`. For example, you can find calls inside `defer` statements
+by selecting function calls and inspecting each call's `ancestors`. See
+<doc:AdvancedRules#Check-syntax-patterns> for a complete rule.
 
 ## Comments are trivia
 

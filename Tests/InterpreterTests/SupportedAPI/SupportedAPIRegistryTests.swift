@@ -31,7 +31,7 @@ struct SupportedAPIRegistryTests {
     #expect(Set(matcherNames).count == matcherNames.count)
     #expect(
       Set(SupportedAPI.queries.map(\.declarationFamily))
-        == Set(SupportedAPI.DeclarationFamily.allCases)
+        == SupportedAPI.queryDeclarationFamilies
     )
     #expect(
       SupportedAPI.matchers.allSatisfy {

@@ -171,11 +171,12 @@ extension RuntimeEvaluator {
       }
     case .genericType(name: let type, arguments: _):
       if name == .selfType { return receiver }
-      if type == SupportedAPI.ModelType.indexSymbol.rawValue,
-         name == .kindType
+      if name == .kindType,
+         let nestedType = SupportedAPI.ModelType(rawValue: type)?
+         .nestedStaticMemberType
       {
         return .genericType(
-          name: SupportedAPI.StaticMemberType.indexSymbolKind.rawValue,
+          name: nestedType.rawValue,
           arguments: []
         )
       }

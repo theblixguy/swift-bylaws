@@ -555,8 +555,8 @@ For rules that compare folders, you can use `URL(fileURLWithPath:)` with
 
 You can use Bylaws queries, matchers, layering and package checks, including
 `importGraph()` and the Bazel graph queries in <doc:BazelDependencies>.
-The index queries in <doc:AdvancedRules> are also supported,
-along with selected SwiftSyntax APIs for comments and class members.
+The index and source-node queries in <doc:AdvancedRules> are also supported,
+along with the SwiftSyntax APIs listed in the table below.
 
 For example, a portable rule can inspect dependency requirements without
 executing `Package.swift`:
@@ -591,7 +591,7 @@ other APIs.
 | `BazelGraph.Target` | `configuration`, `description`, `label`, `location`, `ruleClass`, `tags` | None |
 | `Class` | `allInheritedTypes`, `attributes`, `documentation`, `enclosingTypeName`, `extensionInheritedTypes`, `functions`, `genericParameters`, `inheritedTypes`, `initializers`, `isDocumented`, `isFinal`, `isNonisolated`, `location`, `name`, `properties`, `qualifiedName`, `sourceRange`, `sourceText`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
 | `ClassDeclSyntax` | `memberBlock` | None |
-| `Codebase` | `actors`, `assignments`, `calls`, `classes`, `compilationBranches`, `enums`, `expressions`, `extensions`, `files`, `functions`, `imports`, `initializers`, `packageManifest`, `properties`, `protocols`, `structs`, `typealiases`, `types`, `variableBindings` | `bazelGraph`, `checkDependencies`, `checkDependencyCycles`, `checkDependencyStability`, `checkFolderLayout`, `checkLayering`, `checkPackageDependencies`, `conformers`, `definitions`, `dependencyGroups`, `directConformers`, `importGraph`, `indexedFindings`, `occurrences`, `projectIndex`, `references` |
+| `Codebase` | `actors`, `assignments`, `calls`, `classes`, `compilationBranches`, `enums`, `expressions`, `extensions`, `files`, `functions`, `imports`, `initializers`, `packageManifest`, `properties`, `protocols`, `structs`, `typealiases`, `types`, `variableBindings` | `bazelGraph`, `checkDependencies`, `checkDependencyCycles`, `checkDependencyStability`, `checkFolderLayout`, `checkLayering`, `checkPackageDependencies`, `conformers`, `definitions`, `dependencyGroups`, `directConformers`, `importGraph`, `indexedFindings`, `occurrences`, `projectIndex`, `references`, `syntaxNodes` |
 | `CompilationBranch` | `condition`, `location`, `name`, `precedingConditions` | `contains` |
 | `DeclarationLocation` | `column`, `fileName`, `filePath`, `line`, `utf8Offset` | None |
 | `DependencyGroup` | `files`, `name` | None |
@@ -665,6 +665,7 @@ other APIs.
 | `SourceExpression.DictionaryElement` | `key`, `value` | None |
 | `SourceFile` | `actors`, `assignments`, `calls`, `classes`, `compilationBranches`, `enums`, `expressions`, `extensions`, `functions`, `imports`, `initializers`, `lineCount`, `location`, `name`, `path`, `properties`, `protocols`, `sourceText`, `structs`, `typealiases`, `types`, `variableBindings` | `calls`, `imports`, `withSyntax` |
 | `SourceFileSyntax` | None | `tokens` |
+| `SourceNode` | `ancestors`, `call`, `children`, `descendants`, `description`, `expression`, `kind`, `location`, `parent`, `text` | None |
 | `String` | `count`, `description`, `first`, `isEmpty` | `contains`, `hasPrefix`, `hasSuffix`, `lowercased` |
 | `Struct` | `allInheritedTypes`, `attributes`, `documentation`, `enclosingTypeName`, `extensionInheritedTypes`, `functions`, `genericParameters`, `inheritedTypes`, `initializers`, `isDocumented`, `isNonisolated`, `location`, `name`, `properties`, `qualifiedName`, `sourceRange`, `sourceText`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
 | `TokenSyntax` | `leadingTrivia`, `text`, `trailingTrivia` | None |

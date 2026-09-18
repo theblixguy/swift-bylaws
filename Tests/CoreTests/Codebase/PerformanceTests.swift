@@ -27,11 +27,16 @@ struct PerformanceTests {
     let cachedReadDuration = Date().timeIntervalSince(start)
       - uncachedParseDuration
 
+    let syntaxStart = Date()
+    let syntaxNodes = try await codebase.syntaxNodes(of: .functionCall)
+    let syntaxDuration = Date().timeIntervalSince(syntaxStart)
+
     print("""
     [perf] \(files.count) files, \(classes.count) classes, \
     \(functions
       .count) functions, uncached parse \(uncachedParseDuration), \
-    cached reads \(cachedReadDuration)
+    cached reads \(cachedReadDuration), \(syntaxNodes.count) call nodes, \
+    call-node model \(syntaxDuration)
     """)
     #expect(files.count > 100)
     #expect(!functions.isEmpty)

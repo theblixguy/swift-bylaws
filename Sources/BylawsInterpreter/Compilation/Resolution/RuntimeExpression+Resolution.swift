@@ -8,6 +8,7 @@ extension RuntimeExpression {
   var callableName: String? {
     switch kind {
     case let .member(_, name): name.rawValue
+    case let .qualifiedMember(_, literal): literal.rawValue
     case let .reference(name): name
     case let .staticMember(literal): literal.rawValue
     default: nil

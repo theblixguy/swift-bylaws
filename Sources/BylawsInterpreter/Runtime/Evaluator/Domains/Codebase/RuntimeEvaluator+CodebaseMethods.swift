@@ -106,6 +106,30 @@ extension RuntimeEvaluator {
       )
       _ = try requireIndexProvider(at: arguments.location)
       return .projectIndex(index)
+    case .syntaxNodes:
+      try arguments.requireLabels(
+        [.of] + arguments.values.dropFirst().map { _ in nil },
+        for: name
+      )
+      var kinds: Set<SourceNode.Kind> = []
+      for argument in arguments.values {
+        guard case let .member(.sourceNodeKind(kind)) = argument.value else {
+          throw RuntimeError(
+            message: "syntaxNodes takes one or more SourceNode.Kind values",
+            location: arguments.location
+          )
+        }
+        kinds.insert(kind)
+      }
+      let selection = try await reportingFailures(at: arguments.location) {
+        try await codebase.syntaxNodes(of: kinds)
+      }
+      return .selection(RuntimeSelection(
+        family: .sourceNode,
+        elements: selection.map(RuntimeModelValue.sourceNode),
+        queryDescription: selection.queryDescription,
+        rootPath: selection.rootPath
+      ))
     case .conformers, .directConformers, .references, .definitions,
          .occurrences:
       let index = try projectIndex(

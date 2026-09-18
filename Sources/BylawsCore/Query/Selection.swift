@@ -17,7 +17,7 @@ public struct Selection<Element: Sendable>: Sendable {
   /// The description of the query that produced this selection.
   public let queryDescription: String
 
-  let rootPath: String
+  package let rootPath: String
 
   package init(
     elements: [Element],

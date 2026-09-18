@@ -1,11 +1,12 @@
 import BylawsCore
-import BylawsSemantics
+package import BylawsSemantics
 
 extension SupportedAPI {
   // A leading-dot literal reaches the parser as a bare name.
   package enum MemberLiteral: Hashable, Sendable {
     case matcher(Matcher.ID)
     case constant(Constant)
+    case sourceNodeKind(SourceNode.Kind)
 
     package enum Constant: String, CaseIterable, Hashable, Sendable {
       case any
@@ -156,6 +157,8 @@ extension SupportedAPI.MemberLiteral: RawRepresentable, CaseIterable {
       self = .constant(constant)
     } else if let matcher = SupportedAPI.Matcher.ID(rawValue: rawValue) {
       self = .matcher(matcher)
+    } else if let kind = SourceNode.Kind(rawValue: rawValue) {
+      self = .sourceNodeKind(kind)
     } else {
       return nil
     }
@@ -165,12 +168,14 @@ extension SupportedAPI.MemberLiteral: RawRepresentable, CaseIterable {
     switch self {
     case let .matcher(id): id.rawValue
     case let .constant(constant): constant.rawValue
+    case let .sourceNodeKind(kind): kind.rawValue
     }
   }
 
   package static var allCases: [Self] {
     SupportedAPI.Matcher.ID.allCases.map(matcher)
       + Constant.allCases.map(constant)
+      + SourceNode.Kind.allCases.map(sourceNodeKind)
   }
 }
 
@@ -184,6 +189,7 @@ extension SupportedAPI.MemberLiteral {
     case ownership
     case importKind
     case indexSymbolKind
+    case sourceNodeKind
     case symbolRole
     case matcher
     case tokenViewMode
@@ -226,6 +232,7 @@ extension SupportedAPI {
   package enum StaticMemberType: String, CaseIterable, Hashable, Sendable {
     case importKind = "ImportKind"
     case indexSymbolKind = "IndexSymbol.Kind"
+    case sourceNodeKind = "SourceNode.Kind"
     case ownership = "Ownership"
     case symbolRole = "SymbolRole"
     case visibility = "Visibility"
@@ -234,6 +241,7 @@ extension SupportedAPI {
       switch self {
       case .importKind: .importKind
       case .indexSymbolKind: .indexSymbolKind
+      case .sourceNodeKind: .sourceNodeKind
       case .ownership: .ownership
       case .symbolRole: .symbolRole
       case .visibility: .visibility
@@ -276,6 +284,7 @@ extension SupportedAPI.MemberLiteral.Owner {
     case .ownership: Source(Ownership.self)
     case .importKind: Source(ImportKind.self)
     case .indexSymbolKind: Source(RuntimeIndexSymbol.Kind.self)
+    case .sourceNodeKind: Source(SourceNode.Kind.self)
     case .symbolRole: Source(RuntimeSymbolRole.self)
     case .matcher: Source(SupportedAPI.Matcher.ID.self)
     case .tokenViewMode: .constants([.sourceAccurate])
@@ -352,6 +361,16 @@ extension SupportedAPI.MemberLiteral.Owner {
         .unixDomainSocket,
       ])
     case .networkPorts: .constants([.values, .range])
+    }
+  }
+}
+
+extension SupportedAPI.ModelType {
+  var nestedStaticMemberType: SupportedAPI.StaticMemberType? {
+    switch self {
+    case .indexSymbol: .indexSymbolKind
+    case .sourceNode: .sourceNodeKind
+    default: nil
     }
   }
 }

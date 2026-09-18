@@ -173,6 +173,10 @@ extension SupportedAPI {
     case alternatives([[RuntimeCallParameter]])
     case unlabelledStrings
     case optional(RuntimeCallParameter)
+    case variadic(
+      first: RuntimeCallParameter,
+      additional: RuntimeCallParameter
+    )
     case indexQuery(
       leading: [RuntimeCallParameter],
       optional: [RuntimeCallParameter]

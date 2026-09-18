@@ -100,6 +100,7 @@ package enum SupportedAPI {
     case `import`
     case `typealias`
     case functionCall
+    case sourceNode
     case sourceExpression
     case sourceAssignment
     case variableBinding
@@ -107,6 +108,12 @@ package enum SupportedAPI {
   }
 
   package static let allDeclarationFamilies = Set(DeclarationFamily.allCases)
+
+  package static let queryDeclarationFamilies = allDeclarationFamilies
+    .subtracting([.sourceNode])
+
+  package static let namedDeclarationFamilies = allDeclarationFamilies
+    .subtracting([.sourceNode])
 
   package enum ArgumentContract: Equatable, Sendable {
     case none

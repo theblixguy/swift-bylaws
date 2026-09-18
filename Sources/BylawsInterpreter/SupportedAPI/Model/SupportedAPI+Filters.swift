@@ -16,7 +16,11 @@ extension SupportedAPI {
     package var name: String { id.rawValue }
 
     package var declarationFamilies: Set<DeclarationFamily> {
-      SupportedAPI.allDeclarationFamilies
+      SupportedAPI.queryDeclarationFamilies
+    }
+
+    package var requiresNames: Bool {
+      id != .under && id != .outside
     }
   }
 

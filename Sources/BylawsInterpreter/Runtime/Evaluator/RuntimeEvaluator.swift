@@ -128,6 +128,23 @@ struct RuntimeEvaluator: Sendable {
         at: expression.location,
         state: &state
       )
+    case let .qualifiedMember(base, literal):
+      let receiver = try await evaluate(
+        base,
+        in: environment,
+        state: &state
+      )
+      guard case let .genericType(typeName, _) = receiver,
+            let owner = SupportedAPI.StaticMemberType(rawValue: typeName)?
+            .owner,
+            literal.owners.contains(owner)
+      else {
+        throw failure(
+          "'\(literal.rawValue)' is not a supported member of this type",
+          expression
+        )
+      }
+      return .member(literal)
     case .nilLiteral:
       return .optional(nil)
     case let .prefix(operatorName, operand):

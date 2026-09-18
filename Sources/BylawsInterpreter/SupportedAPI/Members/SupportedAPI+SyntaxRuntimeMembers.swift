@@ -44,5 +44,10 @@ extension SupportedAPI {
       on: [.staticType(ModelType.indexSymbol.rawValue)],
       result: .fixed(.staticType(StaticMemberType.indexSymbolKind.rawValue))
     ),
+    property(
+      .kindType,
+      on: [.staticType(ModelType.sourceNode.rawValue)],
+      result: .fixed(.staticType(StaticMemberType.sourceNodeKind.rawValue))
+    ),
   ]
 }

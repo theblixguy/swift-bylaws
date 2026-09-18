@@ -414,13 +414,11 @@ final class DeclarationVisitor: SyntaxVisitor {
     arguments: LabeledExprListSyntax,
     at node: some SyntaxProtocol
   ) {
-    macroExpansions.append(
-      FunctionCall(
-        calledExpression: "#\(name)",
-        arguments: arguments.map(reader.argument),
-        location: reader.location(of: node)
-      )
-    )
+    macroExpansions.append(reader.call(
+      named: name,
+      arguments: arguments,
+      at: node
+    ))
   }
 
   private func enterType(name: String, visibility: Visibility) {

@@ -1,8 +1,7 @@
 import SwiftSyntax
 
 final class CallCollector: LexicalRegionVisitor {
-  private let path: String
-  private let text: SourceText
+  private let reader: SyntaxReader
   private(set) var calls: [FunctionCall] = []
 
   init(
@@ -10,48 +9,25 @@ final class CallCollector: LexicalRegionVisitor {
     text: SourceText,
     visitsTopLevelAccessors: Bool = false
   ) {
-    self.path = path
-    self.text = text
+    reader = SyntaxReader(path: path, text: text)
     super.init(visitsTopLevelAccessors: visitsTopLevelAccessors)
   }
 
   override func visit(_ node: FunctionCallExprSyntax)
     -> SyntaxVisitorContinueKind
   {
-    let start = node.calledExpression.positionAfterSkippingLeadingTrivia
-    let position = text.location(of: start)
-    calls.append(
-      FunctionCall(
-        calledExpression: text.trimmedText(of: node.calledExpression),
-        arguments: node.arguments
-          .map(SyntaxReader(path: path, text: text).argument),
-        location: DeclarationLocation(
-          filePath: path,
-          line: position.line,
-          column: position.column,
-          utf8Offset: start.utf8Offset
-        )
-      )
-    )
+    calls.append(reader.call(node))
     return .visitChildren
   }
 
   override func visit(_ node: MacroExpansionExprSyntax)
     -> SyntaxVisitorContinueKind
   {
-    let start = node.positionAfterSkippingLeadingTrivia
-    let position = text.location(of: start)
     calls.append(
-      FunctionCall(
-        calledExpression: "#\(node.macroName.text)",
-        arguments: node.arguments
-          .map(SyntaxReader(path: path, text: text).argument),
-        location: DeclarationLocation(
-          filePath: path,
-          line: position.line,
-          column: position.column,
-          utf8Offset: start.utf8Offset
-        )
+      reader.call(
+        named: node.macroName.text,
+        arguments: node.arguments,
+        at: node
       )
     )
     return .visitChildren
