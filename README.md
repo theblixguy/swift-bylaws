@@ -2,6 +2,9 @@
 
 Bylaws is an architectural linter for Swift.
 
+[![Swift versions][Swift versions badge]][Swift Package Index]
+[![Platforms][Platforms badge]][Swift Package Index]
+
 ![Rules in Xcode and a violation in VS Code](.github/images/bylaws-editors.png)
 
 Read the [documentation] for guides and the API reference.
@@ -296,8 +299,7 @@ bylaws lint
 ```
 
 If you want to start with warning-only rules instead, run `bylaws init` in a
-project that has no `Bylaws.swift` file. Set a rule's enforcement to `.enforced`
-when its violations should fail the check. You can also record a baseline to
+project that has no `Bylaws.swift` file. You can also record a baseline to
 permit existing violations while rejecting new ones.
 
 In CI, you can pass the complete list of files changed since the previous run
@@ -313,7 +315,7 @@ Add the package and the `Bylaws` product to a test target:
 dependencies: [
   .package(
     url: "https://github.com/theblixguy/swift-bylaws.git",
-    from: "0.4.0",
+    from: "0.5.0",
     traits: []
   )
 ],
@@ -326,6 +328,11 @@ targets: [
   )
 ]
 ```
+
+On macOS, Bylaws uses a prebuilt SwiftSyntax library when one matches your
+compiler, so SwiftPM can skip compiling SwiftSyntax during the first test build.
+SwiftPM uses the SwiftSyntax source package on Linux and for other compiler
+versions.
 
 Set `traits: []` if you only use Bylaws in tests or omit it if you also use the
 plugins, CLI or language server.
@@ -439,7 +446,7 @@ macOS and Linux.
 Add the dependency from the Bazel Central Registry to `MODULE.bazel`:
 
 ```starlark
-bazel_dep(name = "swift-bylaws", version = "0.4.0")
+bazel_dep(name = "swift-bylaws", version = "0.5.0")
 ```
 
 Put `Bylaws.swift` at the workspace root, then run:
@@ -478,6 +485,7 @@ enforce your project's architecture rules.
 | Feature                    | Bylaws                                                                               | [Harmonize]                                                          | [SwiftLint]                                                                           |
 | -------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | Run rules                  | Swift Testing or CLI                                                                 | Swift Testing, XCTest or Quick                                       | CLI                                                                                   |
+| SwiftPM build              | Prebuilt SwiftSyntax for matching macOS compilers, with a source fallback            | SwiftSyntax builds from source                                       | Plugins download a prebuilt tool                                                      |
 | SwiftPM command plugin     | `swift package bylaws`                                                               | None                                                                 | `swift package plugin swiftlint`                                                      |
 | Build-tool plugin          | SwiftPM (build flag required)                                                        | None                                                                 | SwiftPM and Xcode                                                                     |
 | Bazel integration          | `bazel run` and a [cacheable lint target][Bazel lint target] for source checks         | No bundled integration                                               | [`bazel run`](https://github.com/realm/SwiftLint#bazel)                                 |
@@ -486,14 +494,15 @@ enforce your project's architecture rules.
 | Rules per folder or module | Automatic folder discovery, exclusions and overrides with a reason                  | Query filters and file exclusions                                    | Nested configuration files                                                            |
 | Accept existing violations | Recorded baseline, checked for entries that no longer apply                          | Hand-written list of names, checked for entries that no longer apply | Recorded JSON baseline                                                                |
 | Warning-only rules         | Advisory rules in tests and the CLI                                                  | Severity metadata with test failures by default                      | Configurable warning and error levels                                                 |
-| Report results             | Test failures, Xcode, GitHub, JSON and SARIF, with CLI report files (`--output`)        | Test failures and JSON                                               | Xcode, GitHub, JSON, SARIF and other formats                                          |
+| Changed-file checks        | Pass changed paths to skip unaffected rules and reuse cached results                 | None                                                                 | Pass changed files or use the per-file cache                                          |
+| Report results             | Test failures, Xcode, GitHub, JSON and SARIF with rule locations                     | Test failures and JSON                                               | Xcode, GitHub, JSON, SARIF and other formats                                          |
 | Automatic fixes            | None                                                                                 | None                                                                 | `--fix` for supported rules                                                           |
 
 ### What rules can check
 
 | Feature                                  | Bylaws                                                        | Harmonize                                                | SwiftLint                                            |
 | ---------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------- |
-| Custom rules                             | Swift queries and matchers                                    | Swift queries and assertions                             | Regex in YAML or Swift rules in a custom build       |
+| Custom rules                             | Swift queries and matchers for source and syntax nodes        | Swift queries and assertions                             | Regex in YAML or Swift rules in a custom build       |
 | Declarations, calls and type annotations | Source model and SwiftSyntax access                           | Source model and SwiftSyntax access                      | SwiftSyntax in Swift custom rules                    |
 | Inheritance and conformance              | Transitive source queries, including aliases and extensions   | Direct and transitive source queries                     | Swift custom rules                                   |
 | Macro uses and call argument labels      | Query APIs                                                    | SwiftSyntax access where query APIs do not cover a check | Swift custom rules                                   |
@@ -652,3 +661,8 @@ Bylaws is available under the MIT licence. See [LICENSE].
 [Frequently asked questions]: FAQ.md
 [GitHub Issues]: https://github.com/theblixguy/swift-bylaws/issues
 [LICENSE]: LICENSE
+[Swift Package Index]: https://swiftpackageindex.com/theblixguy/swift-bylaws
+[Swift versions badge]:
+  https://img.shields.io/endpoint?url=https://swiftpackageindex.com/api/packages/theblixguy/swift-bylaws/badge?type=swift-versions
+[Platforms badge]:
+  https://img.shields.io/endpoint?url=https://swiftpackageindex.com/api/packages/theblixguy/swift-bylaws/badge?type=platforms
