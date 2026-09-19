@@ -21,11 +21,12 @@ struct InitTemplateTests {
     #expect(program.rules.allSatisfy { $0.hint != nil })
   }
 
-  @Test("The template contains active rules alone")
-  func templateHasNoCommentedCode() {
-    let commentLines = RulesFileTemplate.content.split(separator: "\n")
-      .filter { $0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
-    #expect(commentLines.isEmpty)
+  @Test("Each template rule explains the convention with examples")
+  func templateExplainsRules() {
+    #expect(RulesFileTemplate.content.components(separatedBy: "Bad:")
+      .count == 4)
+    #expect(RulesFileTemplate.content.components(separatedBy: "Good:")
+      .count == 4)
   }
 
   @Test("Each template rule finds what it describes")

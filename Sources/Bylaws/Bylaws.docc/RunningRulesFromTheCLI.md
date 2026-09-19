@@ -336,8 +336,8 @@ repository, check GitHub's [code scanning requirements]
 before adding the upload step.
 
 The report includes each rule's ID, name and hint, with `error` for enforced
-violations and `warning` for advisory violations. File paths are relative to
-the project root.
+violations and `warning` for advisory violations. Each result uses a related
+location for the rule declaration, with file paths relative to the project root.
 
 [sarif]: https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html
 [code scanning requirements]: https://docs.github.com/en/code-security/concepts/code-scanning/code-scanning
@@ -347,8 +347,9 @@ the project root.
 You can use `--format json` to read results in a script or another tool. The
 report uses `schemaVersion: 1`, with a `rules` array for the checked rules,
 an `events` array for violations, warnings and diagnostics and a `summary`
-with rule and violation counts. Event paths are relative to the project root
-when possible. Each event has a `kind` of
+with rule and violation counts. Each rule includes the path, line and column of
+its declaration. Event paths are relative to the project root when possible,
+and each event has a `kind` of
 `violation`, `warning` or `diagnostic`, plus its level, message, location,
 optional hint and optional rule ID.
 

@@ -8,7 +8,7 @@ import Testing
 
 @Suite("Rule findings in SARIF output")
 struct SARIFReportTests {
-  @Test("Violation result points to declaration")
+  @Test("Violation result points to the offender and rule declaration")
   func violationLocation() throws {
     let run = try Self.run(reports: [
       Self.report(
@@ -36,6 +36,20 @@ struct SARIFReportTests {
     let region = try Self.object(physical["region"])
     #expect(region["startLine"] as? Int == 7)
     #expect(region["startColumn"] as? Int == 3)
+
+    let relatedLocations = try Self.objects(result["relatedLocations"])
+    let ruleLocation = try #require(relatedLocations.first)
+    let relatedMessage = try Self.object(ruleLocation["message"])
+    #expect(
+      relatedMessage["text"] as? String
+        == "Rule 'viewmodel-inheritance' is declared here."
+    )
+    let rulePhysical = try Self.object(ruleLocation["physicalLocation"])
+    let ruleArtifact = try Self.object(rulePhysical["artifactLocation"])
+    #expect(ruleArtifact["uri"] as? String == "Bylaws.swift")
+    let ruleRegion = try Self.object(rulePhysical["region"])
+    #expect(ruleRegion["startLine"] as? Int == 4)
+    #expect(ruleRegion["startColumn"] as? Int == 1)
   }
 
   @Test("Path outside project uses file URI")

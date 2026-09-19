@@ -8,6 +8,7 @@ package struct ReportDocument {
     package let name: String
     package let hint: String?
     package let level: Level
+    package let location: DeclarationLocation
   }
 
   package struct Event {
@@ -57,6 +58,16 @@ package struct ReportDocument {
   package let reportCount: Int
   package let violationCount: Int
 
+  package var referencedRules: [RuleEntry] {
+    var seen: Set<Int> = []
+    return events.compactMap { event in
+      guard let index = event.ruleIndex,
+            seen.insert(index).inserted
+      else { return nil }
+      return rules[index]
+    }
+  }
+
   package init(reports: [RuleReport], diagnostics: [Diagnostic]) {
     var rules: [RuleEntry] = []
     var indexByID: [String: Int] = [:]
@@ -86,7 +97,8 @@ package struct ReportDocument {
             id: id,
             name: report.name,
             hint: report.hint,
-            level: level
+            level: level,
+            location: report.location
           )
         )
       }

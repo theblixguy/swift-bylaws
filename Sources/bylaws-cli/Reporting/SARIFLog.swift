@@ -53,6 +53,7 @@ struct SARIFLog: Encodable {
     let level: String
     let message: Message
     let locations: [Location]
+    let relatedLocations: [Location]
   }
 
   struct Message: Encodable {
@@ -61,6 +62,7 @@ struct SARIFLog: Encodable {
 
   struct Location: Encodable {
     let physicalLocation: PhysicalLocation
+    let message: Message?
   }
 
   struct PhysicalLocation: Encodable {
@@ -91,16 +93,22 @@ struct SARIFLog: Encodable {
 
 extension SARIFLog {
   init(document: ReportDocument, rootPath: String) {
-    func location(of declaration: DeclarationLocation) -> Location {
-      Location(physicalLocation: PhysicalLocation(
-        artifactLocation: ArtifactLocation(
-          uri: Self.uri(of: declaration.filePath, relativeTo: rootPath)
+    func location(
+      of declaration: DeclarationLocation,
+      message: String? = nil
+    ) -> Location {
+      Location(
+        physicalLocation: PhysicalLocation(
+          artifactLocation: ArtifactLocation(
+            uri: Self.uri(of: declaration.filePath, relativeTo: rootPath)
+          ),
+          region: Region(
+            startLine: declaration.line,
+            startColumn: declaration.column
+          )
         ),
-        region: Region(
-          startLine: declaration.line,
-          startColumn: declaration.column
-        )
-      ))
+        message: message.map(Message.init(text:))
+      )
     }
 
     let descriptors = document.rules.map { rule in
@@ -122,7 +130,11 @@ extension SARIFLog {
         ruleIndex: ruleIndex,
         level: event.level.compilerName,
         message: Message(text: event.messageWithoutRuleID),
-        locations: [location(of: event.location)]
+        locations: [location(of: event.location)],
+        relatedLocations: [location(
+          of: document.rules[ruleIndex].location,
+          message: "Rule '\(ruleID)' is declared here."
+        )]
       )
     }
     let notifications = document.events.compactMap { event -> Notification? in
