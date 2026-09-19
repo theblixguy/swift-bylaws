@@ -7,8 +7,17 @@ struct InitCommand: AsyncParsableCommand {
     commandName: "init",
     abstract: "Writes a Bylaws.swift template.",
     discussion: """
-    The template uses advisory rules. A first run shows the codebase's \
+    The template uses advisory rules, so your first run shows the codebase's \
     current behaviour without failing the build.
+
+    Create Bylaws.swift in the current directory and check the template:
+
+        bylaws init
+        bylaws lint
+
+    You can write the template elsewhere by passing its path:
+
+        bylaws init --path Config/Bylaws.swift
     """
   )
 

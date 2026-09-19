@@ -9,7 +9,21 @@ import Foundation
 struct RulesCommand: AsyncParsableCommand {
   static let configuration = CommandConfiguration(
     commandName: "rules",
-    abstract: "Lists the project's rules and their source files."
+    abstract: "Lists the project's rules and their source files.",
+    discussion: """
+    List every discovered rule:
+
+        bylaws rules
+
+    You can narrow the list to one part of the project:
+
+        bylaws rules --for Sources/Billing
+
+    To inspect the files and declarations that a rule keeps or removes, pass \
+    its ID:
+
+        bylaws rules --explain layers
+    """
   )
 
   @Option(

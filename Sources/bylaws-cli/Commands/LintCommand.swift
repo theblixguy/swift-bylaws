@@ -9,8 +9,29 @@ struct LintCommand: AsyncParsableCommand {
     commandName: "lint",
     abstract: "Discovers rules files and checks the codebase.",
     discussion: """
-    Exits with status code 0 when the rules hold, status code 1 on violations \
-    and status code 2 when the rules files do not load.
+    Bylaws exits with status code 0 when the rules hold, 1 when it finds \
+    violations and 2 when it cannot load the rules files.
+
+    Check every discovered rule:
+
+        bylaws lint
+
+    You can narrow the report to part of the project while Bylaws evaluates the \
+    rules against the whole codebase:
+
+        bylaws lint --report-path Sources/Domain
+
+    To recheck rules affected by a changed file and reuse cached results for the \
+    rest, run:
+
+        bylaws lint --changed-path Sources/Checkout/CheckoutView.swift
+
+    To write a JSON report for another tool, run:
+
+        bylaws lint --format json --output report.json
+
+    For every option and its behaviour, see:
+    https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesfromthecli
     """
   )
 
@@ -48,7 +69,7 @@ struct LintCommand: AsyncParsableCommand {
   @Option(
     name: .customLong("report-path"),
     parsing: .upToNextOption,
-    help: "Report findings in these project-relative or absolute paths."
+    help: "Limit reported violations, source warnings and the violation exit status to these paths while Bylaws evaluates the rules against the whole codebase."
   )
   var reportPaths: [String] = []
 
