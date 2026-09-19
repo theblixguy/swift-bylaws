@@ -228,6 +228,27 @@ struct CodebaseQueryTests {
     #expect(files.map(\.path) == ["\(absoluteRoot)/App.swift"])
   }
 
+  @Test("Files under filesystem root keep absolute paths")
+  func filesystemRootPathsRemainAbsolute() async throws {
+    let parent = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+      .appendingPathComponent(".build")
+    let project = try TemporaryProject(
+      files: ["Sources/App.swift": "struct App {}"],
+      under: parent
+    )
+    let path = project.fileURL(for: "Sources/App.swift").path
+    let relativePath = String(path.dropFirst())
+    let codebase = Codebase(
+      root: .directory("/"),
+      including: [Glob(relativePath)],
+      swiftLanguageMode: .v6
+    )
+
+    let files = try await codebase.files
+
+    #expect(files.map(\.path) == [path])
+  }
+
   @Test("Symlinked roots resolve consistently")
   func symlinkedRootResolves() async throws {
     let directory = NSTemporaryDirectory() + "bylaws-symlink-\(UUID().uuidString)"

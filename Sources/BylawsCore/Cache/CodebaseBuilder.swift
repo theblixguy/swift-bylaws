@@ -277,7 +277,7 @@ enum CodebaseBuilder {
     paths: [String],
     unopenableDirectories: [CodebaseError.ReadFailure]
   ) {
-    let root = LexicalFilePath(rootPath)
+    let rootPrefix = rootPath == "/" ? rootPath : rootPath + "/"
     var paths: [String] = []
     let unopenable = await DirectoryWalker
       .walk(rootPath) { relativePath, entry in
@@ -295,7 +295,7 @@ enum CodebaseBuilder {
         case .regularFile:
           guard relativePath.hasSuffix(".swift") else { return .descend }
           if codebase.covers(Glob.Path(relativePath)) {
-            paths.append(root.appending(relativePath).string)
+            paths.append(rootPrefix + relativePath)
           }
           return .descend
         }
@@ -305,7 +305,7 @@ enum CodebaseBuilder {
       unopenable.map { directory in
         CodebaseError.ReadFailure(
           path: directory.relativePath.isEmpty
-            ? rootPath : root.appending(directory.relativePath).string,
+            ? rootPath : rootPrefix + directory.relativePath,
           reason: directory.reason
         )
       }
