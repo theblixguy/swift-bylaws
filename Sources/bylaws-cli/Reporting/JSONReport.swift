@@ -12,6 +12,9 @@ struct JSONReport: Encodable {
     let name: String
     let hint: String?
     let level: String
+    let path: String
+    let line: Int
+    let column: Int
   }
 
   struct Event: Encodable {
@@ -44,7 +47,13 @@ extension JSONReport {
         id: rule.id,
         name: rule.name,
         hint: rule.hint,
-        level: rule.level.reportName
+        level: rule.level.reportName,
+        path: Self.path(
+          rule.location.filePath,
+          relativeTo: rootPath
+        ),
+        line: rule.location.line,
+        column: rule.location.column
       )
     }
     events = document.events.map { event in

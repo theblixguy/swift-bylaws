@@ -62,6 +62,17 @@ enum RulesFileTemplate {
     excluding: ["**/*.docc/**"]
   )
 
+  /*
+   Public declarations form the package interface, so their purpose should be
+   clear without reading the implementation.
+
+   Bad:
+   public struct Cart {}
+
+   Good:
+   /// A cart containing the products selected for purchase.
+   public struct Cart {}
+   */
   Rule(
     "public-api-docs",
     "Public types carry documentation",
@@ -71,20 +82,39 @@ enum RulesFileTemplate {
     app.types.violations(of: !.isPublic || .hasDocumentation)
   }
 
+  /*
+   Direct console output bypasses the project's logging and redaction policy.
+
+   Bad:
+   print(order)
+
+   Good:
+   logger.info("Created order")
+   */
   Rule(
     "no-print",
     "Source files do not call print",
     enforcement: .advisory,
-    hint: "print writes to standard output in release builds"
+    hint: "use the project's logger or remove the call"
   ) {
     app.calls.violations(matching: .references("print"))
   }
 
+  /*
+   Most classes in this project are not extension points, so a non-final class
+   should be a deliberate exception.
+
+   Bad:
+   class HomeScreen {}
+
+   Good:
+   final class HomeScreen {}
+   */
   Rule(
     "final-classes",
     "Classes are final",
     enforcement: .advisory,
-    hint: "exclude classes that are designed for subclassing"
+    hint: "mark the class final or exclude a deliberate extension point"
   ) {
     app.classes.violations(of: .isFinal)
   }

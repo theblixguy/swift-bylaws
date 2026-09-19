@@ -1,6 +1,7 @@
 import BylawsCore
 import BylawsRunner
 import BylawsSemantics
+import Foundation
 import Testing
 @testable import bylaws_cli
 
@@ -16,10 +17,11 @@ struct RuleHintTests {
     )
 
     #expect(
-      output
-        == "/project/Sources/Home.swift:7:1: error: class HomeViewModel "
+      output == "/project/Sources/Home.swift:7:1: error: class HomeViewModel "
         + "violates 'ViewModels inherit from BaseViewModel' "
         + "[viewmodel-inheritance] (a view model belongs in Sources/App)"
+        + "\n/project/Bylaws.swift:4:1: note: "
+        + "rule 'viewmodel-inheritance' is declared here"
     )
   }
 
@@ -33,11 +35,12 @@ struct RuleHintTests {
     )
 
     #expect(
-      output
-        == "::error file=/project/Sources/Home.swift,line=7::"
+      output == "::error file=/project/Sources/Home.swift,line=7::"
         + "class HomeViewModel violates "
         + "'ViewModels inherit from BaseViewModel' "
         + "[viewmodel-inheritance] (a view model belongs in Sources/App)"
+        + "\n::notice file=/project/Bylaws.swift,line=4::"
+        + "rule 'viewmodel-inheritance' is declared here"
     )
   }
 
@@ -53,7 +56,44 @@ struct RuleHintTests {
       quiet: true
     )
 
-    #expect(output.hasSuffix("[viewmodel-inheritance]"))
+    #expect(output.contains("[viewmodel-inheritance]\n"))
+    #expect(output.hasSuffix("rule 'viewmodel-inheritance' is declared here"))
+  }
+
+  @Test(
+    "Declaration location appears once per rule",
+    arguments: [OutputFormat.xcode, .github]
+  )
+  func declarationLocationAppearsOnce(format: OutputFormat) throws {
+    let output = try render(
+      reports: [report(hint: nil), report(hint: nil)],
+      diagnostics: [],
+      format: format,
+      quiet: true
+    )
+
+    #expect(output.components(separatedBy: "is declared here").count == 2)
+  }
+
+  @Test("JSON rule entry carries its declaration location")
+  func jsonRuleLocation() throws {
+    let output = try render(
+      reports: [report(hint: nil)],
+      diagnostics: [],
+      format: .json,
+      quiet: true,
+      rootPath: "/project"
+    )
+
+    let value = try #require(
+      JSONSerialization.jsonObject(with: Data(output.utf8))
+        as? [String: Any]
+    )
+    let rules = try #require(value["rules"] as? [[String: Any]])
+    let rule = try #require(rules.first)
+    #expect(rule["path"] as? String == "Bylaws.swift")
+    #expect(rule["line"] as? Int == 4)
+    #expect(rule["column"] as? Int == 1)
   }
 
   private let location = DeclarationLocation(

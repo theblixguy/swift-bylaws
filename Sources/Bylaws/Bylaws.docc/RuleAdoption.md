@@ -29,7 +29,7 @@ struct StyleAdvisories {
 Swift 6.2 displays advisory issues as known issues, while Swift 6.3 and later
 display them as warnings. Baselined violations use the same display format.
 
-## Explain how to fix a violation
+## Explain the rule and its fix
 
 A rule's name states the condition that the code must satisfy. A hint can
 explain a fix when the name alone is insufficient. For example, if view models
@@ -47,8 +47,33 @@ Rule(
 }
 ```
 
-The hint appears with violations in tests and CLI output. An override keeps
-the original hint unless you supply another one.
+If the reason for a rule is not clear from its name, add a short block comment
+above it. Add a bad example and a good example when they make the expected
+change clearer:
+
+```swift
+/*
+ Direct console output bypasses the project's logging and redaction policy.
+
+ Bad:
+ print(order)
+
+ Good:
+ logger.info("Created order")
+ */
+Rule(
+  "no-print",
+  "Source files do not call print",
+  hint: "use the project's logger or remove the call"
+) {
+  app.calls.violations(matching: .references("print"))
+}
+```
+
+The hint appears with violations in tests and CLI output and carries over to an
+override unless you supply a different one. CLI reports include the declaration's
+file and line, so a coding agent can open the rule and read its examples before
+changing the offending code.
 
 ## Baselines
 

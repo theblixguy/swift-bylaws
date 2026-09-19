@@ -38,6 +38,11 @@ enum ReportRenderer {
         + "\(event.location.column): \(event.level.compilerName): "
         + xcodeMessage(event.messageWithRuleID)
     }
+    lines += document.referencedRules.map { rule in
+      "\(rule.location.filePath):\(rule.location.line):"
+        + "\(rule.location.column): note: "
+        + xcodeMessage("rule '\(rule.id)' is declared here")
+    }
     if !quiet {
       let ruleCount = document.reportCount == 1
         ? "1 rule" : "\(document.reportCount) rules"
@@ -64,12 +69,16 @@ enum ReportRenderer {
       return escapedProperty(path)
     }
 
-    return document.events.map { event in
+    var lines = document.events.map { event in
       "::\(event.level.reportName) file=\(path(of: event.location)),"
         + "line=\(event.location.line)::"
         + escapedMessage(event.messageWithRuleID)
     }
-    .joined(separator: "\n")
+    lines += document.referencedRules.map { rule in
+      "::notice file=\(path(of: rule.location)),line=\(rule.location.line)::"
+        + escapedMessage("rule '\(rule.id)' is declared here")
+    }
+    return lines.joined(separator: "\n")
   }
 
   private static func escapedMessage(_ text: String) -> String {

@@ -72,6 +72,8 @@ struct GitHubRuleRenderingTests {
     has no files [layers]
     ::warning file=Bylaws.swift,line=9::Nothing matched: the query matched \
     no declarations [empty]
+    ::notice file=Bylaws.swift,line=9::rule 'layers' is declared here
+    ::notice file=Bylaws.swift,line=9::rule 'empty' is declared here
     """)
   }
 }
