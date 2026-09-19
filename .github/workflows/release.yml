@@ -152,10 +152,12 @@ jobs:
         with:
           scope: release-macos-universal
           skip-cache: ${{ inputs.skip_cache }}
-      - name: Build tools
+      - name: Build each architecture
         run: |
-          swift build -c release --product bylaws --arch arm64 --arch x86_64
-          swift build -c release --product bylaws-lsp --arch arm64 --arch x86_64
+          swift build -c release --product bylaws --arch arm64
+          swift build -c release --product bylaws-lsp --arch arm64
+          swift build -c release --product bylaws --arch x86_64
+          swift build -c release --product bylaws-lsp --arch x86_64
       - name: Save Swift build
         if: steps.cache.outputs.save-needed == 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -164,10 +166,15 @@ jobs:
           key: ${{ steps.cache.outputs.primary-key }}
       - name: Stage files
         run: |
-          BIN_PATH=$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)
           mkdir -p stage/bin
-          cp "${BIN_PATH}/bylaws" stage/bin/bylaws
-          cp "${BIN_PATH}/bylaws-lsp" stage/bin/bylaws-lsp
+          lipo -create \
+            .build/arm64-apple-macosx/release/bylaws \
+            .build/x86_64-apple-macosx/release/bylaws \
+            -output stage/bin/bylaws
+          lipo -create \
+            .build/arm64-apple-macosx/release/bylaws-lsp \
+            .build/x86_64-apple-macosx/release/bylaws-lsp \
+            -output stage/bin/bylaws-lsp
           cp -R Distribution/BazelSupport/. stage/
       - name: Create archive
         run: COPYFILE_DISABLE=1 tar -czf bylaws-macos.tar.gz -C stage .
