@@ -1,9 +1,10 @@
 # Bylaws
 
-Bylaws is an architectural linter for Swift.
+Bylaws is an architectural linter for Swift, built for developers and coding agents.
 
 [![Swift versions][Swift versions badge]][Swift Package Index]
 [![Platforms][Platforms badge]][Swift Package Index]
+[![CI][CI badge]][CI]
 
 ![Rules in Xcode and a violation in VS Code](.github/images/bylaws-editors.png)
 
@@ -12,9 +13,9 @@ Read the [documentation] for guides and the API reference.
 ## Contents
 
 - [Why Bylaws?](#why-bylaws)
-- [Enforce a module boundary](#enforce-a-module-boundary)
-- [Practical rules](#practical-rules)
 - [What a rule can check](#what-a-rule-can-check)
+- [Try Bylaws](#try-bylaws)
+- [Practical rules](#practical-rules)
 - [Get started](#get-started)
 - [Run checks during development](#run-checks-during-development)
 - [How it compares](#how-it-compares)
@@ -23,33 +24,38 @@ Read the [documentation] for guides and the API reference.
 
 ## Why Bylaws?
 
-In any small project, the same few people make most of the architectural
-decisions, such as which modules should depend on another and which APIs could
-access stored data. As the project grows, a new person making a change may not
-know every earlier decision. For example, a new dependency can look reasonable
-on its own and pass review even when it breaks an existing agreed-upon boundary.
+Every project has rules that the compiler cannot enforce. Some might concern
+individual declarations or API use, such as naming conventions, required
+protocols or which parts of the codebase can call an API. Others describe the
+wider project through its folder layout or the dependencies allowed between
+different parts of the codebase.
 
-You can catch these changes through code review, if you recognise the problem
-from experience or know which design document to consult. In today's world, as
-we rely more on AI to write and review code, we also need to check that its
-changes follow the project's architectural decisions. We could give an agent
-those decisions through design documents or AGENTS.md, but it might apply them
-inconsistently from one task to the next.
+AI coding agents can help a team move faster, but the changes they produce can
+also break project rules and be difficult to review line by line. Skill files
+and `AGENTS.md` can provide useful context, but they cannot ensure that every
+instruction is applied consistently.
 
-With Bylaws, you can write these types of checks in Swift and run them with your
-tests or from the command line. When code breaks a rule, Bylaws shows you where
-it happened!
+With Bylaws, you can write your project rules using familiar Swift APIs and run
+them through Swift Testing or the CLI. If a change breaks a rule, Bylaws reports
+the relevant file and line so both developers and coding agents know what to
+fix.
 
-## Enforce a module boundary
+## What a rule can check
 
-Let's say Checkout reads stored data through an API declared in Domain, and
-Persistence provides the implementation. Checkout and Persistence may import
-Domain, but Checkout must use the Domain API to keep it independent of the
-storage implementation.
+A rule can inspect declarations, function calls and other Swift syntax. It can
+check where files and types belong, compare a `Package.swift` manifest with the
+imports in its source, find dependency cycles or restrict references between
+files, folders or modules.
 
-Swift allows `CheckoutViewModel.swift` to import Persistence if your build
-configuration permits that dependency. To enforce the boundary between these
-modules, you can add the following to a `Bylaws.swift` file at the project root:
+Most rules only need access to the source code and project files, so the CLI can
+run them without a build and Swift Testing compiles the test target as part of
+the usual test run. If a rule needs compiler resolved references then it can
+read the compiler index from the latest build.
+
+## Try Bylaws
+
+Create `Bylaws.swift` with a rule that keeps console output inside the logging
+layer:
 
 ```swift
 import Bylaws
@@ -57,6 +63,89 @@ import Testing
 
 let app = Codebase(root: .automatic(), including: ["Sources/**"])
 
+let projectRules: [Rule] = [
+  Rule(
+    "central-logging",
+    "Console output goes through the logging layer"
+  ) {
+    try await app.calls
+      .outside("Sources/Logging")
+      .violations(
+        matching: .references("print", "debugPrint", "NSLog")
+      )
+  },
+]
+```
+
+Save the file at the project root to run it with the CLI, or place it in a test
+target to run it with Swift Testing.
+
+### Run the example with the CLI
+
+Install `bylaws`, then run the rule from the project root:
+
+```sh
+brew install theblixguy/tap/bylaws
+bylaws lint
+```
+
+If `Sources/App.swift` calls `print`, the command exits with status 1 and points
+to the call and the rule that reported it:
+
+```text
+/path/to/App/Sources/App.swift:2:3: error: print violates 'Console output goes through the logging layer' [central-logging]
+/path/to/App/Bylaws.swift:7:3: note: rule 'central-logging' is declared here
+Checked 1 rule: 1 violation.
+```
+
+### Run the example with Swift Testing
+
+Add the `Bylaws` product to a test target, then add this test. If you start with
+Swift Testing, you can define `projectRules` in the same file and move them into
+a shared `Bylaws.swift` later. In either location, `.automatic()` finds the
+package root so `Sources/**` will select the same files.
+
+```swift
+import Bylaws
+import Testing
+
+@Test("Code follows project rules", arguments: projectRules)
+func projectRule(_ rule: Rule) async throws {
+  try await rule.report()
+}
+```
+
+The rule runs with the rest of your tests:
+
+```sh
+swift test
+```
+
+If the rule finds a violation, the test fails and the output points to the
+affected code. The [getting started guide] includes the package dependency and
+explains how to share one rules file between Swift Testing and the CLI.
+
+If a new rule reports existing problems, you can keep it advisory while you
+review the results or record a baseline so new violations fail the check. The
+[adopting rules guide] covers both options.
+
+## Practical rules
+
+These examples show some of the checks you can write. The [rule cookbook] and
+[other guides](#documentation) cover more of the API, so you can choose the
+rules that fit your project.
+
+### Control dependencies between layers
+
+Suppose `Checkout` reads stored data through an API declared in `Domain`, while
+`Persistence` provides the implementation. `Checkout` and `Persistence` may
+import `Domain`, but `Checkout` must use the `Domain` API to stay independent of
+the storage implementation.
+
+If `Persistence` is a target dependency of `Checkout`, the import compiles even
+though it breaks this design. The following rule enforces the intended boundary:
+
+```swift
 let appLayers = Layering(
   Layer("Domain", files: ["Sources/Domain/**"]),
   Layer(
@@ -67,49 +156,22 @@ let appLayers = Layering(
   Layer("Checkout", files: ["Sources/Checkout/**"], mayImport: ["Domain"])
 )
 
-let projectRules: [Rule] = [
-  Rule("feature-boundaries", "Modules follow their declared dependencies") {
-    try await app.checkLayering(appLayers)
-  },
-]
+Rule("feature-boundaries", "Modules follow their declared dependencies") {
+  try await app.checkLayering(appLayers)
+}
 ```
 
-The import restrictions apply between the layers listed here. Imports of other
-modules, such as Foundation, remain permitted.
-
-When you run `bylaws lint`, it points to the import that crossed the boundary:
+The restrictions apply between the layers listed here. Imports of other
+modules, such as `Foundation`, remain permitted. If `Checkout` imports
+`Persistence`, `bylaws lint` will point to the import that crosses the boundary:
 
 ```text
 /path/to/App/Sources/Checkout/CheckoutViewModel.swift:2:8: error: import Persistence violates 'Modules follow their declared dependencies' [feature-boundaries]
 Checked 1 rule: 1 violation.
 ```
 
-An enforced rule fails the run when it finds violations, but you can make a rule
-advisory to see its violations without failing your checks.
-
-You can run these rules from the command line or use the same `Rule` values in a
-Swift Testing target. If these folders live inside one app target, the [compiler
-index] can enforce the same boundary without module imports.
-
-## Practical rules
-
-You can add these rules to the `projectRules` array above after changing the
-paths and type names to match your project.
-
-### Keep diagnostic output in the logging layer
-
-You can require application code to use your logger so its filtering and
-formatting apply consistently. This rule reports calls named `print`,
-`debugPrint` or `NSLog` outside `Sources/Logging`, including calls in
-initialisers and property values:
-
-```swift
-Rule("central-logging", "Console output goes through the logging layer") {
-  try await app.calls
-    .outside("Sources/Logging")
-    .violations(matching: .references("print", "debugPrint", "NSLog"))
-}
-```
+If these folders live inside one app target, the [compiler index] can enforce
+the same boundary without module imports.
 
 ### Prefer scoped locking
 
@@ -257,16 +319,6 @@ Bylaws reports warnings for targets it cannot check.
 The [rule cookbook] also covers protocol requirements, SwiftUI state, lifecycle
 calls and compiler-resolved references.
 
-## What a rule can check
-
-You can write rules for your project's structure, dependencies and
-declarations and most of it can run without a build.
-
-For checks that need compiler information, such as finding references between
-layers in one module, use the optional `BylawsIndex` product after a build.
-[What Bylaws reads] explains which checks can use only the source and which need
-the compiler's index.
-
 ## Get started
 
 ### Requirements
@@ -291,8 +343,8 @@ the compiler's index.
 
 ### Run rules from the command line
 
-Install the `bylaws` command using the [CLI setup guide]. Save the opening
-example as `Bylaws.swift` at the project's root, then run:
+The [CLI setup guide] covers installation on macOS and Linux. Put
+`Bylaws.swift` at the project root, then run:
 
 ```sh
 bylaws lint
@@ -337,19 +389,9 @@ versions.
 Set `traits: []` if you only use Bylaws in tests or omit it if you also use the
 plugins, CLI or language server.
 
-Save the module-boundary example and its `projectRules` array in
-`Tests/AppTests/Bylaws.swift`, then add this test in
-`Tests/AppTests/ArchitectureTests.swift`:
-
-```swift
-import Bylaws
-import Testing
-
-@Test("Code follows the architecture rules", arguments: projectRules)
-func architecture(_ rule: Rule) async throws {
-  try await rule.report()
-}
-```
+Put the rules file from [Try Bylaws](#try-bylaws) in
+`Tests/AppTests/Bylaws.swift` and put its parameterised test in
+`Tests/AppTests/ArchitectureTests.swift`.
 
 Run the rules with the rest of the tests:
 
@@ -488,10 +530,10 @@ enforce your project's architecture rules.
 | SwiftPM build              | Prebuilt SwiftSyntax for matching macOS compilers, with a source fallback            | SwiftSyntax builds from source                                       | Plugins download a prebuilt tool                                                      |
 | SwiftPM command plugin     | `swift package bylaws`                                                               | None                                                                 | `swift package plugin swiftlint`                                                      |
 | Build-tool plugin          | SwiftPM (build flag required)                                                        | None                                                                 | SwiftPM and Xcode                                                                     |
-| Bazel integration          | `bazel run` and a [cacheable lint target][Bazel lint target] for source checks         | No bundled integration                                               | [`bazel run`](https://github.com/realm/SwiftLint#bazel)                                 |
+| Bazel integration          | `bazel run` and a [cacheable lint target][Bazel lint target] for source checks       | No bundled integration                                               | [`bazel run`](https://github.com/realm/SwiftLint#bazel)                               |
 | Editor integration         | Xcode test diagnostics and live LSP checks in VS Code, Cursor, Zed, Neovim and Emacs | Test diagnostics in Xcode                                            | Xcode build diagnostics and community editor extensions such as SwiftLint for VS Code |
 | Share rules                | Swift packages for tests and both plugins                                            | Swift helpers in test dependencies                                   | Shared YAML or a custom binary for Swift rules                                        |
-| Rules per folder or module | Automatic folder discovery, exclusions and overrides with a reason                  | Query filters and file exclusions                                    | Nested configuration files                                                            |
+| Rules per folder or module | Automatic folder discovery, exclusions and overrides with a reason                   | Query filters and file exclusions                                    | Nested configuration files                                                            |
 | Accept existing violations | Recorded baseline, checked for entries that no longer apply                          | Hand-written list of names, checked for entries that no longer apply | Recorded JSON baseline                                                                |
 | Warning-only rules         | Advisory rules in tests and the CLI                                                  | Severity metadata with test failures by default                      | Configurable warning and error levels                                                 |
 | Changed-file checks        | Pass changed paths to skip unaffected rules and reuse cached results                 | None                                                                 | Pass changed files or use the per-file cache                                          |
@@ -500,19 +542,19 @@ enforce your project's architecture rules.
 
 ### What rules can check
 
-| Feature                                  | Bylaws                                                        | Harmonize                                                | SwiftLint                                            |
-| ---------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------- |
-| Custom rules                             | Swift queries and matchers for source and syntax nodes        | Swift queries and assertions                             | Regex in YAML or Swift rules in a custom build       |
-| Declarations, calls and type annotations | Source model and SwiftSyntax access                           | Source model and SwiftSyntax access                      | SwiftSyntax in Swift custom rules                    |
-| Inheritance and conformance              | Transitive source queries, including aliases and extensions   | Direct and transitive source queries                     | Swift custom rules                                   |
-| Macro uses and call argument labels      | Query APIs                                                    | SwiftSyntax access where query APIs do not cover a check | Swift custom rules                                   |
-| Allowed imports between layers           | Declare layers and allowed imports                            | Write checks over imports                                | Write custom rules                                   |
-| Layer boundaries within a module         | Folder-based layers with compiler-resolved references         | None                                                     | None                                                 |
-| SwiftPM manifest                         | Query targets, products, platforms, traits and build settings | None                                                     | None                                                 |
-| SwiftPM target dependencies              | Find unused and undeclared target dependencies                | None                                                     | Import rules without a local target-dependency check |
+| Feature                                  | Bylaws                                                                             | Harmonize                                                | SwiftLint                                            |
+| ---------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------- |
+| Custom rules                             | Swift queries and matchers for source and syntax nodes                             | Swift queries and assertions                             | Regex in YAML or Swift rules in a custom build       |
+| Declarations, calls and type annotations | Source model and SwiftSyntax access                                                | Source model and SwiftSyntax access                      | SwiftSyntax in Swift custom rules                    |
+| Inheritance and conformance              | Transitive source queries, including aliases and extensions                        | Direct and transitive source queries                     | Swift custom rules                                   |
+| Macro uses and call argument labels      | Query APIs                                                                         | SwiftSyntax access where query APIs do not cover a check | Swift custom rules                                   |
+| Allowed imports between layers           | Declare layers and allowed imports                                                 | Write checks over imports                                | Swift custom rules                                   |
+| Layer boundaries within a module         | Folder-based layers with compiler-resolved references                              | None                                                     | None                                                 |
+| SwiftPM manifest                         | Query targets, products, platforms, traits and build settings                      | None                                                     | None                                                 |
+| SwiftPM target dependencies              | Find unused and undeclared target dependencies                                     | None                                                     | Import rules without a local target-dependency check |
 | Bazel target dependencies                | Direct/transitive dependencies and build settings from configured `cquery` exports | No built-in graph queries                                | No built-in graph queries                            |
-| Import graph and dependency stability    | Graph queries and stability checks                            | None                                                     | None                                                 |
-| Compiler data                            | Optional index for resolved references and conformances       | Source syntax model                                      | `analyze` with a clean build log                     |
+| Import graph and dependency stability    | Graph queries and stability checks                                                 | None                                                     | None                                                 |
+| Compiler data                            | Optional index for resolved references and conformances                            | Source syntax model                                      | `analyze` with a clean build log                     |
 
 ## Benchmarks
 
@@ -628,6 +670,8 @@ Bylaws is available under the MIT licence. See [LICENSE].
 [Swift Testing]: #run-rules-with-swift-testing
 [getting started guide]:
   https://theblixguy.github.io/swift-bylaws/documentation/bylaws/gettingstarted
+[adopting rules guide]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/ruleadoption
 [SwiftPM plugins]: #use-the-swiftpm-plugins
 [Bazel target]: #run-checks-with-bazel
 [Bazel lint target]:
@@ -666,3 +710,5 @@ Bylaws is available under the MIT licence. See [LICENSE].
   https://img.shields.io/endpoint?url=https://swiftpackageindex.com/api/packages/theblixguy/swift-bylaws/badge?type=swift-versions
 [Platforms badge]:
   https://img.shields.io/endpoint?url=https://swiftpackageindex.com/api/packages/theblixguy/swift-bylaws/badge?type=platforms
+[CI]: https://github.com/theblixguy/swift-bylaws/actions/workflows/ci.yml
+[CI badge]: https://github.com/theblixguy/swift-bylaws/actions/workflows/ci.yml/badge.svg
