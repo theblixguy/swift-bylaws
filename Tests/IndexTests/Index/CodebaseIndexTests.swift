@@ -1,6 +1,9 @@
 import BylawsCore
 import BylawsIndex
 import BylawsIndexStore
+import BylawsSemantics
+import BylawsTestSupport
+import Foundation
 import Testing
 
 @Suite(
@@ -12,6 +15,37 @@ import Testing
   .tags(.indexStore)
 )
 struct CodebaseIndexTests {
+  @Test("Index matches a symlinked codebase root")
+  func indexMatchesSymlinkedRoot() async throws {
+    let project = try TemporaryProject(files: [:])
+    let alias = project.fileURL(for: "linked-package")
+    let root = try IndexUnderTest.codebase.resolvedRootPath()
+    try FileManager.default.createSymbolicLink(
+      at: alias,
+      withDestinationURL: URL(fileURLWithPath: root)
+    )
+    let codebase = Codebase(
+      root: .directory(alias.path),
+      including: ["Tests/TestModules/PortableRuleSupport/Subjects.swift"],
+      swiftLanguageMode: .v6
+    )
+
+    let source = try #require(await codebase.files.first)
+    #expect(source.path.hasPrefix(alias.path))
+    let index = try await codebase.projectIndex()
+    let definition = try #require(index.definitions(of: "SupportSubject").first)
+    let moduleIndex = try await codebase.projectIndex(
+      modules: ["PortableRuleSupport"]
+    )
+    let moduleDefinition = try #require(
+      moduleIndex.definitions(of: "SupportSubject").first
+    )
+
+    #expect(index.fileCount == 1)
+    #expect(definition.file == source.path)
+    #expect(moduleDefinition.file == source.path)
+  }
+
   @Test("Index follows codebase file selection")
   func indexUsesSelectedFiles() async throws {
     let selected = Codebase(

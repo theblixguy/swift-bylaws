@@ -36,6 +36,26 @@ package actor ProjectIndexCache {
         let path = try IndexStoreLocation.path(forPackageAt: root)
         let store = try IndexStore(path: path)
         let rootPath = LexicalFilePath(root)
+        guard let physicalRoot = rootPath.resolvingSymbolicLinks() else {
+          throw IndexStoreError.unreadablePath(
+            path: root,
+            reason: NSError(
+              domain: NSPOSIXErrorDomain,
+              code: Int(errno)
+            ).localizedDescription
+          )
+        }
+        func relativePath(for file: String) -> LexicalFilePath? {
+          let path = LexicalFilePath(file)
+          if let relative = path.relative(to: rootPath) { return relative }
+          guard physicalRoot != rootPath else { return nil }
+          return path.relative(to: physicalRoot)
+        }
+        func mappedPath(for file: String) -> String {
+          guard physicalRoot != rootPath else { return file }
+          guard let relative = relativePath(for: file) else { return file }
+          return rootPath.appending(relative.string).string
+        }
         return try ProjectIndex(
           store: store,
           modules: modules,
@@ -43,10 +63,11 @@ package actor ProjectIndexCache {
           includingFile: { file in
             if modules != nil { return true }
             guard file.hasSuffix(".swift"),
-                  let relative = LexicalFilePath(file).relative(to: rootPath)
+                  let relative = relativePath(for: file)
             else { return false }
             return codebase.covers(Glob.Path(relative.string))
-          }
+          },
+          mapFilePath: { mappedPath(for: $0) }
         )
       }
       await RuleDependencyTracking.recordUntrackedDependency()

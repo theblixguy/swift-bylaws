@@ -1,6 +1,12 @@
 import Foundation
 import SystemPackage
 
+#if canImport(Darwin)
+  import Darwin
+#elseif canImport(Glibc)
+  import Glibc
+#endif
+
 package struct LexicalFilePath: Sendable, Hashable {
   private let path: FilePath
 
@@ -44,6 +50,12 @@ package struct LexicalFilePath: Sendable, Hashable {
     var relative = path
     guard relative.removePrefix(directory.path) else { return nil }
     return Self(relative)
+  }
+
+  @safe package func resolvingSymbolicLinks() -> Self? {
+    guard let resolved = unsafe realpath(string, nil) else { return nil }
+    defer { unsafe free(resolved) }
+    return Self(unsafe String(cString: resolved))
   }
 
   package func resolvingDescendant(_ subpath: String) -> Self? {

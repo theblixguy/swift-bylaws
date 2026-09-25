@@ -1,5 +1,6 @@
 import BylawsCore
 import BylawsPaths
+import BylawsTestSupport
 import Foundation
 import Testing
 
@@ -28,6 +29,23 @@ struct LexicalFilePathTests {
       LexicalFilePath("\(link.path)/./App.swift").string
         == link.appendingPathComponent("App.swift").path
     )
+  }
+
+  @Test("Physical path resolves symbolic links")
+  func physicalPathResolvesSymbolicLinks() throws {
+    let manager = FileManager.default
+    let project = try TemporaryProject(files: [:])
+    let real = project.fileURL(for: "real")
+    let link = project.fileURL(for: "link")
+    try manager.createDirectory(at: real, withIntermediateDirectories: true)
+    try manager.createSymbolicLink(at: link, withDestinationURL: real)
+
+    let expected = try #require(
+      LexicalFilePath(real.path).resolvingSymbolicLinks()
+    )
+    let actual = LexicalFilePath(link.path).resolvingSymbolicLinks()
+
+    #expect(actual == expected)
   }
 
   @Test("Component membership matches a whole component")
