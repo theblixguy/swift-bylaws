@@ -97,7 +97,7 @@ extension SupportedAPI {
       arguments: .alternatives([
         [.init(.of, .matcherForSelection)],
         [.init(.matching, .matcherForSelection)],
-        [.init(.outsidePaths, .stringOrStringArray)],
+        [.init(.outsidePaths, .oneOf([.string, .array(.string)]))],
       ]),
       result: .violationsForSelection
     ),

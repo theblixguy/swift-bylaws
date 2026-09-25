@@ -15,6 +15,8 @@ struct IndexOccurrences: Sendable {
     identifiers.flatMap { indicesByUSR[$0] ?? [] }.sorted().map { values[$0] }
   }
 
+  var all: [IndexReference] { values }
+
   func at(file: String, line: Int, column: Int) -> [IndexReference] {
     let position = (file, line, column)
     var lower = 0

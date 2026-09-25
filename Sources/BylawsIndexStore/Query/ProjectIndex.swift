@@ -1,11 +1,6 @@
 import Foundation
 
-/// An in-memory, compiler-resolved index of a project.
-///
-/// Use it for cross-module queries such as protocol conformances
-/// (``conformers(of:)``) and symbol uses (``references(to:)``).
-///
-/// Building the index reads every unit once. Queries then read from memory.
+/// An in-memory index of compiler-resolved symbols across modules.
 public struct ProjectIndex: Sendable {
   private let occurrenceStorage: IndexOccurrences
 
@@ -51,6 +46,22 @@ public struct ProjectIndex: Sendable {
     modules: Set<String>? = nil,
     unitOutputFiles: Set<String>? = nil,
     skippingDeletedFiles: Bool = true
+  ) throws(IndexStoreError) {
+    try self.init(
+      store: store,
+      modules: modules,
+      unitOutputFiles: unitOutputFiles,
+      skippingDeletedFiles: skippingDeletedFiles,
+      includingFile: { _ in true }
+    )
+  }
+
+  package init(
+    store: IndexStore,
+    modules: Set<String>?,
+    unitOutputFiles: Set<String>?,
+    skippingDeletedFiles: Bool = true,
+    includingFile: (String) -> Bool
   ) throws(IndexStoreError) {
     var references: [String: Set<IndexReference>] = [:]
     var names: [String: Set<String>] = [:]
@@ -99,7 +110,8 @@ public struct ProjectIndex: Sendable {
       }
     }
     let requestedUnits = currentUnits.filter { unit in
-      modules?.contains(unit.moduleName) ?? true
+      (modules?.contains(unit.moduleName) ?? true)
+        && includingFile(unit.mainFile)
     }
     if unitOutputFiles == nil {
       try Self.requireOneBuildConfiguration(in: requestedUnits)
@@ -213,8 +225,26 @@ public struct ProjectIndex: Sendable {
   ///
   /// The result leaves out the places that declare or define it.
   public func references(to symbolName: String) -> [IndexReference] {
-    occurrences(of: symbolName).filter {
+    references(toIdentifiers: identifiers(for: symbolName))
+  }
+
+  /// Returns uses of the symbols in `definitions`.
+  public func references(to definitions: [IndexReference]) -> [IndexReference] {
+    references(toIdentifiers: Set(definitions.map(\.symbol.usr)))
+  }
+
+  package func references(
+    toIdentifiers identifiers: Set<String>
+  ) -> [IndexReference] {
+    occurrenceStorage.matching(identifiers).filter {
       $0.roles.contains(.reference) && !$0.roles.contains(.definition)
+    }
+  }
+
+  /// Returns the declarations and definitions in the index.
+  public func definitions() -> [IndexReference] {
+    occurrenceStorage.all.filter {
+      $0.roles.contains(.definition) || $0.roles.contains(.declaration)
     }
   }
 

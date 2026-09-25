@@ -39,6 +39,9 @@ func repositoriesStayInData() async throws {
 }
 ```
 
+Index queries use the `Codebase` file selection by default, and you can pass
+`modules:` when a rule needs every indexed file in specific modules.
+
 A store with several builds of the same source file can produce an error about
 which build to use. Choose a store for one configuration or select its units
 with `unitOutputFiles:` in

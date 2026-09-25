@@ -44,13 +44,16 @@ struct RuntimeIndexProviderMock: RuntimeIndexProvider {
 
   let expectedQuery: RuntimeIndexQuery?
   let expectedFolderPattern: String?
+  let suppliedReferences: [RuntimeIndexReference]?
 
   init(
     expectedQuery: RuntimeIndexQuery? = nil,
-    expectedFolderPattern: String? = nil
+    expectedFolderPattern: String? = nil,
+    references: [RuntimeIndexReference]? = nil
   ) {
     self.expectedQuery = expectedQuery
     self.expectedFolderPattern = expectedFolderPattern
+    suppliedReferences = references
   }
 
   func indexedFindings(
@@ -97,8 +100,27 @@ struct RuntimeIndexProviderMock: RuntimeIndexProvider {
     }
   }
 
+  func definitions(in index: RuntimeProjectIndex) async
+    -> [RuntimeIndexReference]
+  {
+    references.filter {
+      $0.roles.contains(.definition) || $0.roles.contains(.declaration)
+    }
+  }
+
+  func references(
+    to definitions: [RuntimeIndexReference],
+    in index: RuntimeProjectIndex
+  ) async -> [RuntimeIndexReference] {
+    references.filter { reference in
+      reference.roles.contains(.reference)
+        && !reference.roles.contains(.definition)
+        && definitions.contains { $0.symbol.usr == reference.symbol.usr }
+    }
+  }
+
   private var references: [RuntimeIndexReference] {
-    [
+    suppliedReferences ?? [
       reference(name: "CoreConformer", module: "BylawsSemantics", line: 3),
       reference(name: "UIConformer", module: "UI", line: 8),
     ]

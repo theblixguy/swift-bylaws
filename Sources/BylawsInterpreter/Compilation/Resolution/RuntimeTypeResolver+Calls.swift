@@ -138,11 +138,12 @@ extension RuntimeTypeResolver {
         )
       case .any:
         return resolve(argument.1)
-      case .stringOrStringArray:
-        let actual = resolve(argument.1, expected: .array(.string))
-        if actual != .string, !actual.isAssignable(to: .array(.string)) {
+      case let .oneOf(types):
+        let actual = resolve(argument.1, expected: types.last)
+        if !types.contains(where: { actual.isAssignable(to: $0) }) {
           diagnose(
-            "argument \(offset + 1) must be String or [String]",
+            "argument \(offset + 1) must be "
+              + types.map(\.writtenName).joined(separator: " or "),
             at: argument.1.location
           )
         }

@@ -129,6 +129,11 @@ public struct Codebase: Sendable, Hashable {
     sourceLoading = .fileSystem
   }
 
+  package func covers(_ path: Glob.Path) -> Bool {
+    let included = including.isEmpty || including.contains { $0.matches(path) }
+    return included && !excluding.contains { $0.matches(path) }
+  }
+
   package func usingParseCache(_ policy: ParseCachePolicy) -> Codebase {
     var codebase = self
     codebase.parseCachePolicy = policy

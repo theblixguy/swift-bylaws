@@ -312,10 +312,3 @@ enum CodebaseBuilder {
     )
   }
 }
-
-extension Codebase {
-  fileprivate func covers(_ path: Glob.Path) -> Bool {
-    let included = including.isEmpty || including.contains { $0.matches(path) }
-    return included && !excluding.contains { $0.matches(path) }
-  }
-}

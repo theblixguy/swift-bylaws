@@ -19,7 +19,9 @@ package actor ProjectIndexCache {
     let key = Key(
       root: root,
       modules: modules,
-      unitOutputFiles: unitOutputFiles
+      unitOutputFiles: unitOutputFiles,
+      including: modules == nil ? codebase.including : nil,
+      excluding: modules == nil ? codebase.excluding : nil
     )
     do {
       let index = try await MemoisedTask.value(
@@ -33,10 +35,18 @@ package actor ProjectIndexCache {
       ) { () throws(IndexStoreError) in
         let path = try IndexStoreLocation.path(forPackageAt: root)
         let store = try IndexStore(path: path)
+        let rootPath = LexicalFilePath(root)
         return try ProjectIndex(
           store: store,
           modules: modules,
-          unitOutputFiles: unitOutputFiles
+          unitOutputFiles: unitOutputFiles,
+          includingFile: { file in
+            if modules != nil { return true }
+            guard file.hasSuffix(".swift"),
+                  let relative = LexicalFilePath(file).relative(to: rootPath)
+            else { return false }
+            return codebase.covers(Glob.Path(relative.string))
+          }
         )
       }
       await RuleDependencyTracking.recordUntrackedDependency()
@@ -56,6 +66,8 @@ package actor ProjectIndexCache {
     let root: String
     let modules: Set<String>?
     let unitOutputFiles: Set<String>?
+    let including: [Glob]?
+    let excluding: [Glob]?
   }
 
   private var entries: [Key: MemoisedTask<ProjectIndex, IndexStoreError>] = [:]

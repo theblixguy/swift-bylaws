@@ -9,7 +9,7 @@ extension Codebase {
   /// references within one file and excludes definitions outside the codebase
   /// selection, including those in external libraries.
   ///
-  /// Build the selected modules first. The check uses explicit compiler
+  /// Build the project first. The check uses explicit compiler
   /// references from that build and returns violations at their source
   /// locations. Ambiguous definitions produce warnings.
   ///
@@ -22,7 +22,7 @@ extension Codebase {
   ///     References within each matching folder are also permitted.
   ///     References between different matching folders must satisfy
   ///     `destinationPatterns`.
-  ///   - modules: The build modules to read, or all modules when `nil`.
+  ///   - modules: The modules to read instead of the codebase's selected files.
   ///   - unitOutputFiles: The build units to read, or `nil` when the index
   ///     contains one build configuration.
   ///   - location: The reporting location for warnings, or this call site.

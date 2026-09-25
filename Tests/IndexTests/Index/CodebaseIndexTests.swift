@@ -12,6 +12,85 @@ import Testing
   .tags(.indexStore)
 )
 struct CodebaseIndexTests {
+  @Test("Index follows codebase file selection")
+  func indexUsesSelectedFiles() async throws {
+    let selected = Codebase(
+      root: .automatic(),
+      including: ["Tests/TestModules/PortableRuleSupport/Subjects.swift"],
+      swiftLanguageMode: .v6
+    )
+
+    let index = try await selected.projectIndex()
+
+    #expect(index.modules == ["PortableRuleSupport"])
+    #expect(index.fileCount == 1)
+    #expect(!index.definitions(of: "SupportSubject").isEmpty)
+    #expect(index.definitions(of: "SourceLocationCalls").isEmpty)
+  }
+
+  @Test("Index reads files across selected modules")
+  func indexIncludesSelectedModules() async throws {
+    let selected = Codebase(
+      root: .automatic(),
+      including: ["Tests/TestModules/PortableR*/**"],
+      excluding: ["**/SourceLocationCalls.swift"],
+      swiftLanguageMode: .v6
+    )
+
+    let index = try await selected.projectIndex()
+
+    #expect(index.modules == testModuleNames)
+    #expect(index.definitions(of: "SourceLocationCalls").isEmpty)
+    #expect(!index.definitions(of: "SupportSubject").isEmpty)
+  }
+
+  @Test("Selected files resolve standard protocol conformances")
+  func selectedFilesResolveExternalProtocols() async throws {
+    let selected = Codebase(
+      root: .automatic(),
+      including: ["Sources/BylawsIndexStore/**"],
+      swiftLanguageMode: .v6
+    )
+
+    let conformers = try await selected.conformers(of: "Sendable")
+
+    #expect(conformers.contains { $0.symbol.name == "IndexSymbol" })
+  }
+
+  @Test("Explicit modules replace codebase file selection")
+  func explicitModulesOverrideFiles() async throws {
+    let selected = Codebase(
+      root: .automatic(),
+      including: ["Tests/TestModules/PortableRuleSupport/Subjects.swift"],
+      swiftLanguageMode: .v6
+    )
+
+    let index = try await selected
+      .projectIndex(modules: ["PortableRuleSupport"])
+
+    #expect(!index.definitions(of: "SourceLocationCalls").isEmpty)
+  }
+
+  @Test("Different file selections read separate indexes")
+  func differentSelectionsUseSeparateCacheEntries() async throws {
+    let cache = ProjectIndexCache()
+    let first = Codebase(
+      root: .automatic(),
+      including: ["Tests/TestModules/PortableRuleSupport/Subjects.swift"],
+      swiftLanguageMode: .v6
+    )
+    let second = Codebase(
+      root: .automatic(),
+      including: ["Tests/TestModules/PortableRuleSupport/Matchers.swift"],
+      swiftLanguageMode: .v6
+    )
+
+    _ = try await cache.index(for: first, modules: nil, unitOutputFiles: nil)
+    _ = try await cache.index(for: second, modules: nil, unitOutputFiles: nil)
+
+    #expect(await cache.readCount == 2)
+  }
+
   @Test("A codebase opens the index from its build")
   func readsTheIndex() async throws {
     let index = try await codebase.projectIndex(modules: ourModules)

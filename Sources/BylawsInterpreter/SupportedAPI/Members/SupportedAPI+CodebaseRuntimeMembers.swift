@@ -134,8 +134,23 @@ extension SupportedAPI {
 
     projectIndexMethod(.conformers, label: .of),
     projectIndexMethod(.directConformers, label: .of),
-    projectIndexMethod(.references, label: .to),
-    projectIndexMethod(.definitions, label: .of),
+    method(
+      .references, on: [.projectIndex],
+      arguments: .exact([.init(.to, .oneOf([
+        .string, .array(.model(.indexReference)),
+      ]))]),
+      result: .fixed(.array(.model(.indexReference))),
+      canSuspend: true
+    ),
+    method(
+      .definitions, on: [.projectIndex],
+      arguments: .alternatives([
+        [],
+        [.init(.of, .exact(.string))],
+      ]),
+      result: .fixed(.array(.model(.indexReference))),
+      canSuspend: true
+    ),
     method(
       .occurrences, on: [.projectIndex],
       arguments: .alternatives([

@@ -90,3 +90,39 @@ such as the permitted condition names in a project.
 The CLI supports these queries too. See <doc:InspectingExpressions> for
 expression and assignment checks and <doc:AdvancedRules> for compiler-index
 queries.
+
+## Check uses of DEBUG-only declarations
+
+The compiler index can find references to declarations inside `#if DEBUG`,
+so you can report any uses outside the branch:
+
+```swift
+import Bylaws
+import BylawsIndex
+
+let codebase = Codebase(including: ["Sources/**"])
+
+let rules: [Rule] = [
+  Rule("debug-symbols", "DEBUG symbols used only inside DEBUG") {
+    let debugBranches = try await codebase.compilationBranches.filter {
+      $0.condition == "DEBUG"
+    }
+    let index = try await codebase.projectIndex()
+    let definitions = index.definitions().filter { definition in
+      debugBranches.contains { $0.contains(definition.location) }
+    }
+    let uses = index.references(to: definitions)
+    let outside = uses.filter { reference in
+      !debugBranches.contains { $0.contains(reference.location) }
+    }
+    Violations(
+      rule: "stay inside DEBUG",
+      offenders: outside,
+      checkedCount: uses.count
+    )
+  },
+]
+```
+
+Run a debug build before you check this rule in Swift Testing or the CLI, because
+the index only contains symbols from the configuration which you build for.

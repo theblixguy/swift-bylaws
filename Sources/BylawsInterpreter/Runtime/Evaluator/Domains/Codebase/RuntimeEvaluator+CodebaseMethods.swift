@@ -176,6 +176,31 @@ extension RuntimeEvaluator {
     index: RuntimeProjectIndex,
     arguments: RuntimeArguments
   ) async throws(RuntimeError) -> RuntimeValue {
+    if name == .definitions, arguments.values.isEmpty {
+      let provider = try requireIndexProvider(at: arguments.location)
+      let values = try await reportingFailures(at: arguments.location) {
+        try await provider.definitions(in: index)
+      }
+      return .array(values.map { .model(.indexReference($0)) })
+    }
+    if name == .references, arguments.label(at: 0) == .to,
+       case let .array(elements) = try arguments.value(at: 0)
+    {
+      let definitions = try elements.map { element throws(RuntimeError) in
+        guard case let .model(.indexReference(reference)) = element else {
+          throw RuntimeError(
+            message: "ProjectIndex.references takes IndexReference values",
+            location: arguments.location
+          )
+        }
+        return reference
+      }
+      let provider = try requireIndexProvider(at: arguments.location)
+      let values = try await reportingFailures(at: arguments.location) {
+        try await provider.references(to: definitions, in: index)
+      }
+      return .array(values.map { .model(.indexReference($0)) })
+    }
     if name == .occurrences, arguments.label(at: 0) == .at {
       try arguments.requireLabels([.at], for: name)
       guard case let .model(.check(.location(location))) = try arguments
