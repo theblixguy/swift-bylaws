@@ -36,6 +36,15 @@ package protocol RuntimeIndexProvider: Sendable {
     in index: RuntimeProjectIndex
   ) async throws(RuntimeIndexError) -> [RuntimeIndexReference]
 
+  func definitions(
+    in index: RuntimeProjectIndex
+  ) async throws(RuntimeIndexError) -> [RuntimeIndexReference]
+
+  func references(
+    to definitions: [RuntimeIndexReference],
+    in index: RuntimeProjectIndex
+  ) async throws(RuntimeIndexError) -> [RuntimeIndexReference]
+
   func occurrences(
     at location: DeclarationLocation,
     in index: RuntimeProjectIndex

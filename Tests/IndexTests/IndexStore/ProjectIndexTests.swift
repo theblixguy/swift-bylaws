@@ -64,6 +64,46 @@ struct ProjectIndexTests {
     #expect(defining.isEmpty)
   }
 
+  @Test("All definitions include declarations across files")
+  func findsAllDefinitions() async throws {
+    let index = try await IndexUnderTest.index()
+
+    #expect(index.definitions().contains {
+      $0.symbol.name == "IndexSymbol" && $0.roles.contains(.definition)
+    })
+    #expect(index.definitions().contains {
+      $0.symbol.name == "IndexReference" && $0.roles.contains(.definition)
+    })
+    #expect(index.definitions().allSatisfy {
+      $0.roles.contains(.definition) || $0.roles.contains(.declaration)
+    })
+  }
+
+  @Test("Reference queries use definition identities")
+  func findsReferencesToDefinitions() async throws {
+    let index = try await IndexUnderTest.index()
+    let definitions = index.definitions(of: "IndexSymbol")
+    let definition = try #require(definitions.first)
+    let otherSymbol = IndexSymbol(
+      usr: "another.IndexSymbol",
+      name: definition.symbol.name,
+      kind: definition.symbol.kind
+    )
+    let sameName = IndexReference(
+      symbol: otherSymbol,
+      module: definition.module,
+      file: definition.file,
+      line: definition.line,
+      column: definition.column,
+      roles: .definition
+    )
+    let named = index.references(to: "IndexSymbol")
+
+    #expect(index.references(to: definitions) == named)
+    #expect(index.references(to: [sameName]).isEmpty)
+    #expect(index.references(to: []).isEmpty)
+  }
+
   @Test("A module query returns the module that defines a symbol")
   func reportsTheDefiningModule() async throws {
     let index = try await IndexUnderTest.index()

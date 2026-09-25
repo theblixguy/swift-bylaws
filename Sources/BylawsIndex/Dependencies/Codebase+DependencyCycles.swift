@@ -4,7 +4,7 @@ public import BylawsSemantics
 extension Codebase {
   /// Reports the first dependency cycle between named groups of files.
   ///
-  /// Build the selected modules first. The check uses explicit compiler
+  /// Build the project first. The check uses explicit compiler
   /// references and reports one source location per edge, in sorted group-name
   /// order. It excludes references within one group and files outside all groups.
   /// Group names must be distinct and non-empty. Selected files cannot belong
@@ -15,7 +15,7 @@ extension Codebase {
   ///
   /// - Parameters:
   ///   - groups: Named file selections, with globs relative to the codebase root.
-  ///   - modules: The build modules to read, or all modules when `nil`.
+  ///   - modules: The modules to read instead of the codebase's selected files.
   ///   - unitOutputFiles: The build units to read, or `nil` for a single build
   ///     configuration.
   ///   - location: The warning location, or this call site when `nil`.

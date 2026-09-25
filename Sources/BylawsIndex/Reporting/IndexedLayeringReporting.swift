@@ -11,7 +11,7 @@
     ///
     /// - Parameters:
     ///   - layering: The file globs and allowed dependency edges to check.
-    ///   - modules: The indexed modules to read, or `nil` for all modules.
+    ///   - modules: The modules to read instead of the codebase's selected files.
     ///   - unitOutputFiles: The build units to read, or `nil` when the index
     ///     contains one build configuration.
     ///   - sourceLocation: Where to report failures and other issues.

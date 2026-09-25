@@ -84,6 +84,23 @@ struct BylawsIndexProvider: RuntimeIndexProvider {
     return projectIndex.occurrences(at: location).map(runtimeReference)
   }
 
+  func definitions(
+    in index: RuntimeProjectIndex
+  ) async throws(RuntimeIndexError) -> [RuntimeIndexReference] {
+    let projectIndex = try await resolvedIndex(index)
+    return projectIndex.definitions().map(runtimeReference)
+  }
+
+  func references(
+    to definitions: [RuntimeIndexReference],
+    in index: RuntimeProjectIndex
+  ) async throws(RuntimeIndexError) -> [RuntimeIndexReference] {
+    let projectIndex = try await resolvedIndex(index)
+    let identifiers = Set(definitions.map(\.symbol.usr))
+    return projectIndex.references(toIdentifiers: identifiers)
+      .map(runtimeReference)
+  }
+
   private func resolvedIndex(_ index: RuntimeProjectIndex) async throws(
     RuntimeIndexError
   )

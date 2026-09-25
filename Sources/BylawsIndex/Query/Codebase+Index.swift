@@ -5,16 +5,17 @@ import BylawsSemantics
 extension Codebase {
   /// Returns the compiler's index for this codebase.
   ///
-  /// Rules read the index emitted by their own build. Debug builds emit it by
-  /// default. Release builds require `--enable-index-store`.
+  /// Rules read the index written by a build. SwiftPM debug builds write it by
+  /// default, and release builds need `--enable-index-store`.
   ///
-  /// The first call for each resolved root, module set and unit-output set
-  /// reads the store. Later calls reuse the successful result. Long-running
-  /// integrations discard it after the indexed project changes.
+  /// Calls with the same root and selection reuse the loaded index, so
+  /// long-running integrations must discard it when the project index changes.
   ///
-  /// - Parameter modules: The modules to read, or `nil` for all of them.
-  ///   Selecting modules skips standard-library and dependency-framework
-  ///   units, which make up most stores.
+  /// The index uses this codebase's `including` and `excluding` globs by
+  /// default, or all indexed files in `modules` when you supply them.
+  ///
+  /// - Parameter modules: The modules to read instead of the codebase's
+  ///   selected files.
   /// - Parameter unitOutputFiles: The opaque output identities of the units
   ///   in the current build, or `nil` when the store belongs to one build
   ///   configuration.

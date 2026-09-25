@@ -145,7 +145,7 @@ extension SupportedAPI {
   package enum RuntimeArgumentType: Equatable, Sendable {
     case dictionaryValueCallable
     case any
-    case stringOrStringArray
+    case oneOf([RuntimeType])
     case exact(RuntimeType)
     case sequenceOfCollectionElement
     case collectionCallable(result: RuntimeType?)
