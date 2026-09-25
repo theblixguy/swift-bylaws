@@ -61,7 +61,8 @@ public struct ProjectIndex: Sendable {
     modules: Set<String>?,
     unitOutputFiles: Set<String>?,
     skippingDeletedFiles: Bool = true,
-    includingFile: (String) -> Bool
+    includingFile: (String) -> Bool,
+    mapFilePath: (String) -> String = { $0 }
   ) throws(IndexStoreError) {
     var references: [String: Set<IndexReference>] = [:]
     var names: [String: Set<String>] = [:]
@@ -119,11 +120,12 @@ public struct ProjectIndex: Sendable {
 
     for unit in requestedUnits {
       readModules.insert(unit.moduleName)
-      if !unit.mainFile.isEmpty { files.insert(unit.mainFile) }
+      if !unit.mainFile.isEmpty { files.insert(mapFilePath(unit.mainFile)) }
 
       for record in unit.records {
         let sourceFile = record.file.isEmpty ? unit.mainFile : record.file
-        if !sourceFile.isEmpty { files.insert(sourceFile) }
+        let file = sourceFile.isEmpty ? sourceFile : mapFilePath(sourceFile)
+        if !file.isEmpty { files.insert(file) }
         for occurrence in try store.occurrences(inRecordNamed: record.name) {
           guard !occurrence.symbol.usr.isEmpty else { continue }
           let usr = interned(occurrence.symbol.usr)
@@ -134,7 +136,7 @@ public struct ProjectIndex: Sendable {
               kind: occurrence.symbol.kind
             ),
             module: unit.moduleName,
-            file: sourceFile,
+            file: file,
             line: occurrence.line,
             column: occurrence.column,
             roles: occurrence.roles
@@ -151,7 +153,7 @@ public struct ProjectIndex: Sendable {
                   kind: relation.symbol.kind
                 ),
                 module: unit.moduleName,
-                file: sourceFile,
+                file: file,
                 line: occurrence.line,
                 column: occurrence.column,
                 roles: relation.roles
