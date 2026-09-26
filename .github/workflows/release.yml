@@ -323,6 +323,7 @@ jobs:
               checksum: $checksum,
               sourceRevision: $sourceRevision
             }' > Distribution/PluginTool.json
+          swift Scripts/sync-package-manifest.swift
       - name: Verify plugin artifact
         env:
           SOURCE_REVISION: ${{ needs.prepare-source.outputs.source_revision }}
@@ -377,7 +378,7 @@ jobs:
         run: |
           git config user.name "${APP_SLUG}[bot]"
           git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
-          git add Distribution/PluginTool.json
+          git add Distribution/PluginTool.json Package.swift
           git commit -m "Release ${RELEASE_TAG} [skip ci]"
           EXPECTED_REVISION=$(git rev-parse HEAD)
           EXPECTED_TREE=$(git rev-parse HEAD^{tree})

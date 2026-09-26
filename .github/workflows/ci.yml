@@ -146,6 +146,14 @@ jobs:
       - name: Test SwiftSyntax artifact tool
         if: needs.changes.outputs.consumers == 'true'
         run: swift test --package-path Tools/SwiftSyntaxArtifact
+      - name: Check standalone package manifest
+        if: needs.changes.outputs.consumers == 'true'
+        run: |
+          swift Scripts/sync-package-manifest.swift --check
+          manifest_dir=$(mktemp -d)
+          cp Package.swift "${manifest_dir}/Package.swift"
+          env -u BYLAWS_BUILD_PLUGIN_FROM_SOURCE \
+            swift package --package-path "${manifest_dir}" dump-package > /dev/null
       - name: Check optional package dependencies
         if: needs.changes.outputs.consumers == 'true'
         run: |
