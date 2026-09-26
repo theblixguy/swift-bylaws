@@ -13,9 +13,9 @@ private enum PluginToolArtifact {
   }
 
   static let mode: Mode = .remote
-  static let url =
+  static let url: String? =
     "https://github.com/theblixguy/swift-bylaws/releases/download/v0.6.0/bylaws.artifactbundle.zip"
-  static let checksum =
+  static let checksum: String? =
     "3c59b508f565e59e59cc6b7ef6820f982cf749f7c2df25f35f7f957eee04f312"
 }
 
@@ -37,10 +37,12 @@ private enum PluginToolSelection {
     #if os(macOS) || (os(Linux) && arch(x86_64))
       switch PluginToolArtifact.mode {
       case .remote:
-        return .remoteArtifact(
-          url: PluginToolArtifact.url,
-          checksum: PluginToolArtifact.checksum
-        )
+        guard let url = PluginToolArtifact.url,
+              let checksum = PluginToolArtifact.checksum
+        else {
+          fatalError("Plugin tool artifact URL and checksum are missing.")
+        }
+        return .remoteArtifact(url: url, checksum: checksum)
       case .source:
         return .source
       }
@@ -430,6 +432,12 @@ let package = Package(
       dependencies: swiftSyntax.dependencies,
       swiftSettings: swiftSettings + swiftSyntax.swiftSettings
     ),
+    .executableTarget(
+      name: "PackageManifestSync",
+      dependencies: ["BylawsSyntax"],
+      path: "Tools/PackageManifestSync",
+      swiftSettings: swiftSettings
+    ),
     .target(
       name: "BylawsPaths",
       dependencies: [
@@ -558,6 +566,11 @@ let package = Package(
         "BylawsSemantics",
         "BylawsSyntax",
       ],
+      swiftSettings: swiftSettings
+    ),
+    .testTarget(
+      name: "PackageManifestSyncTests",
+      dependencies: ["PackageManifestSync"],
       swiftSettings: swiftSettings
     ),
     .testTarget(

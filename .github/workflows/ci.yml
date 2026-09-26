@@ -149,7 +149,7 @@ jobs:
       - name: Check standalone package manifest
         if: needs.changes.outputs.consumers == 'true'
         run: |
-          swift Scripts/sync-package-manifest.swift --check
+          swift run PackageManifestSync --check
           manifest_dir=$(mktemp -d)
           cp Package.swift "${manifest_dir}/Package.swift"
           env -u BYLAWS_BUILD_PLUGIN_FROM_SOURCE \

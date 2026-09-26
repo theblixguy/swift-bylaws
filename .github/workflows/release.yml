@@ -284,12 +284,16 @@ jobs:
   prepare-release:
     name: Commit and tag release
     needs: [prepare-source, documentation, artifactbundle]
-    runs-on: ubuntu-latest
+    runs-on: macos-26
     permissions:
       contents: write
     outputs:
       revision: ${{ steps.release-commit.outputs.revision }}
     steps:
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: 26.6
       - name: Create release app token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
@@ -323,7 +327,7 @@ jobs:
               checksum: $checksum,
               sourceRevision: $sourceRevision
             }' > Distribution/PluginTool.json
-          swift Scripts/sync-package-manifest.swift
+          swift run PackageManifestSync
       - name: Verify plugin artifact
         env:
           SOURCE_REVISION: ${{ needs.prepare-source.outputs.source_revision }}
