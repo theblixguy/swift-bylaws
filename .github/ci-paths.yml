@@ -24,6 +24,7 @@ consumers:
   - 'Tests/PackageConsumer/**'
   - 'Tests/Bazel/**'
   - 'Scripts/make-plugin-artifact-bundle.swift'
+  - 'Tools/PackageManifestSync/**'
   - 'Scripts/test-release.swift'
   - 'Tools/SwiftSyntaxArtifact/**'
   - '.github/ci-paths.yml'

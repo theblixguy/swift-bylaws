@@ -6,11 +6,6 @@ RELEASE_TAG="${1:?Release tag is required}"
 VERSION="${RELEASE_TAG#v}"
 export RELEASE_TAG VERSION
 
-BUNDLE_SHA256=$(shasum -a 256 bylaws-artifactbundle/bylaws.artifactbundle.zip | cut -d' ' -f1)
-jq -e --arg version "${VERSION}" --arg checksum "${BUNDLE_SHA256}" \
-  '.mode == "remote" and .version == $version and .checksum == $checksum' \
-  Distribution/PluginTool.json >&2
-
 MACOS_SHA256=$(shasum -a 256 bylaws-macos/bylaws-macos.tar.gz | cut -d' ' -f1)
 LINUX_SHA256=$(shasum -a 256 bylaws-linux/bylaws-linux.tar.gz | cut -d' ' -f1)
 export MACOS_SHA256 LINUX_SHA256

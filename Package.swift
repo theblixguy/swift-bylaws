@@ -1,5 +1,4 @@
 // swift-tools-version: 6.2
-import Foundation
 import PackageDescription
 
 private enum PluginToolTarget {
@@ -7,17 +6,11 @@ private enum PluginToolTarget {
   static let source = "bylaws-cli"
 }
 
-private struct PluginToolConfiguration: Decodable {
-  enum Mode: String, Decodable {
-    case remote
-    case source
-  }
-
-  let mode: Mode
-  let version: String?
-  let url: String?
-  let checksum: String?
-  let sourceRevision: String?
+private enum PluginToolArtifact {
+  static let url =
+    "https://github.com/theblixguy/swift-bylaws/releases/download/v0.6.0/bylaws.artifactbundle.zip"
+  static let checksum =
+    "3c59b508f565e59e59cc6b7ef6820f982cf749f7c2df25f35f7f957eee04f312"
 }
 
 private enum PluginToolSelection {
@@ -36,32 +29,10 @@ private enum PluginToolSelection {
     }
 
     #if os(macOS) || (os(Linux) && arch(x86_64))
-      let manifestDirectory = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-      let configurationURL = manifestDirectory
-        .appendingPathComponent("Distribution/PluginTool.json")
-      do {
-        let data = try Data(contentsOf: configurationURL)
-        let configuration = try JSONDecoder().decode(
-          PluginToolConfiguration.self,
-          from: data
-        )
-        switch configuration.mode {
-        case .source:
-          return .source
-        case .remote:
-          guard let url = configuration.url,
-                let checksum = configuration.checksum,
-                configuration.version != nil,
-                configuration.sourceRevision != nil
-          else {
-            fatalError("The remote plugin tool configuration is incomplete.")
-          }
-          return .remoteArtifact(url: url, checksum: checksum)
-        }
-      } catch {
-        fatalError("Cannot read Distribution/PluginTool.json: \(error)")
-      }
+      return .remoteArtifact(
+        url: PluginToolArtifact.url,
+        checksum: PluginToolArtifact.checksum
+      )
     #else
       return .source
     #endif
@@ -100,56 +71,102 @@ private enum SwiftSyntaxArtifact {
 
   static var compiler: Compiler {
     #if compiler(>=6.5) && compiler(<6.6)
-      Compiler(series: "6.5", configuration: "605")
+      Compiler(swiftVersion: .v6_5)
     #elseif compiler(>=6.4.1) && compiler(<6.5)
-      Compiler(series: "6.4", configuration: "604")
+      Compiler(swiftVersion: .v6_4)
     #elseif compiler(>=6.4) && compiler(<6.5)
       Compiler(
-        series: "6.4",
-        configuration: "604",
+        swiftVersion: .v6_4,
         artifactCompilerVersion: "6.4"
       )
     #elseif compiler(>=6.3.4) && compiler(<6.4)
-      Compiler(series: "6.3", configuration: "603")
+      Compiler(swiftVersion: .v6_3)
     #elseif compiler(>=6.3.3) && compiler(<6.4)
       Compiler(
-        series: "6.3",
-        configuration: "603",
+        swiftVersion: .v6_3,
         artifactCompilerVersion: "6.3.3"
       )
     #elseif compiler(>=6.3) && compiler(<6.4)
-      Compiler(series: "6.3", configuration: "603")
+      Compiler(swiftVersion: .v6_3)
     #elseif compiler(>=6.2.4) && compiler(<6.3)
-      Compiler(series: "6.2", configuration: "602")
+      Compiler(swiftVersion: .v6_2)
     #elseif compiler(>=6.2.3) && compiler(<6.3)
       Compiler(
-        series: "6.2",
-        configuration: "602",
+        swiftVersion: .v6_2,
         artifactCompilerVersion: "6.2.3"
       )
     #elseif compiler(>=6.2) && compiler(<6.3)
-      Compiler(series: "6.2", configuration: "602")
+      Compiler(swiftVersion: .v6_2)
     #else
       fatalError("Bylaws supports Swift 6.2 through 6.5.")
     #endif
   }
 
-  static var configuration: String {
-    "Distribution/SwiftSyntax/\(compiler.configuration).json"
+  enum SwiftVersion {
+    case v6_2
+    case v6_3
+    case v6_4
+    case v6_5
+
+    var configuration: SwiftSyntaxArtifactConfiguration {
+      switch self {
+      case .v6_2:
+        SwiftSyntaxArtifactConfiguration(
+          mode: .remote,
+          swiftCompilerVersion: "6.2.3",
+          swiftSyntaxVersion: "602.0.0",
+          artifactRevision: 2,
+          swiftArtifactChecksum:
+          "556016b781b32926bff386a339baf3332a38e3bee62f514ef8aff15ba315063a",
+          cArtifactChecksum:
+          "f581a8e97ce350d61e863cf44ea6af20bff11cc252e169fd7313060ff8789d2b"
+        )
+      case .v6_3:
+        SwiftSyntaxArtifactConfiguration(
+          mode: .remote,
+          swiftCompilerVersion: "6.3.3",
+          swiftSyntaxVersion: "603.0.2",
+          artifactRevision: 2,
+          swiftArtifactChecksum:
+          "e5bd71385f3fe6266f8c31321accc28a935faf6f06a53d639ece7ae42619e953",
+          cArtifactChecksum:
+          "8c91f17e1dad7040aceafc7a8d80edea749b3f7229eb20d4f7c16223373ccf5d"
+        )
+      case .v6_4:
+        SwiftSyntaxArtifactConfiguration(
+          mode: .remote,
+          swiftCompilerVersion: "6.4",
+          swiftSyntaxVersion: "604.0.0",
+          artifactRevision: 2,
+          swiftArtifactChecksum:
+          "a45b03e510da40eb61b103f4dcac4ce84f658ec95599fceb286eb0f3b236882d",
+          cArtifactChecksum:
+          "117ee0e1c8e7bdf33bb71346ff64e34023193cdc69614f8e0fc81a326423b449"
+        )
+      case .v6_5:
+        SwiftSyntaxArtifactConfiguration(
+          mode: .source,
+          swiftCompilerVersion: "6.5",
+          swiftSyntaxVersion: "605.0.0-prerelease-2026-09-15",
+          artifactRevision: 1,
+          swiftArtifactChecksum:
+          nil,
+          cArtifactChecksum:
+          nil
+        )
+      }
+    }
   }
 
   struct Compiler {
-    let series: String
-    let configuration: String
+    let swiftVersion: SwiftVersion
     let artifactCompilerVersion: String?
 
     init(
-      series: String,
-      configuration: String,
+      swiftVersion: SwiftVersion,
       artifactCompilerVersion: String? = nil
     ) {
-      self.series = series
-      self.configuration = configuration
+      self.swiftVersion = swiftVersion
       self.artifactCompilerVersion = artifactCompilerVersion
     }
   }
@@ -173,8 +190,8 @@ private enum SwiftSyntaxArtifact {
   }
 }
 
-private struct SwiftSyntaxArtifactConfiguration: Decodable {
-  enum Mode: String, Decodable {
+private struct SwiftSyntaxArtifactConfiguration {
+  enum Mode {
     case remote
     case source
   }
@@ -223,7 +240,7 @@ private enum SwiftSyntaxSelection {
   case source(configuration: SwiftSyntaxArtifactConfiguration)
 
   static func load() -> Self {
-    let configuration = loadConfiguration()
+    let configuration = SwiftSyntaxArtifact.compiler.swiftVersion.configuration
 
     #if os(macOS)
       if let directory = Context.environment[
@@ -256,41 +273,6 @@ private enum SwiftSyntaxSelection {
     #else
       return .source(configuration: configuration)
     #endif
-  }
-
-  private static func loadConfiguration()
-    -> SwiftSyntaxArtifactConfiguration
-  {
-    let manifestDirectory = URL(fileURLWithPath: #filePath)
-      .deletingLastPathComponent()
-    let configurationURL = manifestDirectory
-      .appendingPathComponent(SwiftSyntaxArtifact.configuration)
-    do {
-      let configuration = try JSONDecoder().decode(
-        SwiftSyntaxArtifactConfiguration.self,
-        from: Data(contentsOf: configurationURL)
-      )
-      let compilerSeries = SwiftSyntaxArtifact.compiler.series
-      guard configuration.swiftCompilerVersion == compilerSeries
-        || configuration.swiftCompilerVersion
-        .hasPrefix("\(compilerSeries).")
-      else {
-        fatalError(
-          "SwiftSyntax configuration must match Swift \(SwiftSyntaxArtifact.compiler.series)."
-        )
-      }
-      guard let expectedMajor = Int(
-        SwiftSyntaxArtifact.compiler.configuration
-      ), configuration.version.major == expectedMajor
-      else {
-        fatalError(
-          "SwiftSyntax version must match Swift \(SwiftSyntaxArtifact.compiler.series)."
-        )
-      }
-      return configuration
-    } catch {
-      fatalError("Cannot read \(SwiftSyntaxArtifact.configuration): \(error)")
-    }
   }
 
   var dependencies: [Target.Dependency] {
@@ -437,6 +419,15 @@ let package = Package(
       dependencies: swiftSyntax.dependencies,
       swiftSettings: swiftSettings + swiftSyntax.swiftSettings
     ),
+    .executableTarget(
+      name: "PackageManifestSync",
+      dependencies: [
+        "BylawsSyntax",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+      ],
+      path: "Tools/PackageManifestSync",
+      swiftSettings: swiftSettings
+    ),
     .target(
       name: "BylawsPaths",
       dependencies: [
@@ -564,6 +555,14 @@ let package = Package(
       dependencies: [
         "BylawsSemantics",
         "BylawsSyntax",
+      ],
+      swiftSettings: swiftSettings
+    ),
+    .testTarget(
+      name: "PackageManifestSyncTests",
+      dependencies: [
+        "PackageManifestSync",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ],
       swiftSettings: swiftSettings
     ),
