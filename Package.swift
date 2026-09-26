@@ -7,15 +7,9 @@ private enum PluginToolTarget {
 }
 
 private enum PluginToolArtifact {
-  enum Mode {
-    case remote
-    case source
-  }
-
-  static let mode: Mode = .remote
-  static let url: String? =
+  static let url =
     "https://github.com/theblixguy/swift-bylaws/releases/download/v0.6.0/bylaws.artifactbundle.zip"
-  static let checksum: String? =
+  static let checksum =
     "3c59b508f565e59e59cc6b7ef6820f982cf749f7c2df25f35f7f957eee04f312"
 }
 
@@ -35,17 +29,10 @@ private enum PluginToolSelection {
     }
 
     #if os(macOS) || (os(Linux) && arch(x86_64))
-      switch PluginToolArtifact.mode {
-      case .remote:
-        guard let url = PluginToolArtifact.url,
-              let checksum = PluginToolArtifact.checksum
-        else {
-          fatalError("Plugin tool artifact URL and checksum are missing.")
-        }
-        return .remoteArtifact(url: url, checksum: checksum)
-      case .source:
-        return .source
-      }
+      return .remoteArtifact(
+        url: PluginToolArtifact.url,
+        checksum: PluginToolArtifact.checksum
+      )
     #else
       return .source
     #endif

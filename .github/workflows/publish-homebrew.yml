@@ -35,16 +35,10 @@ jobs:
           VERSION: ${{ inputs.version }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          ARTIFACT_BUNDLE_URL=$(jq -er '.url | select(type == "string" and length > 0)' Distribution/PluginTool.json)
-          ARTIFACT_BUNDLE_SHA256=$(jq -er '.checksum | select(type == "string" and length > 0)' Distribution/PluginTool.json)
-          jq -e --arg version "${VERSION}" \
-            --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/bylaws.artifactbundle.zip" '
-            .mode == "remote" and .version == $version and .url == $url
-            and (.checksum | test("^[0-9a-f]{64}$"))
-          ' Distribution/PluginTool.json
           gh release download "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
             --pattern bylaws.artifactbundle.zip --dir saved
-          echo "${ARTIFACT_BUNDLE_SHA256}  saved/bylaws.artifactbundle.zip" | sha256sum --check -
+          ARTIFACT_BUNDLE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/bylaws.artifactbundle.zip"
+          ARTIFACT_BUNDLE_SHA256=$(sha256sum saved/bylaws.artifactbundle.zip | cut -d' ' -f1)
           export ARTIFACT_BUNDLE_URL ARTIFACT_BUNDLE_SHA256
           ruby -pe '
             gsub("{{ARTIFACT_BUNDLE_URL}}", ENV.fetch("ARTIFACT_BUNDLE_URL"))

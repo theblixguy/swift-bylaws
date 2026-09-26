@@ -5,10 +5,9 @@ enum ArtifactMode: String, Decodable {
   case source
 }
 
-struct PluginToolMetadata: Decodable {
-  let mode: ArtifactMode
-  let url: String?
-  let checksum: String?
+struct PluginToolArtifact {
+  let url: String
+  let checksum: String
 }
 
 struct SwiftSyntaxMetadata: Decodable {
@@ -21,25 +20,14 @@ struct SwiftSyntaxMetadata: Decodable {
 }
 
 struct ManifestMetadata {
-  let pluginTool: PluginToolMetadata
   let swiftSyntax: [(name: String, metadata: SwiftSyntaxMetadata)]
 
-  init(
-    pluginTool: PluginToolMetadata,
-    swiftSyntax: [(name: String, metadata: SwiftSyntaxMetadata)]
-  ) {
-    self.pluginTool = pluginTool
+  init(swiftSyntax: [(name: String, metadata: SwiftSyntaxMetadata)]) {
     self.swiftSyntax = swiftSyntax
   }
 
   init(root: URL) throws {
     let decoder = JSONDecoder()
-    let pluginURL = root.appendingPathComponent("Distribution/PluginTool.json")
-    pluginTool = try decoder.decode(
-      PluginToolMetadata.self,
-      from: Data(contentsOf: pluginURL)
-    )
-
     let syntaxDirectory = root
       .appendingPathComponent("Distribution/SwiftSyntax")
     let files = try FileManager.default.contentsOfDirectory(
@@ -67,7 +55,6 @@ struct ManifestMetadata {
 
 enum ManifestError: Error, CustomStringConvertible {
   case missingDeclaration(String)
-  case missingPluginToolArtifact
   case missingSwiftSyntaxChecksums(String)
   case invalidVersion(String)
   case compilerVersionsDiffer
@@ -78,8 +65,6 @@ enum ManifestError: Error, CustomStringConvertible {
     switch self {
     case let .missingDeclaration(name):
       "Package.swift must have one \(name) declaration."
-    case .missingPluginToolArtifact:
-      "PluginTool.json must have a URL and checksum in remote mode."
     case let .missingSwiftSyntaxChecksums(name):
       "\(name) must have both artifact checksums in remote mode."
     case let .invalidVersion(name):
@@ -87,9 +72,9 @@ enum ManifestError: Error, CustomStringConvertible {
     case .compilerVersionsDiffer:
       "Package.swift and Distribution/SwiftSyntax must name the same Swift compiler versions. Update both files."
     case .outOfSync:
-      "Package.swift differs from Distribution metadata. Run swift run PackageManifestSync."
+      "Package.swift differs from the expected values. Run the same command without --check to update it."
     case .usage:
-      "Use swift run PackageManifestSync [--check]."
+      "Use swift run PackageManifestSync [--check] [--plugin-artifact URL CHECKSUM]."
     }
   }
 }

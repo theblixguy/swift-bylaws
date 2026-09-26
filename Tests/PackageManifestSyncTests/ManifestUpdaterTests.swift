@@ -4,11 +4,6 @@ import Testing
 @Suite("Package manifest updates")
 struct ManifestUpdaterTests {
   private let metadata = ManifestMetadata(
-    pluginTool: PluginToolMetadata(
-      mode: .source,
-      url: nil,
-      checksum: nil
-    ),
     swiftSyntax: [
       (
         name: "v6_3",
@@ -26,9 +21,8 @@ struct ManifestUpdaterTests {
 
   private let source = """
   private enum PluginToolArtifact {
-    static let mode: Mode = .remote
-    static let url: String? = "old"
-    static let checksum: String? = "old"
+    static let url = "old"
+    static let checksum = "old"
   }
 
   private enum SwiftSyntaxArtifact {
@@ -60,7 +54,7 @@ struct ManifestUpdaterTests {
   let text = "PluginToolArtifact SwiftVersion"
   """
 
-  @Test("Named declarations update without changing other source")
+  @Test("SwiftSyntax declarations update without changing plugin artifact")
   func updatesNamedDeclarations() throws {
     let updated = try ManifestUpdater.updatedSource(source, metadata: metadata)
     let repeated = try ManifestUpdater.updatedSource(
@@ -68,9 +62,8 @@ struct ManifestUpdaterTests {
       metadata: metadata
     )
 
-    #expect(updated.contains("static let mode: Mode = .source"))
-    #expect(updated.contains("static let url: String? = nil"))
-    #expect(updated.contains("static let checksum: String? = nil"))
+    #expect(updated.contains("static let url = \"old\""))
+    #expect(updated.contains("static let checksum = \"old\""))
     #expect(updated.contains("swiftCompilerVersion: \"6.3.3\""))
     #expect(updated.contains("artifactRevision: 2"))
     #expect(updated.contains("case unchanged"))
@@ -83,7 +76,11 @@ struct ManifestUpdaterTests {
     let source = "private enum PluginToolArtifact {}"
 
     #expect(throws: ManifestError.self) {
-      _ = try ManifestUpdater.updatedSource(source, metadata: metadata)
+      _ = try ManifestUpdater.updatedSource(
+        source,
+        metadata: metadata,
+        pluginArtifact: PluginToolArtifact(url: "new", checksum: "abc")
+      )
     }
   }
 
@@ -92,14 +89,17 @@ struct ManifestUpdaterTests {
     let source = source + "\nprivate enum PluginToolArtifact {}"
 
     #expect(throws: ManifestError.self) {
-      _ = try ManifestUpdater.updatedSource(source, metadata: metadata)
+      _ = try ManifestUpdater.updatedSource(
+        source,
+        metadata: metadata,
+        pluginArtifact: PluginToolArtifact(url: "new", checksum: "abc")
+      )
     }
   }
 
   @Test("Unknown compiler version stops update")
   func unknownCompilerVersion() {
     let metadata = ManifestMetadata(
-      pluginTool: metadata.pluginTool,
       swiftSyntax: [(name: "v6_4", metadata: metadata.swiftSyntax[0].metadata)]
     )
 
@@ -110,17 +110,13 @@ struct ManifestUpdaterTests {
 
   @Test("String values retain Swift escaping")
   func escapesStringValues() throws {
-    let metadata = ManifestMetadata(
-      pluginTool: PluginToolMetadata(
-        mode: .remote,
-        url: "a\"b\\c",
-        checksum: "abc"
-      ),
-      swiftSyntax: metadata.swiftSyntax
+    let updated = try ManifestUpdater.updatedSource(
+      source,
+      metadata: metadata,
+      pluginArtifact: PluginToolArtifact(url: "a\"b\\c", checksum: "abc")
     )
 
-    let updated = try ManifestUpdater.updatedSource(source, metadata: metadata)
-
-    #expect(updated.contains("static let url: String? = \"a\\\"b\\\\c\""))
+    #expect(updated.contains("static let url = \"a\\\"b\\\\c\""))
+    #expect(updated.contains("static let checksum = \"abc\""))
   }
 }

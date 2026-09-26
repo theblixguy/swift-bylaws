@@ -2,7 +2,7 @@ import BylawsSyntax
 import Foundation
 
 final class ManifestValueRewriter: SyntaxRewriter {
-  let pluginTool: PluginToolMetadata
+  let pluginArtifact: PluginToolArtifact?
   let configurations: [String: SwiftSyntaxMetadata]
   private(set) var pluginUpdates: [String: Int] = [:]
   private(set) var configurationUpdates: [String: [String: Int]] = [:]
@@ -11,10 +11,10 @@ final class ManifestValueRewriter: SyntaxRewriter {
   private(set) var swiftVersionEnumCount = 0
 
   init(
-    pluginTool: PluginToolMetadata,
+    pluginArtifact: PluginToolArtifact?,
     configurations: [String: SwiftSyntaxMetadata]
   ) {
-    self.pluginTool = pluginTool
+    self.pluginArtifact = pluginArtifact
     self.configurations = configurations
     super.init()
   }
@@ -91,13 +91,12 @@ final class ManifestValueRewriter: SyntaxRewriter {
   }
 
   private func pluginValue(named name: String) -> ExprSyntax? {
-    switch name {
-    case "mode":
-      .member(pluginTool.mode.rawValue)
+    guard let pluginArtifact else { return nil }
+    return switch name {
     case "url":
-      .optionalString(pluginTool.url)
+      ExprSyntax.string(pluginArtifact.url)
     case "checksum":
-      .optionalString(pluginTool.checksum)
+      ExprSyntax.string(pluginArtifact.checksum)
     default:
       nil
     }

@@ -1,7 +1,7 @@
 import BylawsSyntax
 
 enum ManifestUpdater {
-  private static let pluginFields: Set<String> = ["mode", "url", "checksum"]
+  private static let pluginFields: Set<String> = ["url", "checksum"]
   private static let configurationFields: Set<String> = [
     "mode", "swiftCompilerVersion", "swiftSyntaxVersion",
     "artifactRevision", "swiftArtifactChecksum", "cArtifactChecksum",
@@ -9,16 +9,9 @@ enum ManifestUpdater {
 
   static func updatedSource(
     _ source: String,
-    metadata: ManifestMetadata
+    metadata: ManifestMetadata,
+    pluginArtifact: PluginToolArtifact? = nil
   ) throws -> String {
-    if metadata.pluginTool.mode == .remote {
-      guard metadata.pluginTool.url != nil,
-            metadata.pluginTool.checksum != nil
-      else {
-        throw ManifestError.missingPluginToolArtifact
-      }
-    }
-
     let names = metadata.swiftSyntax.map(\.name)
     guard Set(names).count == names.count else {
       throw ManifestError.compilerVersionsDiffer
@@ -37,19 +30,21 @@ enum ManifestUpdater {
       uniqueKeysWithValues: metadata.swiftSyntax.map { ($0.name, $0.metadata) }
     )
     let rewriter = ManifestValueRewriter(
-      pluginTool: metadata.pluginTool,
+      pluginArtifact: pluginArtifact,
       configurations: configurations
     )
     let updated = rewriter.rewrite(Parser.parse(source: source))
 
-    guard rewriter.pluginEnumCount == 1 else {
-      throw ManifestError.missingDeclaration("PluginToolArtifact")
+    if pluginArtifact != nil {
+      guard rewriter.pluginEnumCount == 1 else {
+        throw ManifestError.missingDeclaration("PluginToolArtifact")
+      }
+      for field in pluginFields where rewriter.pluginUpdates[field] != 1 {
+        throw ManifestError.missingDeclaration("PluginToolArtifact.\(field)")
+      }
     }
     guard rewriter.swiftVersionEnumCount == 1 else {
       throw ManifestError.missingDeclaration("SwiftSyntaxArtifact.SwiftVersion")
-    }
-    for field in pluginFields where rewriter.pluginUpdates[field] != 1 {
-      throw ManifestError.missingDeclaration("PluginToolArtifact.\(field)")
     }
     guard rewriter.compilerVersions == Set(names) else {
       throw ManifestError.compilerVersionsDiffer
