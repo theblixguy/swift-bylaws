@@ -8,9 +8,9 @@ private enum PluginToolTarget {
 
 private enum PluginToolArtifact {
   static let url =
-    "https://github.com/theblixguy/swift-bylaws/releases/download/v0.6.0/bylaws.artifactbundle.zip"
+    "https://github.com/theblixguy/swift-bylaws/releases/download/v0.6.1/bylaws.artifactbundle.zip"
   static let checksum =
-    "3c59b508f565e59e59cc6b7ef6820f982cf749f7c2df25f35f7f957eee04f312"
+    "9f4199d4e90b4b125738390ac737c24f5ba6d2335205008c5288bbfe3fc9ddc9"
 }
 
 private enum PluginToolSelection {
