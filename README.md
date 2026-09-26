@@ -6,7 +6,7 @@ Bylaws is an architectural linter for Swift, built for developers and coding age
 [![Platforms][Platforms badge]][Swift Package Index]
 [![CI][CI badge]][CI]
 
-![Rules in Xcode and a violation in VS Code](.github/images/bylaws-editors.png)
+https://github.com/user-attachments/assets/6e900ccc-5033-43ed-9179-19ce325ebe08
 
 Read the [documentation] for guides and the API reference.
 
