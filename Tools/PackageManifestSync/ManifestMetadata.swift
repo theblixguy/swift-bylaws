@@ -59,7 +59,6 @@ enum ManifestError: Error, CustomStringConvertible {
   case invalidVersion(String)
   case compilerVersionsDiffer
   case outOfSync
-  case usage
 
   var description: String {
     switch self {
@@ -73,8 +72,6 @@ enum ManifestError: Error, CustomStringConvertible {
       "Package.swift and Distribution/SwiftSyntax must name the same Swift compiler versions. Update both files."
     case .outOfSync:
       "Package.swift differs from the expected values. Run the same command without --check to update it."
-    case .usage:
-      "Use swift run PackageManifestSync [--check] [--plugin-artifact URL CHECKSUM]."
     }
   }
 }

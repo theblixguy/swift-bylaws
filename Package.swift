@@ -421,7 +421,10 @@ let package = Package(
     ),
     .executableTarget(
       name: "PackageManifestSync",
-      dependencies: ["BylawsSyntax"],
+      dependencies: [
+        "BylawsSyntax",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+      ],
       path: "Tools/PackageManifestSync",
       swiftSettings: swiftSettings
     ),
@@ -557,7 +560,10 @@ let package = Package(
     ),
     .testTarget(
       name: "PackageManifestSyncTests",
-      dependencies: ["PackageManifestSync"],
+      dependencies: [
+        "PackageManifestSync",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+      ],
       swiftSettings: swiftSettings
     ),
     .testTarget(

@@ -313,7 +313,8 @@ jobs:
           CHECKSUM=$(swift package compute-checksum \
             bylaws-artifactbundle/bylaws.artifactbundle.zip)
           URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/bylaws.artifactbundle.zip"
-          swift run PackageManifestSync --plugin-artifact "${URL}" "${CHECKSUM}"
+          swift run PackageManifestSync \
+            --plugin-url "${URL}" --plugin-checksum "${CHECKSUM}"
       - name: Verify plugin artifact
         run: |
           VERSION="${RELEASE_TAG#v}"
@@ -321,7 +322,8 @@ jobs:
           ACTUAL_CHECKSUM=$(swift package compute-checksum \
             bylaws-artifactbundle/bylaws.artifactbundle.zip)
           swift run PackageManifestSync --check \
-            --plugin-artifact "${EXPECTED_URL}" "${ACTUAL_CHECKSUM}"
+            --plugin-url "${EXPECTED_URL}" \
+            --plugin-checksum "${ACTUAL_CHECKSUM}"
           unzip -tq bylaws-artifactbundle/bylaws.artifactbundle.zip
           unzip -p bylaws-artifactbundle/bylaws.artifactbundle.zip \
             bylaws.artifactbundle/info.json > info.json
