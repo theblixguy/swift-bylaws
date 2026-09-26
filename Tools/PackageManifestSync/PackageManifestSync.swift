@@ -1,6 +1,7 @@
 import ArgumentParser
 import Foundation
 
+@main
 struct PackageManifestSync: ParsableCommand {
   @Flag(help: "Check Package.swift without changing it.")
   var check = false
@@ -41,5 +42,3 @@ struct PackageManifestSync: ParsableCommand {
     }
   }
 }
-
-PackageManifestSync.main()
