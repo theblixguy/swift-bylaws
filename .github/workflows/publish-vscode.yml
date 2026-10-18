@@ -31,75 +31,78 @@ jobs:
             echo "::error::Use an editor release tag such as vscode-v0.1.0."
             exit 1
           fi
-      - name: Download saved package
-        run: |
-          RELEASE_ID=$(gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
-            --json databaseId --jq .databaseId)
-          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > release.json
-          test "$(jq -r .tag_name release.json)" = "${RELEASE_TAG}"
-          DIGEST=$(jq -er '[.assets[] | select(.name == "bylaws.vsix" and .size > 0)]
-            | select(length == 1) | .[0].digest
-            | select(test("^sha256:[0-9a-f]{64}$"))' release.json)
-          gh release download "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
-            --pattern bylaws.vsix --dir release-files
-          echo "${DIGEST#sha256:}  release-files/bylaws.vsix" | sha256sum --check -
-          unzip -p release-files/bylaws.vsix extension/package.json > package.json
-          jq -e --arg version "${RELEASE_TAG#vscode-v}" '
-            .version == $version and .name == "bylaws" and .publisher == "suyashsrijan"
-          ' package.json
-      - name: Check publisher settings
-        env:
-          OPEN_VSX_PUBLISH_ENABLED: ${{ vars.OPEN_VSX_PUBLISH_ENABLED }}
-          OPEN_VSX_TOKEN: ${{ secrets.OPEN_VSX_TOKEN }}
-          VS_MARKETPLACE_PUBLISH_ENABLED: ${{ vars.VS_MARKETPLACE_PUBLISH_ENABLED }}
-          VS_MARKETPLACE_TOKEN: ${{ secrets.VS_MARKETPLACE_TOKEN }}
-        run: |
-          if [ "${VS_MARKETPLACE_PUBLISH_ENABLED}" = "true" ] && [ -z "${VS_MARKETPLACE_TOKEN}" ]; then
-            echo "::error::Add the VS_MARKETPLACE_TOKEN repository secret or set VS_MARKETPLACE_PUBLISH_ENABLED to false."
-            exit 1
-          fi
-          if [ "${OPEN_VSX_PUBLISH_ENABLED}" = "true" ] && [ -z "${OPEN_VSX_TOKEN}" ]; then
-            echo "::error::Add the OPEN_VSX_TOKEN repository secret or set OPEN_VSX_PUBLISH_ENABLED to false."
-            exit 1
-          fi
-      - name: Install Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: Editors/VSCode/package-lock.json
+      - parallel:
+          - name: Download saved package
+            run: |
+              RELEASE_ID=$(gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
+                --json databaseId --jq .databaseId)
+              gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > release.json
+              test "$(jq -r .tag_name release.json)" = "${RELEASE_TAG}"
+              DIGEST=$(jq -er '[.assets[] | select(.name == "bylaws.vsix" and .size > 0)]
+                | select(length == 1) | .[0].digest
+                | select(test("^sha256:[0-9a-f]{64}$"))' release.json)
+              gh release download "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
+                --pattern bylaws.vsix --dir release-files
+              echo "${DIGEST#sha256:}  release-files/bylaws.vsix" | sha256sum --check -
+              unzip -p release-files/bylaws.vsix extension/package.json > package.json
+              jq -e --arg version "${RELEASE_TAG#vscode-v}" '
+                .version == $version and .name == "bylaws" and .publisher == "suyashsrijan"
+              ' package.json
+          - name: Check publisher settings
+            env:
+              OPEN_VSX_PUBLISH_ENABLED: ${{ vars.OPEN_VSX_PUBLISH_ENABLED }}
+              OPEN_VSX_TOKEN: ${{ secrets.OPEN_VSX_TOKEN }}
+              VS_MARKETPLACE_PUBLISH_ENABLED: ${{ vars.VS_MARKETPLACE_PUBLISH_ENABLED }}
+              VS_MARKETPLACE_TOKEN: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+            run: |
+              if [ "${VS_MARKETPLACE_PUBLISH_ENABLED}" = "true" ] && [ -z "${VS_MARKETPLACE_TOKEN}" ]; then
+                echo "::error::Add the VS_MARKETPLACE_TOKEN repository secret or set VS_MARKETPLACE_PUBLISH_ENABLED to false."
+                exit 1
+              fi
+              if [ "${OPEN_VSX_PUBLISH_ENABLED}" = "true" ] && [ -z "${OPEN_VSX_TOKEN}" ]; then
+                echo "::error::Add the OPEN_VSX_TOKEN repository secret or set OPEN_VSX_PUBLISH_ENABLED to false."
+                exit 1
+              fi
+          - name: Install Node.js
+            uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+            with:
+              node-version: "24"
+              cache: npm
+              cache-dependency-path: Editors/VSCode/package-lock.json
       - name: Install publisher
         working-directory: Editors/VSCode
         run: npm ci
-      - name: Check Visual Studio Marketplace access
-        if: vars.VS_MARKETPLACE_PUBLISH_ENABLED == 'true'
-        working-directory: Editors/VSCode
-        env:
-          VSCE_PAT: ${{ secrets.VS_MARKETPLACE_TOKEN }}
-        run: npm exec -- vsce verify-pat suyashsrijan
-      - name: Check Open VSX access
-        if: vars.OPEN_VSX_PUBLISH_ENABLED == 'true'
-        working-directory: Editors/VSCode
-        env:
-          OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
-        run: npm exec -- ovsx verify-pat suyashsrijan
-      - name: Publish to Visual Studio Marketplace
-        if: vars.VS_MARKETPLACE_PUBLISH_ENABLED == 'true'
-        working-directory: Editors/VSCode
-        env:
-          VSCE_PAT: ${{ secrets.VS_MARKETPLACE_TOKEN }}
-        run: >-
-          npm exec -- vsce publish
-          --packagePath ../../release-files/bylaws.vsix
-          --skip-duplicate
-      - name: Publish to Open VSX
-        if: vars.OPEN_VSX_PUBLISH_ENABLED == 'true'
-        working-directory: Editors/VSCode
-        env:
-          OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
-        run: >-
-          npm exec -- ovsx publish ../../release-files/bylaws.vsix
-          --skip-duplicate
+      - parallel:
+          - name: Check Visual Studio Marketplace access
+            if: vars.VS_MARKETPLACE_PUBLISH_ENABLED == 'true'
+            working-directory: Editors/VSCode
+            env:
+              VSCE_PAT: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+            run: npm exec -- vsce verify-pat suyashsrijan
+          - name: Check Open VSX access
+            if: vars.OPEN_VSX_PUBLISH_ENABLED == 'true'
+            working-directory: Editors/VSCode
+            env:
+              OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
+            run: npm exec -- ovsx verify-pat suyashsrijan
+      - parallel:
+          - name: Publish to Visual Studio Marketplace
+            if: vars.VS_MARKETPLACE_PUBLISH_ENABLED == 'true'
+            working-directory: Editors/VSCode
+            env:
+              VSCE_PAT: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+            run: >-
+              npm exec -- vsce publish
+              --packagePath ../../release-files/bylaws.vsix
+              --skip-duplicate
+          - name: Publish to Open VSX
+            if: vars.OPEN_VSX_PUBLISH_ENABLED == 'true'
+            working-directory: Editors/VSCode
+            env:
+              OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
+            run: >-
+              npm exec -- ovsx publish ../../release-files/bylaws.vsix
+              --skip-duplicate
       - name: Publish GitHub release
         run: |
           if [ "$(jq -r .draft release.json)" = "true" ]; then

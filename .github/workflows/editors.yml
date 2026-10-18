@@ -59,14 +59,15 @@ jobs:
         run: |
           rustup component add rustfmt
           rustup target add wasm32-wasip2
-      - name: Check formatting
-        run: cargo fmt --check --manifest-path Editors/Zed/Cargo.toml
-      - name: Cache Rust dependencies
-        if: ${{ !inputs.skip_cache }}
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          workspaces: Editors/Zed
-          cache-bin: false
+      - parallel:
+          - name: Check formatting
+            run: cargo fmt --check --manifest-path Editors/Zed/Cargo.toml
+          - name: Cache Rust dependencies
+            if: ${{ !inputs.skip_cache }}
+            uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+            with:
+              workspaces: Editors/Zed
+              cache-bin: false
       - name: Compile extension
         run: >-
           cargo check --locked --target wasm32-wasip2
@@ -112,11 +113,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends emacs-nox
-      - name: Run client tests
-        run: >-
-          emacs -Q --batch
-          -l Editors/Emacs/tests/lsp-bylaws-test.el
-      - name: Compile package
-        run: >-
-          emacs -Q --batch -f batch-byte-compile
-          Editors/Emacs/lsp-bylaws.el
+      - parallel:
+          - name: Run client tests
+            run: >-
+              emacs -Q --batch
+              -l Editors/Emacs/tests/lsp-bylaws-test.el
+          - name: Compile package
+            run: >-
+              emacs -Q --batch -f batch-byte-compile
+              Editors/Emacs/lsp-bylaws.el

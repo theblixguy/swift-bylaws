@@ -24,12 +24,21 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Restore Swift builds
-        id: cache
-        uses: ./.github/actions/swift-cache
-        with:
-          scope: macos-tests
-          skip-cache: ${{ inputs.skip_cache }}
+      - parallel:
+          - name: Restore Swift builds
+            id: cache
+            uses: ./.github/actions/swift-cache
+            with:
+              scope: macos-tests
+              skip-cache: ${{ inputs.skip_cache }}
+          - name: Restore benchmark build
+            id: benchmark-cache
+            uses: ./.github/actions/swift-cache
+            with:
+              scope: benchmarks
+              path: Benchmarks/.build
+              package-path: Benchmarks
+              skip-cache: ${{ inputs.skip_cache }}
       - name: Build tests
         id: build
         run: swift build --build-tests
@@ -53,6 +62,7 @@ jobs:
           set -o pipefail
           swift test --skip-build --filter Scale 2>&1 | tee scale.txt
       - name: Write summary
+        background: true
         if: ${{ !cancelled() }}
         run: |
           {
@@ -74,14 +84,7 @@ jobs:
           path: |
             performance.txt
             scale.txt
-      - name: Restore benchmark build
-        id: benchmark-cache
-        uses: ./.github/actions/swift-cache
-        with:
-          scope: benchmarks
-          path: Benchmarks/.build
-          package-path: Benchmarks
-          skip-cache: ${{ inputs.skip_cache }}
+      - wait-all:
       - name: Build benchmarks
         run: swift build --package-path Benchmarks
       - name: Save benchmark build

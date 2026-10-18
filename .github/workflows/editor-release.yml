@@ -120,35 +120,36 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     steps:
-      - name: Create release app token
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          app-id: ${{ secrets.RELEASE_APP_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          permission-contents: read
+      - parallel:
+          - name: Create release app token
+            id: app-token
+            uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+            with:
+              app-id: ${{ secrets.RELEASE_APP_ID }}
+              private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+              permission-contents: read
+          - name: Check publisher settings
+            env:
+              ZED_EXTENSIONS_FORK: ${{ vars.ZED_EXTENSIONS_FORK }}
+              ZED_PUBLISH_ENABLED: ${{ vars.ZED_PUBLISH_ENABLED }}
+              ZED_REGISTRY_TOKEN: ${{ secrets.ZED_REGISTRY_TOKEN }}
+            run: |
+              if [ "${ZED_PUBLISH_ENABLED}" != "true" ]; then
+                echo "::error::Set ZED_PUBLISH_ENABLED to true before you release the Zed client."
+                exit 1
+              fi
+              if [[ ! "${ZED_EXTENSIONS_FORK}" =~ ^[^/]+/[^/]+$ ]]; then
+                echo "::error::Set ZED_EXTENSIONS_FORK to the owner and name of your zed-industries/extensions fork."
+                exit 1
+              fi
+              if [ -z "${ZED_REGISTRY_TOKEN}" ]; then
+                echo "::error::Add the ZED_REGISTRY_TOKEN repository secret before you release the Zed client."
+                exit 1
+              fi
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ steps.app-token.outputs.token }}
-      - name: Check publisher settings
-        env:
-          ZED_EXTENSIONS_FORK: ${{ vars.ZED_EXTENSIONS_FORK }}
-          ZED_PUBLISH_ENABLED: ${{ vars.ZED_PUBLISH_ENABLED }}
-          ZED_REGISTRY_TOKEN: ${{ secrets.ZED_REGISTRY_TOKEN }}
-        run: |
-          if [ "${ZED_PUBLISH_ENABLED}" != "true" ]; then
-            echo "::error::Set ZED_PUBLISH_ENABLED to true before you release the Zed client."
-            exit 1
-          fi
-          if [[ ! "${ZED_EXTENSIONS_FORK}" =~ ^[^/]+/[^/]+$ ]]; then
-            echo "::error::Set ZED_EXTENSIONS_FORK to the owner and name of your zed-industries/extensions fork."
-            exit 1
-          fi
-          if [ -z "${ZED_REGISTRY_TOKEN}" ]; then
-            echo "::error::Add the ZED_REGISTRY_TOKEN repository secret before you release the Zed client."
-            exit 1
-          fi
       - name: Prepare registry update
         id: registry
         env:

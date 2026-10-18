@@ -30,30 +30,31 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.checkout_ref }}
-      - name: Build formula
-        env:
-          VERSION: ${{ inputs.version }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release download "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
-            --pattern bylaws.artifactbundle.zip --dir saved
-          ARTIFACT_BUNDLE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/bylaws.artifactbundle.zip"
-          ARTIFACT_BUNDLE_SHA256=$(sha256sum saved/bylaws.artifactbundle.zip | cut -d' ' -f1)
-          export ARTIFACT_BUNDLE_URL ARTIFACT_BUNDLE_SHA256
-          ruby -pe '
-            gsub("{{ARTIFACT_BUNDLE_URL}}", ENV.fetch("ARTIFACT_BUNDLE_URL"))
-            gsub("{{ARTIFACT_BUNDLE_SHA256}}", ENV.fetch("ARTIFACT_BUNDLE_SHA256"))
-            gsub("{{VERSION}}", ENV.fetch("VERSION"))
-          ' Distribution/bylaws.rb > bylaws.rb
-      - name: Create Homebrew app token
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          app-id: ${{ secrets.RELEASE_APP_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          owner: theblixguy
-          repositories: homebrew-tap
-          permission-contents: write
+      - parallel:
+          - name: Build formula
+            env:
+              VERSION: ${{ inputs.version }}
+              GH_TOKEN: ${{ github.token }}
+            run: |
+              gh release download "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
+                --pattern bylaws.artifactbundle.zip --dir saved
+              ARTIFACT_BUNDLE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/bylaws.artifactbundle.zip"
+              ARTIFACT_BUNDLE_SHA256=$(sha256sum saved/bylaws.artifactbundle.zip | cut -d' ' -f1)
+              export ARTIFACT_BUNDLE_URL ARTIFACT_BUNDLE_SHA256
+              ruby -pe '
+                gsub("{{ARTIFACT_BUNDLE_URL}}", ENV.fetch("ARTIFACT_BUNDLE_URL"))
+                gsub("{{ARTIFACT_BUNDLE_SHA256}}", ENV.fetch("ARTIFACT_BUNDLE_SHA256"))
+                gsub("{{VERSION}}", ENV.fetch("VERSION"))
+              ' Distribution/bylaws.rb > bylaws.rb
+          - name: Create Homebrew app token
+            id: app-token
+            uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+            with:
+              app-id: ${{ secrets.RELEASE_APP_ID }}
+              private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+              owner: theblixguy
+              repositories: homebrew-tap
+              permission-contents: write
       - name: Publish formula
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}

@@ -32,39 +32,40 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: Check release source and version
-        run: |
-          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
-            echo "::error::Run the release from the main branch."
-            exit 1
-          fi
-          if [[ ! "${RELEASE_TAG}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[A-Za-z]+[0-9]*)?$ ]]; then
-            echo "::error::Use a version such as 0.2.0 or 0.2.0-rc1."
-            exit 1
-          fi
-          if git rev-parse --verify --quiet "refs/tags/${RELEASE_TAG}"; then
-            echo "::error::The ${RELEASE_TAG} tag exists."
-            exit 1
-          fi
-      - name: Check publisher settings
-        env:
-          RELEASE_APP_ID: ${{ secrets.RELEASE_APP_ID }}
-          RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          BCR_PUBLISH_ENABLED: ${{ vars.BCR_PUBLISH_ENABLED }}
-          BCR_PUBLISH_TOKEN: ${{ secrets.BCR_PUBLISH_TOKEN }}
-        run: |
-          if [ -z "${RELEASE_APP_ID}" ]; then
-            echo "::error::Add the RELEASE_APP_ID repository secret before you publish a release."
-            exit 1
-          fi
-          if [ -z "${RELEASE_APP_PRIVATE_KEY}" ]; then
-            echo "::error::Add the RELEASE_APP_PRIVATE_KEY repository secret before you publish a release."
-            exit 1
-          fi
-          if [[ "${RELEASE_TAG}" != *-* ]] && [ "${BCR_PUBLISH_ENABLED}" = "true" ] && [ -z "${BCR_PUBLISH_TOKEN}" ]; then
-            echo "::error::Add the BCR_PUBLISH_TOKEN repository secret or set BCR_PUBLISH_ENABLED to false."
-            exit 1
-          fi
+      - parallel:
+          - name: Check release source and version
+            run: |
+              if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+                echo "::error::Run the release from the main branch."
+                exit 1
+              fi
+              if [[ ! "${RELEASE_TAG}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[A-Za-z]+[0-9]*)?$ ]]; then
+                echo "::error::Use a version such as 0.2.0 or 0.2.0-rc1."
+                exit 1
+              fi
+              if git rev-parse --verify --quiet "refs/tags/${RELEASE_TAG}"; then
+                echo "::error::The ${RELEASE_TAG} tag exists."
+                exit 1
+              fi
+          - name: Check publisher settings
+            env:
+              RELEASE_APP_ID: ${{ secrets.RELEASE_APP_ID }}
+              RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+              BCR_PUBLISH_ENABLED: ${{ vars.BCR_PUBLISH_ENABLED }}
+              BCR_PUBLISH_TOKEN: ${{ secrets.BCR_PUBLISH_TOKEN }}
+            run: |
+              if [ -z "${RELEASE_APP_ID}" ]; then
+                echo "::error::Add the RELEASE_APP_ID repository secret before you publish a release."
+                exit 1
+              fi
+              if [ -z "${RELEASE_APP_PRIVATE_KEY}" ]; then
+                echo "::error::Add the RELEASE_APP_PRIVATE_KEY repository secret before you publish a release."
+                exit 1
+              fi
+              if [[ "${RELEASE_TAG}" != *-* ]] && [ "${BCR_PUBLISH_ENABLED}" = "true" ] && [ -z "${BCR_PUBLISH_TOKEN}" ]; then
+                echo "::error::Add the BCR_PUBLISH_TOKEN repository secret or set BCR_PUBLISH_ENABLED to false."
+                exit 1
+              fi
 
   prepare-source:
     name: Prepare release source
@@ -158,24 +159,25 @@ jobs:
           swift build -c release --product bylaws-lsp --arch arm64
           swift build -c release --product bylaws --arch x86_64
           swift build -c release --product bylaws-lsp --arch x86_64
-      - name: Save Swift build
-        if: steps.cache.outputs.save-needed == 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .build
-          key: ${{ steps.cache.outputs.primary-key }}
-      - name: Stage files
-        run: |
-          mkdir -p stage/bin
-          lipo -create \
-            .build/arm64-apple-macosx/release/bylaws \
-            .build/x86_64-apple-macosx/release/bylaws \
-            -output stage/bin/bylaws
-          lipo -create \
-            .build/arm64-apple-macosx/release/bylaws-lsp \
-            .build/x86_64-apple-macosx/release/bylaws-lsp \
-            -output stage/bin/bylaws-lsp
-          cp -R Distribution/BazelSupport/. stage/
+      - parallel:
+          - name: Save Swift build
+            if: steps.cache.outputs.save-needed == 'true'
+            uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+            with:
+              path: .build
+              key: ${{ steps.cache.outputs.primary-key }}
+          - name: Stage files
+            run: |
+              mkdir -p stage/bin
+              lipo -create \
+                .build/arm64-apple-macosx/release/bylaws \
+                .build/x86_64-apple-macosx/release/bylaws \
+                -output stage/bin/bylaws
+              lipo -create \
+                .build/arm64-apple-macosx/release/bylaws-lsp \
+                .build/x86_64-apple-macosx/release/bylaws-lsp \
+                -output stage/bin/bylaws-lsp
+              cp -R Distribution/BazelSupport/. stage/
       - name: Create archive
         run: COPYFILE_DISABLE=1 tar -czf bylaws-macos.tar.gz -C stage .
       - name: Test archive
@@ -212,18 +214,19 @@ jobs:
         run: |
           swift build -c release --product bylaws --static-swift-stdlib
           swift build -c release --product bylaws-lsp --static-swift-stdlib
-      - name: Save Swift build
-        if: steps.cache.outputs.save-needed == 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .build
-          key: ${{ steps.cache.outputs.primary-key }}
-      - name: Stage files
-        run: |
-          mkdir -p stage/bin
-          cp .build/release/bylaws stage/bin/bylaws
-          cp .build/release/bylaws-lsp stage/bin/bylaws-lsp
-          cp -R Distribution/BazelSupport/. stage/
+      - parallel:
+          - name: Save Swift build
+            if: steps.cache.outputs.save-needed == 'true'
+            uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+            with:
+              path: .build
+              key: ${{ steps.cache.outputs.primary-key }}
+          - name: Stage files
+            run: |
+              mkdir -p stage/bin
+              cp .build/release/bylaws stage/bin/bylaws
+              cp .build/release/bylaws-lsp stage/bin/bylaws-lsp
+              cp -R Distribution/BazelSupport/. stage/
       - name: Create archive
         run: tar -czf bylaws-linux.tar.gz -C stage .
       - name: Test archive
@@ -290,16 +293,17 @@ jobs:
     outputs:
       revision: ${{ steps.release-commit.outputs.revision }}
     steps:
-      - name: Select Xcode
-        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
-        with:
-          xcode-version: 26.6
-      - name: Create release app token
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          app-id: ${{ secrets.RELEASE_APP_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+      - parallel:
+          - name: Select Xcode
+            uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+            with:
+              xcode-version: 26.6
+          - name: Create release app token
+            id: app-token
+            uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+            with:
+              app-id: ${{ secrets.RELEASE_APP_ID }}
+              private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
       - name: Check out release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -453,40 +457,41 @@ jobs:
     outputs:
       revision: ${{ needs.prepare-release.outputs.revision }}
     steps:
-      - name: Check release attachments
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BCR_PUBLISH_ENABLED: ${{ vars.BCR_PUBLISH_ENABLED }}
-        run: |
-          gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
-            --json tagName,assets > release.json
-          jq -e --arg tag "${RELEASE_TAG}" \
-            --arg bcr "${BCR_PUBLISH_ENABLED}" '
-            ["bylaws.artifactbundle.zip", "bylaws-macos.tar.gz",
-             "bylaws-linux.tar.gz", "bylaws-bazel-module.tar.gz"] as $archives
-            | ($archives + [$archives[] + ".intoto.jsonl"]
-              + (if $bcr == "true" and ($tag | contains("-") | not)
-                 then ["MODULE.bazel.intoto.jsonl", "source.json.intoto.jsonl"]
-                 else [] end)) as $required
-            | .tagName == $tag
-              and (($required - [.assets[] | select(.size > 0) | .name]) | length == 0)
-          ' release.json
-      - name: Check out generated Bazel entry
-        if: needs.bazel-registry.result == 'success'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: theblixguy/bazel-central-registry
-          ref: ${{ format('swift-bylaws-v{0}', inputs.version) }}
-          path: bazel-registry
-          sparse-checkout: modules/swift-bylaws
-          persist-credentials: false
-      - name: Install BCR verifier
-        if: needs.bazel-registry.result == 'success'
-        run: |
-          curl --fail --location --retry 3 --output slsa-verifier \
-            https://github.com/slsa-framework/slsa-verifier/releases/download/v2.7.1/slsa-verifier-linux-amd64
-          echo '946dbec729094195e88ef78e1734324a27869f03e2c6bd2f61cbc06bd5350339  slsa-verifier' | sha256sum --check
-          chmod +x slsa-verifier
+      - parallel:
+          - name: Check release attachments
+            env:
+              GH_TOKEN: ${{ github.token }}
+              BCR_PUBLISH_ENABLED: ${{ vars.BCR_PUBLISH_ENABLED }}
+            run: |
+              gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" \
+                --json tagName,assets > release.json
+              jq -e --arg tag "${RELEASE_TAG}" \
+                --arg bcr "${BCR_PUBLISH_ENABLED}" '
+                ["bylaws.artifactbundle.zip", "bylaws-macos.tar.gz",
+                 "bylaws-linux.tar.gz", "bylaws-bazel-module.tar.gz"] as $archives
+                | ($archives + [$archives[] + ".intoto.jsonl"]
+                  + (if $bcr == "true" and ($tag | contains("-") | not)
+                     then ["MODULE.bazel.intoto.jsonl", "source.json.intoto.jsonl"]
+                     else [] end)) as $required
+                | .tagName == $tag
+                  and (($required - [.assets[] | select(.size > 0) | .name]) | length == 0)
+              ' release.json
+          - name: Check out generated Bazel entry
+            if: needs.bazel-registry.result == 'success'
+            uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              repository: theblixguy/bazel-central-registry
+              ref: ${{ format('swift-bylaws-v{0}', inputs.version) }}
+              path: bazel-registry
+              sparse-checkout: modules/swift-bylaws
+              persist-credentials: false
+          - name: Install BCR verifier
+            if: needs.bazel-registry.result == 'success'
+            run: |
+              curl --fail --location --retry 3 --output slsa-verifier \
+                https://github.com/slsa-framework/slsa-verifier/releases/download/v2.7.1/slsa-verifier-linux-amd64
+              echo '946dbec729094195e88ef78e1734324a27869f03e2c6bd2f61cbc06bd5350339  slsa-verifier' | sha256sum --check
+              chmod +x slsa-verifier
       - name: Verify Bazel attestations
         if: needs.bazel-registry.result == 'success'
         env:

@@ -90,24 +90,25 @@ jobs:
         with:
           predicate-quantifier: some-with-excludes
           filters: .github/ci-paths.yml
-      - name: Check editor files
-        if: ${{ !inputs.run_package_checks && github.event_name != 'schedule' }}
-        id: editor_filter
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        with:
-          predicate-quantifier: some-with-excludes
-          filters: .github/editor-paths.yml
-      - name: Install SwiftFormat
-        if: >-
-          inputs.run_package_checks || github.event_name == 'schedule'
-          || steps.filter.outputs.ci == 'true'
-          || steps.filter.outputs.benchmarks == 'true'
-        run: |
-          curl -fsSL -o swiftformat.zip \
-            "https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat_linux.zip"
-          echo "${SWIFTFORMAT_SHA256}  swiftformat.zip" | sha256sum --check -
-          unzip -q swiftformat.zip
-          chmod +x swiftformat_linux
+      - parallel:
+          - name: Check editor files
+            if: ${{ !inputs.run_package_checks && github.event_name != 'schedule' }}
+            id: editor_filter
+            uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+            with:
+              predicate-quantifier: some-with-excludes
+              filters: .github/editor-paths.yml
+          - name: Install SwiftFormat
+            if: >-
+              inputs.run_package_checks || github.event_name == 'schedule'
+              || steps.filter.outputs.ci == 'true'
+              || steps.filter.outputs.benchmarks == 'true'
+            run: |
+              curl -fsSL -o swiftformat.zip \
+                "https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat_linux.zip"
+              echo "${SWIFTFORMAT_SHA256}  swiftformat.zip" | sha256sum --check -
+              unzip -q swiftformat.zip
+              chmod +x swiftformat_linux
       - name: Run SwiftFormat
         if: >-
           inputs.run_package_checks || github.event_name == 'schedule'
@@ -143,28 +144,29 @@ jobs:
         env:
           BYLAWS_REQUIRE_INDEX_STORE: "1"
         run: swift test --skip-build
-      - name: Test SwiftSyntax artifact tool
-        if: needs.changes.outputs.consumers == 'true'
-        run: swift test --package-path Tools/SwiftSyntaxArtifact
-      - name: Check standalone package manifest
-        if: needs.changes.outputs.consumers == 'true'
-        run: |
-          swift run PackageManifestSync --check
-          manifest_dir=$(mktemp -d)
-          cp Package.swift "${manifest_dir}/Package.swift"
-          env -u BYLAWS_BUILD_PLUGIN_FROM_SOURCE \
-            swift package --package-path "${manifest_dir}" dump-package > /dev/null
-      - name: Check optional package dependencies
-        if: needs.changes.outputs.consumers == 'true'
-        run: |
-          swift package --package-path Tests/PackageConsumer/DefaultTraits \
-            show-dependencies --format json > default-dependency-graph.json
-          grep -q 'swift-argument-parser' default-dependency-graph.json
-          grep -q 'swift-tools-protocols' default-dependency-graph.json
-          swift package --package-path Tests/PackageConsumer/NoTraits \
-            show-dependencies --format json > no-traits-dependency-graph.json
-          ! grep -q 'swift-argument-parser' no-traits-dependency-graph.json
-          ! grep -q 'swift-tools-protocols' no-traits-dependency-graph.json
+      - parallel:
+          - name: Test SwiftSyntax artifact tool
+            if: needs.changes.outputs.consumers == 'true'
+            run: swift test --package-path Tools/SwiftSyntaxArtifact
+          - name: Check standalone package manifest
+            if: needs.changes.outputs.consumers == 'true'
+            run: |
+              swift run PackageManifestSync --check
+              manifest_dir=$(mktemp -d)
+              cp Package.swift "${manifest_dir}/Package.swift"
+              env -u BYLAWS_BUILD_PLUGIN_FROM_SOURCE \
+                swift package --package-path "${manifest_dir}" dump-package > /dev/null
+          - name: Check optional package dependencies
+            if: needs.changes.outputs.consumers == 'true'
+            run: |
+              swift package --package-path Tests/PackageConsumer/DefaultTraits \
+                show-dependencies --format json > default-dependency-graph.json
+              grep -q 'swift-argument-parser' default-dependency-graph.json
+              grep -q 'swift-tools-protocols' default-dependency-graph.json
+              swift package --package-path Tests/PackageConsumer/NoTraits \
+                show-dependencies --format json > no-traits-dependency-graph.json
+              ! grep -q 'swift-argument-parser' no-traits-dependency-graph.json
+              ! grep -q 'swift-tools-protocols' no-traits-dependency-graph.json
 
   test-linux:
     name: Run Linux tests (Swift ${{ matrix.swift }}, SwiftSyntax ${{ matrix.swift_syntax }})
@@ -277,47 +279,48 @@ jobs:
         run: >-
           swift package --package-path "$CONSUMER_PATH"
           show-dependencies --format json > dependency-graph.json
-      - name: Check package traits
-        env:
-          EXPECTED_CLI: ${{ matrix.has_cli }}
-          EXPECTED_LANGUAGE_SERVER_TRAIT: ${{ matrix.has_language_server_trait }}
-        run: |
-          absent() {
-            if grep -q "$1" dependency-graph.json; then
-              echo "::error::The dependency graph contains $1."
-              exit 1
-            fi
-          }
-          grep -q 'swift-bylaws' dependency-graph.json
-          if [ "$EXPECTED_CLI" = "true" ]; then
-            grep -q '"CLI"' dependency-graph.json
-            grep -q 'swift-argument-parser' dependency-graph.json
-          else
-            absent '"CLI"'
-            absent 'swift-argument-parser'
-          fi
-          if [ "$EXPECTED_LANGUAGE_SERVER_TRAIT" = "true" ]; then
-            grep -q '"LanguageServer"' dependency-graph.json
-            grep -q 'swift-tools-protocols' dependency-graph.json
-          else
-            absent '"LanguageServer"'
-            absent 'swift-tools-protocols'
-          fi
-      - name: Check index dependencies
-        if: matrix.low_level_index == 'true'
-        run: |
-          built() {
-            find "$CONSUMER_PATH/.build" \
-              -path "*/debug/Modules/$1.swiftmodule" \
-              -print -quit | grep -q .
-          }
-          built BylawsIndexStore
-          for module in BylawsCore BylawsSemantics SwiftSyntax; do
-            if built "$module"; then
-              echo "::error::The consumer build contains $module."
-              exit 1
-            fi
-          done
+      - parallel:
+          - name: Check package traits
+            env:
+              EXPECTED_CLI: ${{ matrix.has_cli }}
+              EXPECTED_LANGUAGE_SERVER_TRAIT: ${{ matrix.has_language_server_trait }}
+            run: |
+              absent() {
+                if grep -q "$1" dependency-graph.json; then
+                  echo "::error::The dependency graph contains $1."
+                  exit 1
+                fi
+              }
+              grep -q 'swift-bylaws' dependency-graph.json
+              if [ "$EXPECTED_CLI" = "true" ]; then
+                grep -q '"CLI"' dependency-graph.json
+                grep -q 'swift-argument-parser' dependency-graph.json
+              else
+                absent '"CLI"'
+                absent 'swift-argument-parser'
+              fi
+              if [ "$EXPECTED_LANGUAGE_SERVER_TRAIT" = "true" ]; then
+                grep -q '"LanguageServer"' dependency-graph.json
+                grep -q 'swift-tools-protocols' dependency-graph.json
+              else
+                absent '"LanguageServer"'
+                absent 'swift-tools-protocols'
+              fi
+          - name: Check index dependencies
+            if: matrix.low_level_index == 'true'
+            run: |
+              built() {
+                find "$CONSUMER_PATH/.build" \
+                  -path "*/debug/Modules/$1.swiftmodule" \
+                  -print -quit | grep -q .
+              }
+              built BylawsIndexStore
+              for module in BylawsCore BylawsSemantics SwiftSyntax; do
+                if built "$module"; then
+                  echo "::error::The consumer build contains $module."
+                  exit 1
+                fi
+              done
 
   plugin-consumer:
     name: Test SwiftPM plugins
@@ -344,36 +347,67 @@ jobs:
         with:
           path: .build
           key: ${{ steps.cache.outputs.primary-key }}
-      - name: Create plugin artifact
-        run: |
-          VERSION=$(.build/release/bylaws --version)
-          Scripts/make-plugin-artifact-bundle.swift \
-            "${VERSION}" \
-            BylawsPluginTool.artifactbundle \
-            "bylaws-cli::bylaws::linux::.build/release/bylaws::x86_64-unknown-linux-gnu"
-      - name: Smoke-test the release binary
-        run: |
-          Scripts/test-release.swift \
-            .build/release/bylaws \
-            "$(.build/release/bylaws --version)"
-      - name: Set up Bazel
-        uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
-        with:
-          bazelisk-version: 1.x
-          bazelisk-cache: true
-          repository-cache: true
-          module-root: Distribution/BazelModule
-      - name: Test Bazel lint target
-        env:
-          USE_BAZEL_VERSION: 9.2.0
-        run: |
-          apt-get update
-          apt-get install --yes --no-install-recommends jq
-          bash Tests/Bazel/test-lint.sh .build/release/bylaws
-      - name: Build reusable rules
-        env:
-          BYLAWS_PLUGIN_ARTIFACT_PATH: BylawsPluginTool.artifactbundle
-        run: swift build --package-path Tests/PackageConsumer/Plugin
+      - parallel:
+          - name: Create plugin artifact
+            run: |
+              VERSION=$(.build/release/bylaws --version)
+              Scripts/make-plugin-artifact-bundle.swift \
+                "${VERSION}" \
+                BylawsPluginTool.artifactbundle \
+                "bylaws-cli::bylaws::linux::.build/release/bylaws::x86_64-unknown-linux-gnu"
+          - name: Smoke-test the release binary
+            run: |
+              Scripts/test-release.swift \
+                .build/release/bylaws \
+                "$(.build/release/bylaws --version)"
+          - name: Set up Bazel
+            uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
+            with:
+              bazelisk-version: 1.x
+              bazelisk-cache: true
+              repository-cache: true
+              module-root: Distribution/BazelModule
+      - parallel:
+          - name: Test Bazel lint target
+            env:
+              USE_BAZEL_VERSION: 9.2.0
+            run: |
+              apt-get update
+              apt-get install --yes --no-install-recommends jq
+              bash Tests/Bazel/test-lint.sh .build/release/bylaws
+          - name: Build reusable rules
+            env:
+              BYLAWS_PLUGIN_ARTIFACT_PATH: BylawsPluginTool.artifactbundle
+            run: swift build --package-path Tests/PackageConsumer/Plugin
+          - name: Check build-tool plugin
+            env:
+              BYLAWS_PLUGIN_ARTIFACT_PATH: BylawsPluginTool.artifactbundle
+            working-directory: Tests/PackageConsumer/BuildPlugin
+            run: |
+              trap 'rm -f Bylaws.swift Bylaws.baseline.swift Sources/Other/Added.swift' EXIT
+              cp Rules/BuildRules.swift Bylaws.swift
+              swift build --disable-build-manifest-caching --target App
+              printf 'class Added {}\n' > Sources/Other/Added.swift
+              if swift build --disable-build-manifest-caching --target App > .build/violation.log 2>&1; then
+                cat .build/violation.log
+                exit 1
+              fi
+              cat .build/violation.log
+              grep -F "Added violates 'Classes are final'" .build/violation.log
+              swift package --allow-writing-to-package-directory bylaws \
+                --record-baseline Bylaws.baseline.swift
+              swift build --disable-build-manifest-caching --target App
+              printf 'final class Added {}\n' > Sources/Other/Added.swift
+              if swift build --disable-build-manifest-caching --target App > .build/baseline.log 2>&1; then
+                cat .build/baseline.log
+                exit 1
+              fi
+              cat .build/baseline.log
+              grep -i stale .build/baseline.log
+              rm Sources/Other/Added.swift Bylaws.baseline.swift
+              swift build --disable-build-manifest-caching --target App
+              ! find .build -path '*bylaws_cli*.build/*.swift.o' -print -quit | grep -q .
+              ! find .build -path '*SwiftSyntax.build/*.swift.o' -print -quit | grep -q .
       - name: Run reusable rules
         env:
           BYLAWS_PLUGIN_ARTIFACT_PATH: BylawsPluginTool.artifactbundle
@@ -401,35 +435,6 @@ jobs:
             -path '*bylaws_cli-tool.build*' -print -quit | grep -q .
           ! find Tests/PackageConsumer/Plugin/.build \
             -path '*bylaws_cli.build/*.swift.o' -print -quit | grep -q .
-      - name: Check build-tool plugin
-        env:
-          BYLAWS_PLUGIN_ARTIFACT_PATH: BylawsPluginTool.artifactbundle
-        working-directory: Tests/PackageConsumer/BuildPlugin
-        run: |
-          trap 'rm -f Bylaws.swift Bylaws.baseline.swift Sources/Other/Added.swift' EXIT
-          cp Rules/BuildRules.swift Bylaws.swift
-          swift build --disable-build-manifest-caching --target App
-          printf 'class Added {}\n' > Sources/Other/Added.swift
-          if swift build --disable-build-manifest-caching --target App > .build/violation.log 2>&1; then
-            cat .build/violation.log
-            exit 1
-          fi
-          cat .build/violation.log
-          grep -F "Added violates 'Classes are final'" .build/violation.log
-          swift package --allow-writing-to-package-directory bylaws \
-            --record-baseline Bylaws.baseline.swift
-          swift build --disable-build-manifest-caching --target App
-          printf 'final class Added {}\n' > Sources/Other/Added.swift
-          if swift build --disable-build-manifest-caching --target App > .build/baseline.log 2>&1; then
-            cat .build/baseline.log
-            exit 1
-          fi
-          cat .build/baseline.log
-          grep -i stale .build/baseline.log
-          rm Sources/Other/Added.swift Bylaws.baseline.swift
-          swift build --disable-build-manifest-caching --target App
-          ! find .build -path '*bylaws_cli*.build/*.swift.o' -print -quit | grep -q .
-          ! find .build -path '*SwiftSyntax.build/*.swift.o' -print -quit | grep -q .
 
   documentation:
     name: Check documentation
