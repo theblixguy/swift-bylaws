@@ -166,8 +166,8 @@ the path that the rules see.
 
 ## Checks that need compiler data
 
-The build target runs with `--source-only` and rejects compiler-index queries.
-Run those checks after the compiler has produced an index:
+The build target checks portable source rules and skips tests. Run
+compiler-index checks after the compiler has produced an index:
 
 ```sh
 bazel run @swift-bylaws//:bylaws -- lint --rules Config/IndexRules.swift

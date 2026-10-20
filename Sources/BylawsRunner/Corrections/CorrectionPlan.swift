@@ -28,8 +28,8 @@ package struct CorrectionPlan {
     let replacement: Data
     let swiftLanguageMode: SwiftLanguageMode
 
-    init(_ edit: SourceFix.Edit) {
-      path = edit.source.filePath
+    init(_ edit: SourceFix.Edit, resolvedPath: String) {
+      path = resolvedPath
       range = edit.source.range
       replacement = Data(edit.replacement.utf8)
       swiftLanguageMode = edit.source.snapshot.swiftLanguageMode
@@ -37,6 +37,7 @@ package struct CorrectionPlan {
   }
 
   private struct Target {
+    let path: String
     let resolvedPath: String
     let original: Data
   }
@@ -52,7 +53,8 @@ package struct CorrectionPlan {
       ? nil : ReportPathScope(paths: reportPaths, rootPath: rootPath)
     var proposals: [Proposal] = []
     var diagnostics: [Diagnostic] = []
-    var targets: [String: Result<Target, any Error>] = [:]
+    var targetsBySourcePath: [String: Result<Target, any Error>] = [:]
+    var targetsByResolvedPath: [String: Target] = [:]
     for report in reports {
       for (offender, fix) in zip(
         report.violations.offenders,
@@ -63,33 +65,37 @@ package struct CorrectionPlan {
           !$0.source.text.utf8.elementsEqual($0.replacement.utf8)
         }
         guard !edits.isEmpty else { continue }
-        let proposal = Proposal(
-          ruleID: report.id, location: offender.location,
-          edits: Array(Set(edits.map(Edit.init)))
-        )
         do {
+          var proposedEdits: [Edit] = []
           for edit in edits {
             let path = edit.source.filePath
-            if targets[path] == nil {
-              targets[path] = Result {
+            if targetsBySourcePath[path] == nil {
+              targetsBySourcePath[path] = Result {
                 try validateTarget(
                   path, root: root, scope: scope,
                   protectedPaths: protectedPaths
                 )
               }
             }
-            guard let target = try targets[path]?.get(),
+            guard let target = try targetsBySourcePath[path]?.get(),
                   target.original == Data(edit.source.snapshot.text.utf8)
             else {
               throw CaptureError(
                 "the source changed at '\(path)'. Run the command again"
               )
             }
+            if targetsByResolvedPath[target.resolvedPath] == nil {
+              targetsByResolvedPath[target.resolvedPath] = target
+            }
+            proposedEdits.append(Edit(edit, resolvedPath: target.resolvedPath))
           }
-          proposals.append(proposal)
+          proposals.append(Proposal(
+            ruleID: report.id, location: offender.location,
+            edits: Array(Set(proposedEdits))
+          ))
         } catch {
           diagnostics.append(diagnostic(
-            for: proposal,
+            for: report.id, at: offender.location,
             message: String(describing: error)
           ))
         }
@@ -98,7 +104,10 @@ package struct CorrectionPlan {
     let conflicts = conflictingProposals(proposals)
     var rejected = Set(conflicts.keys)
     for (index, reason) in conflicts.sorted(by: { $0.key < $1.key }) {
-      diagnostics.append(diagnostic(for: proposals[index], message: reason))
+      let proposal = proposals[index]
+      diagnostics.append(diagnostic(
+        for: proposal.ruleID, at: proposal.location, message: reason
+      ))
     }
 
     var changes: [Change] = []
@@ -114,7 +123,7 @@ package struct CorrectionPlan {
         guard let edits = editsByPath[path],
               let first = edits.first else { continue }
         do {
-          guard let target = try targets[path]?.get() else { continue }
+          guard let target = targetsByResolvedPath[path] else { continue }
           changes.append(try prepareChange(
             at: path, target: target, edits: edits,
             swiftLanguageMode: first.swiftLanguageMode
@@ -127,7 +136,7 @@ package struct CorrectionPlan {
           {
             if rejected.insert(index).inserted {
               diagnostics.append(diagnostic(
-                for: proposals[index],
+                for: proposals[index].ruleID, at: proposals[index].location,
                 message: "cannot prepare the correction for '\(path)': \(error)"
               ))
             }
@@ -161,7 +170,7 @@ package struct CorrectionPlan {
       source: text, path: path, swiftLanguageMode: swiftLanguageMode
     )
     return Change(
-      path: path, resolvedPath: target.resolvedPath,
+      path: target.path, resolvedPath: target.resolvedPath,
       original: target.original, replacement: replacement
     )
   }
@@ -173,21 +182,21 @@ package struct CorrectionPlan {
     protectedPaths: Set<String>
   ) throws -> Target {
     let candidate = LexicalFilePath(path)
-    let resolvedRoot = URL(fileURLWithPath: root.string)
-      .resolvingSymlinksInPath()
-    guard candidate.string == path,
-          let relative = candidate.relative(to: root),
-          URL(fileURLWithPath: path).resolvingSymlinksInPath().path
-          == resolvedRoot.appendingPathComponent(relative.string).path,
+    // Foundation can shorten macOS paths that SwiftPM reports in physical form.
+    guard let resolvedRoot = root.resolvingSymbolicLinks(),
+          candidate.string == path,
+          let relative = candidate.relative(to: root)
+          ?? candidate.relative(to: resolvedRoot),
+          let physicalPath = candidate.resolvingSymbolicLinks(),
+          physicalPath == resolvedRoot.appending(relative.string),
           path.hasSuffix(".swift")
     else {
       throw CaptureError(
         "the correction must target a regular Swift file under '\(root.string)'"
       )
     }
-    let physicalPath = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
     guard !protectedPaths.contains(where: {
-      URL(fileURLWithPath: $0).resolvingSymlinksInPath().path == physicalPath
+      LexicalFilePath($0).resolvingSymbolicLinks() == physicalPath
     }) else {
       throw CaptureError(
         "the correction targets active rule or configuration source at '\(path)'"
@@ -208,7 +217,8 @@ package struct CorrectionPlan {
       )
     }
     return Target(
-      resolvedPath: physicalPath,
+      path: root.appending(relative.string).string,
+      resolvedPath: physicalPath.string,
       original: try Data(contentsOf: URL(fileURLWithPath: path))
     )
   }
@@ -262,13 +272,13 @@ package struct CorrectionPlan {
   }
 
   private static func diagnostic(
-    for proposal: Proposal,
+    for ruleID: Rule.ID, at location: DeclarationLocation,
     message: String
   ) -> Diagnostic {
     Diagnostic(
       severity: .error,
-      location: proposal.location,
-      message: "rule '\(proposal.ruleID)': \(message)"
+      location: location,
+      message: "rule '\(ruleID)': \(message)"
     )
   }
 }

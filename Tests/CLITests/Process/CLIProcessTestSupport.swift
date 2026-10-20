@@ -26,7 +26,7 @@ final class CLIProcessProject {
       files["Bylaws.swift"] = rules
     }
     if writesProjectMarker {
-      files["Package.swift"] = ""
+      files[".git"] = ""
     }
     files.merge(extraFiles) { _, replacement in replacement }
     project = try TemporaryProject(

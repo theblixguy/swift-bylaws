@@ -47,6 +47,7 @@ To run rules from a `Bylaws.swift` file, follow <doc:RunningRulesFromTheCLI>.
 - <doc:RuleCookbook>
 - <doc:RuleAdoption>
 - <doc:RunningRulesFromTheCLI>
+- <doc:CorrectingSource>
 - <doc:RunningRulesDuringBuilds>
 - <doc:RunningRulesWithBazel>
 - <doc:InspectingRules>

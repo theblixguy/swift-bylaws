@@ -548,7 +548,7 @@ let package = Package(
         ),
         permissions: [
           .writeToPackageDirectory(
-            reason: "Records baselines beside the package's rules."
+            reason: "Records baselines and applies source corrections when requested."
           ),
         ]
       ),
@@ -603,6 +603,7 @@ let package = Package(
       name: "CLITests",
       dependencies: [
         "bylaws-cli",
+        "Bylaws",
         "BylawsRunner",
         "BylawsCore",
         "BylawsPaths",
@@ -610,6 +611,7 @@ let package = Package(
         "BylawsIndexStore",
         "BylawsInterpreter",
         "BylawsSemantics",
+        "BylawsSyntax",
         "BylawsTestSupport",
         .product(name: "Subprocess", package: "swift-subprocess"),
         .product(name: "SystemPackage", package: "swift-system"),

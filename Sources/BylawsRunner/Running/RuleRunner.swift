@@ -134,13 +134,21 @@ package enum RuleRunner {
   package static func run(
     _ configuration: RuleRunConfiguration
   ) async throws(CancellationError) -> RuleRunResult {
+    let loaded = await load(configuration)
+    return try await run(configuration, loaded: loaded)
+  }
+
+  package static func run(
+    _ configuration: RuleRunConfiguration,
+    loaded: LoadedRuleProgram,
+    additionalRules: [Rule] = [],
+    acceptedTestOffenders: [Rule.ID: [Bool]] = [:],
+    acceptedPortableOffenders: [Rule.Origin: Set<Offender>] = [:]
+  ) async throws(CancellationError) -> RuleRunResult {
     if Task.isCancelled { throw CancellationError() }
 
-    let loaded = await load(configuration)
     let rootPath = loaded.rootPath
     let program = loaded.program
-
-    if Task.isCancelled { throw CancellationError() }
 
     if program.ruleFileStatus == .missing {
       return resultWithoutReports(
@@ -160,7 +168,7 @@ package enum RuleRunner {
     }
 
     let selection = RuleSelector.select(
-      from: program.rules,
+      from: program.rules + additionalRules,
       only: configuration.only,
       skip: configuration.skip,
       defaultLocation: defaultLocation(
@@ -233,6 +241,15 @@ package enum RuleRunner {
         ruleID: rule.id,
         rootPath: rootPath
       ))
+      var offenderIndex = 0
+      let acceptedByOrigin = rule.origin.flatMap {
+        acceptedPortableOffenders[$0]
+      } ?? []
+      let unaccepted = violations.filteringOffenders { offender in
+        defer { offenderIndex += 1 }
+        return acceptedTestOffenders[rule.id]?[offenderIndex] != true
+          && !acceptedByOrigin.contains(offender)
+      }
       reports.append(
         RuleReport(
           id: rule.id,
@@ -240,7 +257,7 @@ package enum RuleRunner {
           enforcement: rule.enforcement,
           hint: rule.hint,
           location: rule.location,
-          violations: violations.removingOffenders(
+          violations: unaccepted.removingOffenders(
             acceptedBy: baselines,
             for: rule.id,
             under: rootPath

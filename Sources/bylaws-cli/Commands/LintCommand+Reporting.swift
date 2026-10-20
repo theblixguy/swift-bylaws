@@ -1,5 +1,6 @@
 import ArgumentParser
 import BylawsInterpreter
+import BylawsPaths
 import BylawsRunner
 import BylawsSemantics
 import Foundation
@@ -8,12 +9,14 @@ extension LintCommand {
   func writeReport(
     _ document: ReportDocument,
     rootPath: String,
-    quiet: Bool
+    quiet: Bool,
+    inputPaths: Set<String> = [],
+    writesOutputFile: Bool = true
   ) throws {
     let rendered = try ReportRenderer.render(
       document, format: format, quiet: quiet, rootPath: rootPath
     )
-    guard let output else {
+    guard writesOutputFile, let output else {
       if !rendered.isEmpty {
         print(rendered)
       }
@@ -28,6 +31,11 @@ extension LintCommand {
         .write(contentsOf: Data((diagnostics + "\n").utf8))
     }
     do {
+      let explicitInputs = rules + [baseline].compactMap(\.self)
+      let knownInputs = inputPaths.union(explicitInputs.map {
+        LexicalFilePath($0, relativeTo: LexicalFilePath(rootPath)).string
+      })
+      try ReportOutput.validate(output, inputPaths: knownInputs)
       let content = rendered.isEmpty ? "" : rendered + "\n"
       try content.write(toFile: output, atomically: true, encoding: .utf8)
     } catch {
@@ -38,7 +46,9 @@ extension LintCommand {
     }
   }
 
-  func reportError(_ message: String, rootPath: String) throws {
+  func reportError(
+    _ message: String, rootPath: String, writesOutputFile: Bool = true
+  ) throws {
     try writeReport(
       ReportDocument(reports: [], diagnostics: [
         Diagnostic(
@@ -48,7 +58,8 @@ extension LintCommand {
         ),
       ]),
       rootPath: rootPath,
-      quiet: true
+      quiet: true,
+      writesOutputFile: writesOutputFile && !autocorrect
     )
   }
 }

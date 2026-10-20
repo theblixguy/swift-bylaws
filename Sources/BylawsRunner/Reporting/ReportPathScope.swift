@@ -7,7 +7,10 @@ struct ReportPathScope {
 
   init(paths: [String], rootPath: String) {
     let root = LexicalFilePath(rootPath)
-    self.paths = paths.map { LexicalFilePath($0, relativeTo: root) }
+    self.paths = paths.map {
+      let path = LexicalFilePath($0, relativeTo: root)
+      return path.resolvingSymbolicLinks() ?? path
+    }
   }
 
   func contains(_ location: DeclarationLocation) -> Bool {
@@ -15,7 +18,8 @@ struct ReportPathScope {
   }
 
   func contains(path: String) -> Bool {
-    let candidate = LexicalFilePath(path)
+    let path = LexicalFilePath(path)
+    let candidate = path.resolvingSymbolicLinks() ?? path
     return paths.contains { $0.contains(candidate) }
   }
 }

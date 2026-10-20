@@ -58,6 +58,28 @@ struct LintCommand: AsyncParsableCommand {
   @Flag(help: "Reject compiler-index queries that need a completed build.")
   var sourceOnly = false
 
+  @Flag(help: "Apply proposed corrections, then rebuild and recheck the rules.")
+  var autocorrect = false
+
+  @Flag(
+    help: "Validate corrections and print a patch without changing files. Use with --autocorrect."
+  )
+  var dryRun = false
+
+  @Option(
+    help: "Run rules in this SwiftPM package instead of the package at the project root."
+  )
+  var testPackage: String?
+
+  @Option(
+    parsing: .upToNextOption,
+    help: "Select Swift Testing functions with these regular expressions."
+  )
+  var testFilter: [String] = []
+
+  @Flag(help: "Run portable rules without building or running tests.")
+  var skipTests = false
+
   @Option(help: "Choose xcode, github, json or sarif output.")
   var format = OutputFormat.xcode
 
@@ -168,6 +190,16 @@ struct LintCommand: AsyncParsableCommand {
   var parsedSources: [String] = []
 
   func run() async throws {
+    do {
+      if let output { try ReportOutput.validate(output) }
+    } catch {
+      try reportError(
+        String(describing: error),
+        rootPath: LexicalFilePath.currentDirectory.string,
+        writesOutputFile: false
+      )
+      throw ExitCode(2)
+    }
     let rootPath: LexicalFilePath
     do {
       rootPath = try ProjectRoot.resolve(
@@ -197,46 +229,104 @@ struct LintCommand: AsyncParsableCommand {
       )
       throw ExitCode(2)
     }
+    if dryRun, !autocorrect {
+      try reportError(
+        "--dry-run must be used with --autocorrect",
+        rootPath: rootPath.string
+      )
+      throw ExitCode(2)
+    }
+    if skipTests, testPackage != nil || !testFilter.isEmpty {
+      try reportError(
+        "--skip-tests cannot be combined with --test-package or --test-filter",
+        rootPath: rootPath.string
+      )
+      throw ExitCode(2)
+    }
+    if autocorrect, recordBaseline != nil || !parsedSources.isEmpty {
+      try reportError(
+        "--autocorrect cannot be combined with --record-baseline or --parsed-sources",
+        rootPath: rootPath.string
+      )
+      throw ExitCode(2)
+    }
 
     let preparedSources: PreparedSources?
     do {
-      preparedSources = try parsedSources.isEmpty ? nil : ParsedSourceArchive
-        .load(parsedSources.map {
+      preparedSources = if parsedSources.isEmpty {
+        nil
+      } else {
+        try ParsedSourceArchive.load(parsedSources.map {
           URL(fileURLWithPath: LexicalFilePath(
             $0,
             relativeTo: .currentDirectory
           ).string)
         }, rootedAt: rootPath.string)
+      }
     } catch {
       try reportError(error.description, rootPath: rootPath.string)
       throw ExitCode(2)
     }
 
-    let result = try await RuleRunner.run(
-      RuleRunConfiguration(
-        root: rootPath,
-        ruleFilePaths: rules.map {
-          LexicalFilePath($0, relativeTo: rootPath)
-        },
-        only: only,
-        skip: skip,
-        strict: strict,
-        sourceOnly: sourceOnly,
-        baseline: baseline
-          .map { LexicalFilePath($0, relativeTo: rootPath).string },
-        reportPaths: reportPaths,
-        changedPaths: changedPaths,
-        parseCachePolicy: parseCachePolicy,
-        selectionCacheBudget: selectionCacheSize,
-        swiftPackageModules: swiftPackageModules,
-        preparedSources: preparedSources
-      )
+    let configuration = RuleRunConfiguration(
+      root: rootPath,
+      ruleFilePaths: rules.map {
+        LexicalFilePath($0, relativeTo: rootPath)
+      },
+      only: only,
+      skip: skip,
+      strict: strict,
+      sourceOnly: sourceOnly,
+      baseline: baseline
+        .map { LexicalFilePath($0, relativeTo: rootPath).string },
+      reportPaths: reportPaths,
+      changedPaths: changedPaths,
+      parseCachePolicy: parseCachePolicy,
+      selectionCacheBudget: selectionCacheSize,
+      swiftPackageModules: swiftPackageModules,
+      preparedSources: preparedSources
     )
+    let corrections: LintRunner.CorrectionMode = if dryRun {
+      .preview
+    } else if autocorrect {
+      .apply
+    } else {
+      .none
+    }
+    let run: LintRunResult
+    do {
+      run = try await LintRunner.run(
+        configuration,
+        testPackagePath: testPackage,
+        testFilters: testFilter,
+        skipTests: skipTests,
+        corrections: corrections,
+        reportOutputPath: output
+      )
+    } catch {
+      try reportError(
+        String(describing: error), rootPath: rootPath.string,
+        writesOutputFile: false
+      )
+      throw ExitCode(2)
+    }
+    let result = run.rules
+    if let patch = run.patch, !patch.isEmpty {
+      try FileHandle.standardError.write(contentsOf: Data(patch.utf8))
+    }
+    if !run.changedPaths.isEmpty, !quiet {
+      let files = run.changedPaths.count == 1 ? "file" : "files"
+      let message = "Corrected \(run.changedPaths.count) \(files): \(run.changedPaths.joined(separator: ", ")).\n"
+      try FileHandle.standardError.write(contentsOf: Data(message.utf8))
+    }
 
     if result.outcome == .invalidRules
       || result.outcome == .notConfigured
     {
-      try writeReport(result.document, rootPath: result.rootPath, quiet: true)
+      try writeReport(
+        result.document, rootPath: result.rootPath, quiet: true,
+        inputPaths: run.inputPaths
+      )
       throw ExitCode(2)
     }
 
@@ -255,7 +345,10 @@ struct LintCommand: AsyncParsableCommand {
       return
     }
 
-    try writeReport(result.document, rootPath: result.rootPath, quiet: quiet)
+    try writeReport(
+      result.document, rootPath: result.rootPath, quiet: quiet,
+      inputPaths: run.inputPaths
+    )
 
     if result.outcome == .violations {
       throw ExitCode(1)
@@ -266,13 +359,14 @@ struct LintCommand: AsyncParsableCommand {
     if cache || cachePath != nil || cacheSize != nil || cacheValidation != nil
       || !changedPaths.isEmpty
     {
-      return .configured(ParseCacheConfiguration(
+      .configured(ParseCacheConfiguration(
         directory: cachePath.map { URL(fileURLWithPath: $0) },
         budget: cacheSize?.bytes ?? ParseCacheConfiguration.defaultBudget,
         validation: cacheValidation ?? .metadata
       ))
+    } else {
+      .disabled
     }
-    return .disabled
   }
 
   private func record(

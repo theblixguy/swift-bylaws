@@ -5,8 +5,9 @@ Set up Bylaws to run with your tests or from the command line.
 ## Overview
 
 You can run rules with your tests or from the command line. A test target
-supports the full Swift language, while rules shared with the CLI must use its
-supported subset as described in <doc:RunningRulesFromTheCLI>.
+supports the full Swift language. The CLI can run a SwiftPM package's tests
+and check portable rules from a `Bylaws.swift` file. Portable rules use the
+supported subset described in <doc:RunningRulesFromTheCLI>.
 
 ## Requirements
 
@@ -19,7 +20,7 @@ supported subset as described in <doc:RunningRulesFromTheCLI>.
 | Workflow | Start here when | Main command |
 | --- | --- | --- |
 | Swift Testing | The rule belongs with the project's tests or needs the full Swift language | `swift test` |
-| Portable rules | The rule must run before a build or through the editor integration | `bylaws lint` |
+| Portable rules | The rule must run before a build or through the editor integration | `bylaws lint --skip-tests` |
 
 A portable rules file can also belong to a test target, so you can maintain
 one file for both workflows.
@@ -245,7 +246,7 @@ Create a rules file and check it from the project root:
 
 ```sh
 bylaws init
-bylaws lint
+bylaws lint --skip-tests
 ```
 
 `bylaws init` creates advisory rules so you can see the current violations
