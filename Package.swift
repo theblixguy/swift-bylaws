@@ -401,6 +401,10 @@ let package = Package(
       exact: "1.7.5"
     ),
     .package(
+      url: "https://github.com/swiftlang/swift-subprocess.git",
+      exact: "1.0.0"
+    ),
+    .package(
       url: "https://github.com/apple/swift-argument-parser.git",
       exact: "1.8.2"
     ),
@@ -620,6 +624,7 @@ let package = Package(
         "BylawsSemantics",
         "BylawsTestSupport",
         "BylawsSyntax",
+        .product(name: "Subprocess", package: "swift-subprocess"),
       ],
       swiftSettings: swiftSettings
     ),
