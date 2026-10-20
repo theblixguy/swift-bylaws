@@ -1,6 +1,7 @@
 #if os(macOS) || os(Linux)
   import BylawsCore
   import BylawsSemantics
+  import BylawsTestSupport
   import Foundation
   import Testing
 

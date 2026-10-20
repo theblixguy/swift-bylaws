@@ -1,20 +1,22 @@
 #if os(macOS) || os(Linux)
-  import BylawsCore
-  import BylawsTestSupport
-  import Foundation
-  import Subprocess
-  import Testing
+  package import BylawsCore
+  package import Foundation
+  package import Subprocess
+  package import Testing
 
-  struct SwiftTestingReportConsumer: Sendable {
-    static let source = "class Screen {}\n"
+  package struct SwiftTestingReportConsumer: Sendable {
+    package static let source = "class Screen {}\n"
     private let project: TemporaryProject
 
-    var root: URL { project.rootURL.resolvingSymlinksInPath() }
-    var sourceFile: URL {
+    package var root: URL { project.rootURL.resolvingSymlinksInPath() }
+    package var sourceFile: URL {
       root.appendingPathComponent("Sources/App/Screen.swift")
     }
 
-    init() throws {
+    package init(
+      enforcement: Enforcement = .advisory,
+      additionalTests: String = ""
+    ) throws {
       let repository = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .deletingLastPathComponent()
@@ -40,7 +42,7 @@
         )
         """,
         "Sources/App/Screen.swift": Self.source,
-        "Tests/RuleTests/Rules.swift": #"""
+        "Tests/RuleTests/Rules.swift": """
         import Bylaws
         import Testing
 
@@ -49,24 +51,37 @@
           including: ["Sources/App/**"], swiftLanguageMode: .v6
         )
 
-        @Test func reportsFix() async throws {
+        private func reportRename() async throws {
           let violations = try await app.classes.violations(of: .named("Updated"))
             .withFix("Rename class") { context in
               try context.offender.nameSource.replacement(with: "Updated")
             }
-          violations.report(ruleID: "rename-class", enforcement: .advisory)
+          violations.report(ruleID: "rename-class", enforcement: .\(enforcement.rawValue))
+        }
+
+        @Test func reportsFix() async throws {
+          try await reportRename()
+        }
+
+        @Test func reportsUnrelatedFailure() async throws {
+          try await reportRename()
+          Issue.record("Unrelated failure")
         }
 
         @Test func reportsWithoutFix() async throws {
           let violations = try await app.classes.violations(of: .named("Updated"))
-          violations.report(ruleID: "rename-class", enforcement: .advisory)
+          violations.report(ruleID: "rename-class", enforcement: .\(enforcement.rawValue))
         }
-        """#,
+        """ + "\n" + additionalTests,
       ])
     }
 
+    package func writeSource(_ source: String) throws {
+      try project.write(source, to: "Sources/App/Screen.swift")
+    }
+
     @concurrent
-    func run(
+    package func run(
       _ function: String,
       phase: String,
       session: SwiftTestingRuleSession? = nil
@@ -110,13 +125,12 @@
         ])
       }
       var options = PlatformOptions()
-      options.processGroupID = 0
-      // Graceful teardown can stop escalation before compiler children exit.
+      // SwiftPM allows 30 seconds to cancel jobs in separate process groups.
       options.teardownSequence = [
         .send(
-          signal: .kill,
-          toProcessGroup: true,
-          allowedDurationToNextStep: .zero
+          signal: .interrupt,
+          toProcessGroup: false,
+          allowedDurationToNextStep: .seconds(35)
         ),
       ]
       let result = try await Subprocess.run(
@@ -139,20 +153,20 @@
       )
     }
 
-    struct Result: Sendable {
-      let status: TerminationStatus
-      let output: String
-      let attachments: URL
-      let events: URL
+    package struct Result: Sendable {
+      package let status: TerminationStatus
+      package let output: String
+      package let attachments: URL
+      package let events: URL
 
-      func records() throws -> [Record] {
+      package func records() throws -> [Record] {
         let decoder = JSONDecoder()
         return try Data(contentsOf: events).split(separator: 0x0A).map {
           try decoder.decode(Record.self, from: Data($0))
         }
       }
 
-      func completedTestID(
+      package func completedTestID(
         named function: String,
         sourceLocation: SourceLocation = #_sourceLocation
       ) throws -> String {
@@ -182,19 +196,19 @@
       }
     }
 
-    struct Record: Decodable {
-      let version: Int
-      let kind: String
-      let payload: Payload
+    package struct Record: Decodable {
+      package let version: Int
+      package let kind: String
+      package let payload: Payload
 
-      struct Payload: Decodable {
-        let kind: String?
-        let testID: String?
-        let attachment: Attachment?
+      package struct Payload: Decodable {
+        package let kind: String?
+        package let testID: String?
+        package let attachment: Attachment?
       }
 
-      struct Attachment: Decodable {
-        let path: String
+      package struct Attachment: Decodable {
+        package let path: String
       }
     }
   }
