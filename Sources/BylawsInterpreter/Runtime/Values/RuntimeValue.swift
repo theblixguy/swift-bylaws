@@ -31,6 +31,10 @@ indirect enum RuntimeValue: Sendable {
   case symbolRoles(Set<RuntimeSymbolRole>)
   case selection(RuntimeSelection)
   case string(String)
+  case regex(RuntimeRegex)
+  case sourceSlice(SourceSlice)
+  case sourceEdit(SourceFix.Edit)
+  case fixContext(RuntimeFixContext)
   case url(URL)
   case violations(RuntimeViolations)
   case void
@@ -89,11 +93,14 @@ extension RuntimeValue {
     case let (.violations(subject), .violations(violations)):
       subject == nil
         || violations.offenders.allSatisfy { $0.modelType == subject }
+    case (.sourceSlice, .sourceSlice), (.sourceEdit, .sourceEdit): true
+    case let (.fixContext(subject), .fixContext(context)):
+      subject == nil || context.offender.modelType == subject
     case (.findings, .findings):
       true
     case (.ruleResults, .ruleResults): true
     case (.boolean, .boolean), (.string, .string), (.integer, .integer),
-         (.double, .double), (.codebase, .codebase),
+         (.double, .double), (.regex, .regex), (.codebase, .codebase),
          (.integerRange, .integerRange), (.layering, .layering),
          (.layer, .layer), (.dependencyGroup, .dependencyGroup),
          (.rule, .rule), (.void, .void), (.projectIndex, .projectIndex),

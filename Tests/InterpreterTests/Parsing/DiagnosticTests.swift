@@ -199,7 +199,7 @@ struct StructuralDiagnosticCase: Sendable, CustomTestStringConvertible {
         app.classes.violations(of: .isFinal) { arbitraryWork() }
       }
       """,
-      message: "'violations' takes no trailing closure"
+      message: "'violations' takes arguments (of:) or (matching:) or (outsidePaths:)"
     ),
     StructuralDiagnosticCase(
       source:
@@ -209,7 +209,7 @@ struct StructuralDiagnosticCase: Sendable, CustomTestStringConvertible {
         app.classes.violations(of: .isFinal { arbitraryWork() })
       }
       """,
-      message: "'isFinal' takes no trailing closure"
+      message: "'isFinal' is not callable"
     ),
     StructuralDiagnosticCase(
       source:
@@ -219,7 +219,7 @@ struct StructuralDiagnosticCase: Sendable, CustomTestStringConvertible {
         app.classes.violations(of: .isFinal)
       }
       """,
-      message: "a rule's body must be one query expression"
+      message: "Rule takes one body closure without parameters"
     ),
   ]
 }

@@ -21,15 +21,20 @@ extension RuntimeEvaluator {
       }
       return .findings(result.findings(reportedAt: location))
     }
-    if state.synchronousClosureDepth > 0,
-       case .codebase = receiver
-    {
-      throw RuntimeError(
-        message: "a synchronous closure cannot suspend",
-        location: arguments.location
-      )
+    let api = receiver.runtimeReceiver.flatMap {
+      let receiver = $0
+      return SupportedAPI.Member(rawValue: name.rawValue).flatMap {
+        SupportedAPI.runtimeMethod(named: $0, on: receiver)
+      }
     }
+    try requireEffects(of: api, at: arguments.location, state: state)
     switch receiver {
+    case let .sourceSlice(value):
+      return try sourceMethod(name, value: value, arguments: arguments)
+    case let .violations(value) where name == .withFix:
+      return try await attachingFixes(
+        to: value, arguments: arguments, state: &state
+      )
     case let .url(value) where name == .deletingLastPathComponent:
       return .url(value.deletingLastPathComponent())
     case let .dictionary(values) where name == .mapValues:
@@ -118,11 +123,18 @@ extension RuntimeEvaluator {
     value: String,
     arguments: RuntimeArguments
   ) throws(RuntimeError) -> RuntimeValue {
-    if name == .lowercased {
+    if name == .lowercased || name == .uppercased {
       try arguments.requireLabels([], for: name)
-      return .string(value.lowercased())
+      return .string(name == .lowercased ? value.lowercased() : value
+        .uppercased())
     }
     try arguments.requireLabels([nil], for: name)
+    if name == .contains,
+       case let .regex(pattern) = try arguments.value(at: 0)
+    {
+      return .boolean(value
+        .contains(try pattern.compiled(at: arguments.location)))
+    }
     let argument = try arguments.string(at: 0)
     return switch name {
     case .hasPrefix: .boolean(value.hasPrefix(argument))
@@ -175,6 +187,8 @@ extension RuntimeEvaluator {
       )
     }
     if case let .keyPath(components, location) = callable {
+      state.synchronousClosureDepth += 1
+      defer { state.synchronousClosureDepth -= 1 }
       var value = value
       for component in components {
         value = try await member(
@@ -198,6 +212,25 @@ extension RuntimeEvaluator {
       kind: "collection",
       state: &state
     )
+  }
+
+  func requireEffects(
+    of api: SupportedAPI.RuntimeMemberAPI?,
+    at location: DeclarationLocation,
+    state: RuntimeEvaluationState
+  ) throws(RuntimeError) {
+    guard state.synchronousClosureDepth > 0 else { return }
+    if api?.canSuspend == true {
+      throw RuntimeError(
+        message: "a synchronous closure cannot suspend", location: location
+      )
+    }
+    if api?.canThrow == true {
+      throw RuntimeError(
+        message: "a nonthrowing body cannot call a throwing API. Use a throwing function or fix closure.",
+        location: location
+      )
+    }
   }
 
   func invokeSynchronous(

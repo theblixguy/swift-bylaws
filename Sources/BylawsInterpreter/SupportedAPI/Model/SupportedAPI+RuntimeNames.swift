@@ -1,5 +1,9 @@
 extension SupportedAPI {
   package enum Member: String, CaseIterable, Hashable, Sendable {
+    case source, nameSource, bodySource, calledExpressionSource,
+         memberNameSource
+    case expressionSource, labelSource, offender, codebase, range
+    case matches, replacement, only, argument, withFix, slice
     case stringValue, integerValue, floatingPointValue, booleanValue
     case isNilLiteral, referenceName, referenceLocation, base, arrayElements
     case dictionaryElements
@@ -13,6 +17,7 @@ extension SupportedAPI {
     case enclosingDeclarations
     case compilationBranches
     case precedingConditions
+    case uppercased
     case lowercased
     case deletingLastPathComponent
     case lastPathComponent
@@ -295,6 +300,8 @@ extension SupportedAPI {
   }
 
   package enum Method: String, CaseIterable, Sendable {
+    case matches, replacement, only, argument, withFix, slice
+    case uppercased
     case lowercased
     case bazelGraph
     case deletingLastPathComponent

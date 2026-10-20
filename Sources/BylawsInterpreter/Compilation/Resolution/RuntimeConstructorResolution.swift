@@ -43,7 +43,7 @@ struct RuntimeConstructorResolution {
       })
     case .boolean, .constructor, .double, .integer, .keyPath, .nilLiteral,
          .reference,
-         .staticMember, .string: expression.kind
+         .staticMember, .string, .regex: expression.kind
     }
     return RuntimeExpression(kind: kind, location: expression.location)
   }
@@ -80,13 +80,13 @@ struct RuntimeConstructorResolution {
     })
   }
 
-  private func resolve(_ closure: RuntimeClosureDefinition)
+  func resolve(_ closure: RuntimeClosureDefinition)
     -> RuntimeClosureDefinition
   {
     RuntimeClosureDefinition(
       parameters: closure.parameters, body: resolve(closure.body),
       location: closure.location, usesAwait: closure.usesAwait,
-      usesTry: closure.usesTry
+      usesTry: closure.usesTry, resultType: closure.resultType
     )
   }
 

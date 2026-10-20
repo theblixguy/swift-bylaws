@@ -34,6 +34,7 @@ struct RuntimeExpression: Sendable {
     case reference(String)
     case staticMember(SupportedAPI.MemberLiteral)
     case string(String)
+    case regex(RuntimeRegex)
   }
 
   let kind: Kind

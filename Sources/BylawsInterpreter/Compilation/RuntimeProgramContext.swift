@@ -6,7 +6,12 @@ actor RuntimeProgramContext {
   private let sourceModules: [RuntimeSourceModule]
   private let importedModuleNames: [String]
   private let indexProvider: (any RuntimeIndexProvider)?
-  private var environmentEntry: MemoisedTask<RuntimeEnvironment, RuntimeError>?
+  private struct EnvironmentEntry {
+    let task: MemoisedTask<RuntimeEnvironment, RuntimeError>
+    let captures: SourceCapture.Collector
+  }
+
+  private var environmentEntry: EnvironmentEntry?
 
   init(
     file: ParsedRulesFile,
@@ -25,17 +30,78 @@ actor RuntimeProgramContext {
     let sourceModules = sourceModules
     let importedModuleNames = importedModuleNames
     let indexProvider = indexProvider
-    return try await MemoisedTask.value(
-      name: "bylaws: resolve rule environment",
-      lookup: { environmentEntry },
-      insert: { environmentEntry = $0 },
-      remove: { environmentEntry = nil }
-    ) { () async throws(RuntimeError) in
-      try await Self.makeEnvironment(
-        file: file,
-        sourceModules: sourceModules,
-        importedModuleNames: importedModuleNames,
-        indexProvider: indexProvider
+    let unavailableCodebase = ([file] + sourceModules.map(\.file))
+      .flatMap(\.codebases.values)
+      .first { codebase in
+        if !codebase.overlay.isEmpty { return true }
+        if case .prepared = codebase.sourceLoading { return true }
+        return false
+      }
+    if let unavailableCodebase, SourceCapture.isEnabled {
+      let failure = RuntimeError(
+        message: "the runtime environment uses prepared or unsaved sources. Reload rules from disk before applying corrections.",
+        location: .start(of: file.path)
+      )
+      do {
+        try await SourceCapture.recordFailure(failure, for: unavailableCodebase)
+      } catch {
+        throw RuntimeError(wrapping: error, at: failure.location)
+      }
+      throw failure
+    }
+    let captures = environmentEntry?.captures ?? SourceCapture.Collector()
+    let buildCollector = unavailableCodebase == nil ? captures : nil
+    let result = await Result(catching: { () async throws(RuntimeError) in
+      try await MemoisedTask.value(
+        name: "bylaws: resolve rule environment",
+        lookup: { environmentEntry?.task },
+        insert: { environmentEntry = EnvironmentEntry(
+          task: $0,
+          captures: captures
+        ) },
+        remove: { environmentEntry = nil }
+      ) { () async throws(RuntimeError) in
+        let result = await SourceCapture.$collector.withValue(buildCollector) {
+          await Result(catching: { () async throws(RuntimeError) in
+            try await Self.makeEnvironment(
+              file: file,
+              sourceModules: sourceModules,
+              importedModuleNames: importedModuleNames,
+              indexProvider: indexProvider
+            )
+          })
+        }
+        return try result.get()
+      }
+    })
+    try await replayCaptures(captures, preserving: result)
+    return try result.get()
+  }
+
+  private func replayCaptures(
+    _ captures: SourceCapture.Collector,
+    preserving result: Result<RuntimeEnvironment, RuntimeError>
+  ) async throws(RuntimeError) {
+    guard SourceCapture.isEnabled else { return }
+    let records = await captures.captured
+    for record in records {
+      await SourceCapture.collector?.record(record)
+    }
+    do {
+      for record in records { try await SourceCapture.store(record) }
+    } catch {
+      let message = "cannot save the source capture: \(error)"
+      if case let .failure(failure) = result {
+        throw RuntimeError(
+          message: "\(failure.message)\n\(message)",
+          location: failure.location,
+          kind: failure.kind,
+          underlyingError: failure
+        )
+      }
+      throw RuntimeError(
+        message: message, location: .start(of: file.path),
+        underlyingError: error
       )
     }
   }

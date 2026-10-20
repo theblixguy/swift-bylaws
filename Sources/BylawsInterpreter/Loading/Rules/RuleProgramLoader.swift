@@ -42,7 +42,11 @@ enum RuleProgramLoader {
       codebaseLoading: codebaseLoading
     )
     diagnostics.append(contentsOf: resolved.diagnostics)
-    let declared = compileDeclaredRules(in: parsed.files)
+    let declared = compileDeclaredRules(
+      in: parsed.files,
+      sourceModules: resolved.sourceModules,
+      indexProvider: indexProvider
+    )
     let runtime = await compileRuntimeRules(
       in: parsed.files,
       sourceModules: resolved.sourceModules,

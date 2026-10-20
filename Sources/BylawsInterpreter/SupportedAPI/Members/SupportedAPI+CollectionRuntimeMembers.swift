@@ -62,7 +62,18 @@ extension SupportedAPI {
     property(.first, on: [.string], result: .fixed(.optional(.string))),
     stringMethod(.hasPrefix),
     stringMethod(.hasSuffix),
-    stringMethod(.contains),
+    method(
+      .contains,
+      on: [.string],
+      arguments: .exact([.init(nil, .oneOf([.string, .regex]))]),
+      result: .fixed(.boolean)
+    ),
+    method(
+      .uppercased,
+      on: [.string],
+      arguments: .exact([]),
+      result: .fixed(.string)
+    ),
     method(
       .lowercased,
       on: [.string],
@@ -73,6 +84,12 @@ extension SupportedAPI {
 
   static let selectionRuntimeMembers: [RuntimeMemberAPI] = [
     property(.queryDescription, on: [.selection], result: .fixed(.string)),
+    method(
+      .only,
+      on: [.selection],
+      arguments: .exact([]),
+      result: .collectionElement, canThrow: true
+    ),
     method(
       .where,
       on: [.selection],

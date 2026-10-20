@@ -4,7 +4,9 @@ extension SupportedAPI.RuntimeType {
   init(writtenType: String) {
     let reference = TypeReference(writtenType)
     let nominalName = Self.nominalName(in: reference)
-    let base: Self = if nominalName == "Rule.Findings" {
+    let base: Self = if nominalName == "SourceFix.Edit" {
+      .sourceEdit
+    } else if nominalName == "Rule.Findings" {
       .findings
     } else if let type = SupportedAPI.StaticMemberType(
       rawValue: nominalName
@@ -17,6 +19,8 @@ extension SupportedAPI.RuntimeType {
       case "Int": .integer
       case "Double": .double
       case "String": .string
+      case "SourceSlice": .sourceSlice
+      case "Regex": .regex
       case "URL": .url
       case "Dictionary":
         if reference.genericArguments.count == 2 {
@@ -64,6 +68,13 @@ extension SupportedAPI.RuntimeType {
         if let argument = Self.singleGenericArgument(of: reference) {
           SupportedAPI.ModelType(rawValue: Self.nominalName(in: argument))
             .map(Self.matcher) ?? .unknown
+        } else {
+          .unknown
+        }
+      case "FixContext":
+        if let argument = Self.singleGenericArgument(of: reference) {
+          SupportedAPI.ModelType(rawValue: Self.nominalName(in: argument))
+            .map(Self.fixContext) ?? .unknown
         } else {
           .unknown
         }
@@ -125,6 +136,8 @@ extension SupportedAPI.RuntimeType {
 
   var receiver: SupportedAPI.RuntimeReceiver? {
     switch self {
+    case .sourceSlice: .sourceSlice
+    case .fixContext: .fixContext
     case .url: .url
     case .dictionary: .dictionary
     case .array: .array

@@ -5,7 +5,7 @@ extension SupportedAPI {
       on: [.codebase],
       arguments: .exact([.init(.from, .exact(.string))]),
       result: .fixed(.model(.bazelGraph)),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     ),
     property(
       .targets,

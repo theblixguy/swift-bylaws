@@ -6,6 +6,10 @@ extension SupportedAPI {
     case integer
     case double
     case string
+    case regex
+    case sourceSlice
+    case sourceEdit
+    case fixContext(ModelType?)
     case url
     case dictionary(key: RuntimeType, value: RuntimeType)
     case array(RuntimeType)
@@ -33,7 +37,7 @@ extension SupportedAPI {
     case boundMethod(
       receiver: RuntimeType,
       call: RuntimeCall,
-      canSuspend: Bool
+      canSuspend: Bool, canThrow: Bool
     )
     case prebuiltMatcher(String)
     case function(RuntimeFunctionType)
@@ -47,6 +51,11 @@ extension SupportedAPI {
       case .integer: "Int"
       case .double: "Double"
       case .string: "String"
+      case .regex: "Regex"
+      case .sourceSlice: "SourceSlice"
+      case .sourceEdit: "SourceFix.Edit"
+      case let .fixContext(subject):
+        subject.map { "FixContext<\($0.rawValue)>" } ?? "FixContext"
       case .url: "URL"
       case let .dictionary(key, value):
         "[\(key.writtenName): \(value.writtenName)]"
@@ -104,6 +113,7 @@ extension SupportedAPI {
   }
 
   package enum RuntimeReceiver: Hashable, Sendable {
+    case sourceSlice, fixContext
     case url
     case dictionary
     case dependencyGroup
@@ -125,10 +135,12 @@ extension SupportedAPI {
   }
 
   package enum RuntimeResult: Equatable, Sendable {
+    case fixOffender
     case mappedDictionary
     case fixed(RuntimeType)
     case receiver
     case collection
+    case collectionElement
     case optionalCollectionElement
     case manifestListKnownValues
     case manifestListConditionalValues
@@ -199,6 +211,7 @@ extension SupportedAPI {
     package let name: Member
     package let kind: RuntimeMemberKind
     package let canSuspend: Bool
+    package let canThrow: Bool
   }
 
   package static let staticMemberTypeNames: Set<String> =

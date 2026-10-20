@@ -149,7 +149,7 @@ struct EditorDiagnosticsTests {
     "Rule(\"editor-check\") { app.classes.violations(of: .isFinal) }",
     "Rule(\"editor-check\") { app.checkLayering(layers) }",
     """
-    func checkClasses(_ codebase: Codebase) async -> Violations<Class> {
+    func checkClasses(_ codebase: Codebase) async throws -> Violations<Class> {
       try await codebase.classes.violations(of: .isFinal)
     }
     let rules: [Rule] = [Rule("editor-check") { try await checkClasses(app) }]

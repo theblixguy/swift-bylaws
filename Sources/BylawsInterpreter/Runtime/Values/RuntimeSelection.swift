@@ -6,6 +6,7 @@ struct RuntimeSelection: Sendable {
   let elements: [RuntimeModelValue]
   let queryDescription: String
   let rootPath: String?
+  var codebase: Codebase?
 
   func narrowed(
     to elements: [RuntimeModelValue],
@@ -20,7 +21,8 @@ struct RuntimeSelection: Sendable {
       family: family,
       elements: elements,
       queryDescription: queryDescription,
-      rootPath: rootPath
+      rootPath: rootPath,
+      codebase: codebase
     )
   }
 

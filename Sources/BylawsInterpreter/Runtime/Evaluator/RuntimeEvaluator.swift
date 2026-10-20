@@ -4,13 +4,16 @@ import BylawsSemantics
 struct RuntimeEvaluator: Sendable {
   let globals: RuntimeEnvironment
   let indexProvider: (any RuntimeIndexProvider)?
+  let excludedSubtrees: ExcludedSubtrees?
 
   init(
     globals: RuntimeEnvironment,
-    indexProvider: (any RuntimeIndexProvider)? = nil
+    indexProvider: (any RuntimeIndexProvider)? = nil,
+    excludingSubtrees: ExcludedSubtrees? = nil
   ) {
     self.globals = globals
     self.indexProvider = indexProvider
+    excludedSubtrees = excludingSubtrees
   }
 
   func evaluate(
@@ -181,6 +184,8 @@ struct RuntimeEvaluator: Sendable {
       return .member(literal)
     case let .string(value):
       return .string(value)
+    case let .regex(value):
+      return .regex(value)
     }
   }
 
@@ -190,32 +195,62 @@ struct RuntimeEvaluator: Sendable {
     builder: RuntimeBuilder? = nil,
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> RuntimeValue {
+    if state.synchronousClosureDepth > 0,
+       closure.definition.usesAwait || closure.definition.usesTry
+    {
+      throw RuntimeError(
+        message: "a callback closure must be synchronous and nonthrowing",
+        location: closure.definition.location
+      )
+    }
     try enterCall(at: closure.definition.location, state: &state)
     defer { state.callDepth -= 1 }
     var environment = closure.captures
     let parameters = closure.definition.parameters
-    if parameters.isEmpty {
-      for (index, value) in arguments.enumerated() {
-        environment.bind(value, to: "$\(index)")
-      }
-    } else {
+    if let parameters {
       guard parameters.count == arguments.count else {
         throw RuntimeError(
           message: "the closure takes \(argumentCountDescription(parameters.count))",
           location: closure.definition.location
         )
       }
-      for (name, value) in zip(parameters, arguments) {
-        environment.bind(value, to: name)
+      for (parameter, value) in zip(parameters, arguments) {
+        let bound: RuntimeValue
+        if let type = parameter.type {
+          guard let coerced = value.coerced(to: type) else {
+            throw RuntimeError(
+              message: "the closure argument must be \(type.writtenName)",
+              location: closure.definition.location
+            )
+          }
+          bound = coerced
+        } else {
+          bound = value
+        }
+        environment.bind(bound, to: parameter.name)
+      }
+    } else {
+      for (index, value) in arguments.enumerated() {
+        environment.bind(value, to: "$\(index)")
       }
     }
-    return try await evaluate(
+    let result = try await evaluate(
       closure.definition.body,
       in: environment,
       builder: builder,
       reportedAt: closure.definition.location,
       state: &state
     )
+    if let expected = closure.definition.resultType {
+      guard let value = result.coerced(to: expected) else {
+        throw RuntimeError(
+          message: "the closure must return \(expected.writtenName)",
+          location: closure.definition.location
+        )
+      }
+      return value
+    }
+    return result
   }
 
   func step(

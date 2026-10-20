@@ -17,6 +17,7 @@ extension SupportedAPI.RuntimeType {
     case .url: true
     case let .dictionary(_, value): value.supportsEquality
     case .unknown, .boolean, .integer, .double, .string, .integerRange,
+         .sourceSlice, .sourceEdit,
          .staticMember, .symbolRoles, .model, .codebase, .layering, .violations,
          .dependencyGroup:
       true

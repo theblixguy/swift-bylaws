@@ -152,7 +152,7 @@ struct RulesFileVocabularyDiagnosticTests {
     #expect(program.rules.count == 1)
   }
 
-  @Test("An import graph rule recommends the compiled-rule API")
+  @Test("Rule rejects an import graph result")
   func importGraphDiagnoses() async throws {
     let (program, _) = try await diagnostics(forRules: """
     let app = Codebase(including: ["Sources/**"])
@@ -162,9 +162,8 @@ struct RulesFileVocabularyDiagnosticTests {
     let diagnostic = try #require(program.errors.first)
     #expect(
       diagnostic.message
-        == "'importGraph' returns an import graph, not violations"
+        == "Rule takes check results"
     )
-    #expect(diagnostic.hint == "read the import graph in a test target")
   }
 
   private static let addedMatcherCases: [(String, String)] = [
@@ -203,10 +202,10 @@ struct WrongRuleBodyCase: Sendable, CustomTestStringConvertible {
     WrongRuleBodyCase(
       body: """
       let selection = app.classes
-          return selection.violations(of: .isFinal)
+          return true
       """,
-      message: "one query expression",
-      hint: "test target"
+      message: "Rule must return a check result",
+      hint: nil
     ),
   ]
 }

@@ -83,9 +83,9 @@ struct BaselineLoadingTests {
   }
 
   @Test(
-    "Baseline filtering removes accepted offenders but leaves new offenders"
+    "Baseline filtering retains fix and witness for new offender"
   )
-  func filtersAcceptedOffenders() {
+  func filtersAcceptedOffenders() throws {
     let accepted = Offender(
       description: "HomeViewModel (Home.swift:1)",
       name: "HomeViewModel",
@@ -106,10 +106,30 @@ struct BaselineLoadingTests {
         utf8Offset: 6
       )
     )
+    let acceptedFile = try FileCollector.collect(
+      source: "class HomeViewModel {}", path: "/project/App/Home.swift"
+    )
+    let freshFile = try FileCollector.collect(
+      source: "class ProfileViewModel {}", path: "/project/App/Profile.swift"
+    )
+    let acceptedSource = try #require(acceptedFile.classes.first).nameSource
+    let freshSource = try #require(freshFile.classes.first).nameSource
+    let acceptedFix = SourceFix("Rename accepted", edits: [
+      acceptedSource.replacement(with: "HomeController"),
+    ])
+    let freshFix = SourceFix("Rename fresh", edits: [
+      freshSource.replacement(with: "ProfileController"),
+    ])
+    let acceptedWitness = DeclarationLocation
+      .start(of: "/project/App/Home.swift")
+    let freshWitness = DeclarationLocation
+      .start(of: "/project/App/Profile.swift")
     let violations = Violations<Offender>(
       rule: "inherit from 'BaseViewModel'",
       offenders: [accepted, fresh],
-      checkedCount: 3
+      checkedCount: 3,
+      witnesses: [acceptedWitness, freshWitness],
+      fixes: [acceptedFix, freshFix]
     )
 
     let filtered = violations.removingOffenders(
@@ -131,6 +151,16 @@ struct BaselineLoadingTests {
     )
     #expect(filtered.offenders == [fresh])
     #expect(filtered.checkedCount == 3)
+    #expect(filtered.witnesses == [freshWitness])
+    #expect(filtered.fixes.count == 1)
+    let fix = try #require(filtered.fixes.first ?? nil)
+    #expect(fix.title == "Rename fresh")
+    #expect(fix.edits.count == 1)
+    let edit = try #require(fix.edits.first)
+    #expect(edit.source.filePath == "/project/App/Profile.swift")
+    #expect(edit.source.range == 6..<22)
+    #expect(edit.source.text == "ProfileViewModel")
+    #expect(edit.replacement == "ProfileController")
   }
 
   @Test(

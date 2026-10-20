@@ -42,6 +42,7 @@ extension RuntimeTypeResolver {
       )
       return .unknown
     case .string, .interpolatedString: return .string
+    case .regex: return .regex
     case .nilLiteral:
       if case let .optional(wrapped) = expected { return .optional(wrapped) }
       return .optional(.unknown)
@@ -127,7 +128,7 @@ extension RuntimeTypeResolver {
       return .closure(
         resolve(
           closure,
-          parameters: expectedClosure?.parameters ?? [],
+          parameters: expectedClosure?.parameters,
           expectedResult: expectedClosure?.result,
           requiresSynchronousBody: false
         )
@@ -186,7 +187,7 @@ extension RuntimeTypeResolver {
     return .boundMethod(
       receiver: type,
       call: call,
-      canSuspend: api.canSuspend
+      canSuspend: api.canSuspend, canThrow: api.canThrow
     )
   }
 
@@ -230,15 +231,17 @@ extension RuntimeTypeResolver {
     }
     switch api.kind {
     case let .property(result):
-      if api.canSuspend, synchronousClosureDepth > 0 {
-        diagnose("a synchronous closure cannot suspend", at: location)
-      }
+      requireEffects(
+        canSuspend: api.canSuspend,
+        canThrow: api.canThrow,
+        at: location
+      )
       return result.resolve(receiver: type, closureResult: nil)
     case let .method(call):
       return .boundMethod(
         receiver: type,
         call: call,
-        canSuspend: api.canSuspend
+        canSuspend: api.canSuspend, canThrow: api.canThrow
       )
     }
   }

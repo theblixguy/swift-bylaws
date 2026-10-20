@@ -1,3 +1,5 @@
+import BylawsSemantics
+
 extension RuntimeEvaluator {
   func collectionMethod(
     _ name: SupportedAPI.Method,
@@ -7,6 +9,21 @@ extension RuntimeEvaluator {
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> RuntimeValue {
     switch name {
+    case .only:
+      try arguments.requireLabels([], for: name)
+      let slices = try values.map { value throws(RuntimeError) in
+        guard case let .sourceSlice(source) = value else {
+          throw RuntimeError(
+            message: "only takes source slices", location: arguments.location
+          )
+        }
+        return source
+      }
+      do {
+        return .sourceSlice(try slices.only())
+      } catch {
+        throw RuntimeError(wrapping: error, at: arguments.location)
+      }
     case .filter:
       try arguments.requireLabels([nil], for: name)
       var result: [RuntimeValue] = []

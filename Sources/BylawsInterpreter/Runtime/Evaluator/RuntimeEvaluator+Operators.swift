@@ -158,6 +158,8 @@ extension RuntimeEvaluator {
     case let (.integer(lhs), .double(rhs)): Double(lhs) == rhs
     case let (.double(lhs), .integer(rhs)): lhs == Double(rhs)
     case let (.integerRange(lhs), .integerRange(rhs)): lhs == rhs
+    case let (.sourceSlice(lhs), .sourceSlice(rhs)): lhs == rhs
+    case let (.sourceEdit(lhs), .sourceEdit(rhs)): lhs == rhs
     case let (.double(lhs), .double(rhs)): lhs == rhs
     case let (.string(lhs), .string(rhs)): lhs == rhs
     case let (.member(lhs), .member(rhs)): lhs == rhs
@@ -220,6 +222,14 @@ extension RuntimeEvaluator {
        case let .integer(rhs) = right
     {
       switch operatorName {
+      case "..<":
+        guard lhs <= rhs else {
+          throw RuntimeError(
+            message: "a range must end at or after its start",
+            location: location
+          )
+        }
+        return .integerRange(lhs..<rhs)
       case "<": return .boolean(lhs < rhs)
       case "<=": return .boolean(lhs <= rhs)
       case ">": return .boolean(lhs > rhs)

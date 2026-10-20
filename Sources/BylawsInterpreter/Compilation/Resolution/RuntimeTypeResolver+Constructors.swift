@@ -177,19 +177,7 @@ extension RuntimeTypeResolver {
           )
         }
       }
-      let result = resolve(
-        body,
-        parameters: [],
-        expectedResult: nil,
-        requiresSynchronousBody: false,
-        builder: .checks
-      ).result
-      if !result.isRuleResult {
-        diagnose(
-          "Rule must return a check result, Violations or Rule.Findings",
-          at: body.location
-        )
-      }
+      resolveRuleBody(body)
       return .rule
     case .violations:
       guard values.map(\.0).equal([.rule, .offenders, .checkedCount]) else {

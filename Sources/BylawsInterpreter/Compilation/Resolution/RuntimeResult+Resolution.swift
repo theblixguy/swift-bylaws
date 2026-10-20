@@ -5,6 +5,9 @@ extension SupportedAPI.RuntimeResult {
     argumentLabels: [String?] = []
   ) -> SupportedAPI.RuntimeType {
     switch self {
+    case .fixOffender:
+      guard case let .fixContext(subject) = receiver else { return .unknown }
+      return subject.map(SupportedAPI.RuntimeType.model) ?? .unknown
     case .mappedDictionary:
       guard case let .dictionary(key, _) = receiver else { return .unknown }
       return .dictionary(key: key, value: closureResult ?? .unknown)
@@ -15,6 +18,8 @@ extension SupportedAPI.RuntimeResult {
       case .selection: return .array(receiver.collectionElement)
       default: return receiver
       }
+    case .collectionElement:
+      return receiver.collectionElement
     case .optionalCollectionElement:
       return .optional(receiver.collectionElement)
     case .manifestListKnownValues, .manifestListConditionalValues,

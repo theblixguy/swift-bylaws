@@ -13,7 +13,7 @@ extension RuntimeTypeResolver {
     } ?? []
     let values = arguments.map { ($0.label, $0.value) } + trailing
     switch callable {
-    case let .boundMethod(receiver, call, canSuspend):
+    case let .boundMethod(receiver, call, canSuspend, canThrow):
       guard call.arguments.accepts(labels: values.map(\.0)) else {
         diagnose(
           "'\(call.method.rawValue)' takes arguments \(call.arguments.rendered)",
@@ -22,11 +22,20 @@ extension RuntimeTypeResolver {
         values.forEach { _ = resolve($0.1) }
         return call.result.resolve(receiver: receiver, closureResult: nil)
       }
-      if canSuspend, synchronousClosureDepth > 0 {
-        diagnose("a synchronous closure cannot suspend", at: location)
-      }
+      requireEffects(canSuspend: canSuspend, canThrow: canThrow, at: location)
       if case let .constructor(.matcher, types) = receiver {
         return resolveMemberMatcher(types: types, values: values, at: location)
+      }
+      if call.method == .withFix {
+        return resolveFix(receiver: receiver, values: values, at: location)
+      }
+      if call.method == .only, case .array = receiver {
+        require(
+          receiver,
+          toMatch: .array(.sourceSlice),
+          subject: "only",
+          at: location
+        )
       }
       let resolved = resolveArguments(
         values,
@@ -50,14 +59,10 @@ extension RuntimeTypeResolver {
         values.forEach { _ = resolve($0.1) }
         return function.result
       }
-      if synchronousClosureDepth > 0,
-         function.isAsync || function.isThrowing
-      {
-        diagnose(
-          "a synchronous closure cannot call an async or throwing helper",
-          at: location
-        )
-      }
+      requireEffects(
+        canSuspend: function.isAsync, canThrow: function.isThrowing,
+        at: location
+      )
       for (argument, parameter) in zip(values, function.parameters) {
         let type = resolve(argument.1, expected: parameter.type)
         require(
@@ -69,6 +74,9 @@ extension RuntimeTypeResolver {
       }
       return function.result
     case let .closure(closure):
+      requireEffects(
+        canSuspend: closure.isAsync, canThrow: closure.isThrowing, at: location
+      )
       guard values.allSatisfy({ $0.0 == nil }),
             values.count == closure.parameters.count
       else {
@@ -278,6 +286,23 @@ extension RuntimeTypeResolver {
         )
         return .unknown
       }
+      if closure.isAsync || closure.isThrowing {
+        diagnose(
+          "the collection closure must be synchronous and nonthrowing",
+          at: expression.location
+        )
+      }
+      if closure.parameters.count == 1 {
+        require(
+          input, toMatch: closure.parameters[0],
+          subject: "the collection element", at: expression.location
+        )
+      } else {
+        diagnose(
+          "the collection closure takes one parameter",
+          at: expression.location
+        )
+      }
       if let expectedResult {
         require(
           closure.result,
@@ -296,9 +321,15 @@ extension RuntimeTypeResolver {
     expectedResult: RuntimeType?,
     at location: DeclarationLocation
   ) -> RuntimeType {
-    var result = input
-    for member in members {
-      result = resolveMember(member, of: result, at: location)
+    let result = withEnvironment(
+      environment, synchronousClosure: true, allowsThrowing: false,
+      allowsSuspension: false
+    ) { resolver in
+      var result = input
+      for member in members {
+        result = resolver.resolveMember(member, of: result, at: location)
+      }
+      return result
     }
     if let expectedResult {
       require(

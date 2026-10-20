@@ -12,6 +12,7 @@ struct RegistryEvaluatorContractTests {
     let samples = try await ModelSamples()
     let evaluator = RuntimeEvaluator(globals: RuntimeEnvironment())
     var problems: [String] = []
+    var state = RuntimeEvaluationState(limits: .standard)
 
     for api in SupportedAPI.runtimeMembers {
       guard case let .property(.fixed(expected)) = api.kind else { continue }
@@ -26,9 +27,18 @@ struct RegistryEvaluatorContractTests {
         }
         var provesType = false
         for value in values {
-          guard let result = evaluator.modelMember(api.name, of: value)
-          else {
-            problems.append("\(member): the evaluator has no implementation")
+          let result: RuntimeValue
+          do {
+            result = try await evaluator.member(
+              named: api.name,
+              of: .model(value),
+              at: .start(of: "<registry test>"),
+              state: &state
+            )
+          } catch where api.name == .bodySource {
+            continue
+          } catch {
+            problems.append("\(member): \(error.message)")
             continue
           }
           if !result.hasRuntimeType(expected) {

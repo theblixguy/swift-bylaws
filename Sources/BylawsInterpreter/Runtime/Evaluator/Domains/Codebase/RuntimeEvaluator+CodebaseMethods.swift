@@ -128,7 +128,8 @@ extension RuntimeEvaluator {
         family: .sourceNode,
         elements: selection.map(RuntimeModelValue.sourceNode),
         queryDescription: selection.queryDescription,
-        rootPath: selection.rootPath
+        rootPath: selection.rootPath,
+        codebase: codebase
       ))
     case .conformers, .directConformers, .references, .definitions,
          .occurrences:

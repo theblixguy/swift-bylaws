@@ -7,7 +7,7 @@ extension SupportedAPI {
       on: [.codebase],
       arguments: .exact([.init(.inFoldersMatching, .exact(.string))]),
       result: .fixed(.array(.dependencyGroup)),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     ),
     method(
       .checkFolderLayout,
@@ -17,7 +17,7 @@ extension SupportedAPI {
         .init(.containing, .exact(.array(.string))),
       ]),
       result: .fixed(.model(.folderLayoutCheck)),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     ),
     codebaseSelection(.files, family: .file),
     codebaseSelection(.classes, family: .class),
@@ -51,20 +51,20 @@ extension SupportedAPI {
         )
       ),
       result: .fixed(.selection(.sourceNode)),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     ),
     property(
       .packageManifest,
       on: [.codebase],
       result: .fixed(.model(.packageManifest)),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     ),
     method(
       .importGraph,
       on: [.codebase],
       arguments: .exact([]),
       result: .fixed(.model(.importGraph)),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     ),
   ]
 
@@ -84,7 +84,7 @@ extension SupportedAPI {
         ]
       ),
       result: .fixed(.findings),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     ),
     method(
       .checkDependencyCycles,
@@ -93,14 +93,14 @@ extension SupportedAPI {
         .init(.between, .exact(.array(.dependencyGroup))),
       ]),
       result: .fixed(.findings),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     ),
     method(
       .projectIndex,
       on: [.codebase],
       arguments: indexArguments(leading: []),
       result: .fixed(.projectIndex),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     ),
     method(
       .indexedFindings,
@@ -109,7 +109,7 @@ extension SupportedAPI {
         leading: [.init(.of, .exact(.layering))]
       ),
       result: .fixed(.findings),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     ),
     codebaseIndexMethod(.conformers, label: .of),
     codebaseIndexMethod(.directConformers, label: .of),
@@ -129,7 +129,7 @@ extension SupportedAPI {
       on: [.codebase],
       arguments: .exact([.init(nil, .exact(.layering))]),
       result: .fixed(.model(.layeringCheck)),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     ),
 
     projectIndexMethod(.conformers, label: .of),
@@ -140,7 +140,7 @@ extension SupportedAPI {
         .string, .array(.model(.indexReference)),
       ]))]),
       result: .fixed(.array(.model(.indexReference))),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     ),
     method(
       .definitions, on: [.projectIndex],
@@ -149,7 +149,7 @@ extension SupportedAPI {
         [.init(.of, .exact(.string))],
       ]),
       result: .fixed(.array(.model(.indexReference))),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     ),
     method(
       .occurrences, on: [.projectIndex],
@@ -158,7 +158,7 @@ extension SupportedAPI {
         [.init(.at, .exact(.model(.declarationLocation)))],
       ]),
       result: .fixed(.array(.model(.indexReference))),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     ),
     method(
       .contains,
@@ -176,7 +176,7 @@ extension SupportedAPI {
       name,
       on: [.codebase],
       result: .fixed(.selection(family)),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     )
   }
 
@@ -203,7 +203,7 @@ extension SupportedAPI {
         .init(.ignoring, .exact(.array(.string)))
       ),
       result: .fixed(.model(result)),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     )
   }
 
@@ -218,7 +218,7 @@ extension SupportedAPI {
         leading: [.init(label, .exact(.string))]
       ),
       result: .fixed(.array(.model(.indexReference))),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     )
   }
 
@@ -231,7 +231,7 @@ extension SupportedAPI {
       on: [.projectIndex],
       arguments: .exact([.init(label, .exact(.string))]),
       result: .fixed(.array(.model(.indexReference))),
-      canSuspend: true
+      canSuspend: true, canThrow: true
     )
   }
 }

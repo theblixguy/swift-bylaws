@@ -1,6 +1,7 @@
 extension SupportedAPI {
   package static let runtimeMembers =
-    collectionRuntimeMembers
+    correctionRuntimeMembers
+      + collectionRuntimeMembers
       + pathRuntimeMembers
       + dictionaryRuntimeMembers
       + stringRuntimeMembers
@@ -88,13 +89,13 @@ extension SupportedAPI {
     _ name: Member,
     on receivers: Set<RuntimeReceiver>,
     result: RuntimeResult,
-    canSuspend: Bool = false
+    canSuspend: Bool = false, canThrow: Bool = false
   ) -> RuntimeMemberAPI {
     RuntimeMemberAPI(
       receivers: receivers,
       name: name,
       kind: .property(result),
-      canSuspend: canSuspend
+      canSuspend: canSuspend, canThrow: canThrow
     )
   }
 
@@ -103,7 +104,7 @@ extension SupportedAPI {
     on receivers: Set<RuntimeReceiver>,
     arguments: RuntimeCallArguments,
     result: RuntimeResult,
-    canSuspend: Bool = false
+    canSuspend: Bool = false, canThrow: Bool = false
   ) -> RuntimeMemberAPI {
     guard let method = name.method else {
       preconditionFailure(
@@ -120,7 +121,7 @@ extension SupportedAPI {
           result: result
         )
       ),
-      canSuspend: canSuspend
+      canSuspend: canSuspend, canThrow: canThrow
     )
   }
 }

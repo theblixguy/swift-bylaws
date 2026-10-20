@@ -17,6 +17,19 @@ extension RuntimeEvaluator {
       )
     }
     switch name {
+    case .only:
+      try arguments.requireLabels([], for: name)
+      let values = Selection(
+        elements: selection.elements,
+        queryDescription: selection.queryDescription,
+        rootPath: selection.rootPath ?? "",
+        codebase: selection.codebase
+      )
+      do {
+        return .model(try values.only())
+      } catch {
+        throw RuntimeError(wrapping: error, at: arguments.location)
+      }
     case .where:
       try arguments.requireLabels([nil], for: name)
       let argument = try arguments.value(at: 0)
@@ -93,7 +106,8 @@ extension RuntimeEvaluator {
           rule: expectsMatch ? "not \(description)" : description,
           offenders: offenders,
           checkedCount: selection.elements.count,
-          witnesses: witnesses
+          witnesses: witnesses,
+          codebase: selection.codebase
         )
       )
     case .filter, .map, .compactMap, .flatMap, .contains, .allSatisfy:

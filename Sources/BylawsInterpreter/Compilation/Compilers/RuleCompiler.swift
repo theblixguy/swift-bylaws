@@ -1,4 +1,5 @@
 import BylawsCore
+import BylawsPaths
 import BylawsSemantics
 
 enum RuleCompiler {
@@ -23,9 +24,14 @@ enum RuleCompiler {
   static func compile(
     _ parsed: ParsedRule,
     as header: Header,
-    in file: ParsedRulesFile
+    in file: ParsedRulesFile,
+    runtimeContext: RuntimeProgramContext? = nil,
+    indexProvider: (any RuntimeIndexProvider)? = nil
   ) -> Result<Compiled, Diagnostic> {
-    compileBody(parsed, in: file).map { body in
+    compileBody(
+      parsed, in: file, runtimeContext: runtimeContext,
+      indexProvider: indexProvider
+    ).map { body in
       let id = Rule.ID(parsed.id ?? header.name)
       let location = parsed.location
       return Compiled { subtrees in
@@ -43,9 +49,32 @@ enum RuleCompiler {
 
   private static func compileBody(
     _ parsed: ParsedRule,
-    in file: ParsedRulesFile
+    in file: ParsedRulesFile,
+    runtimeContext: RuntimeProgramContext?,
+    indexProvider: (any RuntimeIndexProvider)?
   ) -> Result<BodyFactory, Diagnostic> {
     switch parsed.body {
+    case let .runtime(definition):
+      let context = runtimeContext ?? RuntimeProgramContext(
+        file: file,
+        indexProvider: indexProvider
+      )
+      let location = parsed.location
+      let rootPath = LexicalFilePath(file.path).removingLastComponent().string
+      return .success { subtrees in
+        let excluded = ExcludedSubtrees(subtrees: subtrees, under: [rootPath])
+        return {
+          let environment = try await context.resolvedEnvironment()
+          let findings = try await RuntimeProgramCompiler.findings(
+            body: RuntimeClosure(definition: definition, captures: environment),
+            at: location,
+            indexProvider: indexProvider,
+            excludingSubtrees: excluded
+          )
+          return excluded.filteringOffenders(from: findings)
+        }
+      }
+
     case let .folderLayout(codebaseName, pattern, folders):
       guard let codebase = file.codebases[codebaseName] else {
         return .failure(unknownCodebase(codebaseName, at: parsed.location))

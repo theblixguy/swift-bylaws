@@ -39,6 +39,8 @@ package enum SupportedAPI {
   }
 
   package enum ArgumentLabel: String, Sendable {
+    case with
+    case labeled
     case fileURLWithPath
     case grouping
     case by

@@ -15,7 +15,7 @@ struct MemberMatcherEvaluationTests {
       .classDeclaration(try #require(await app.classes.first))
     let location = DeclarationLocation.start(of: "Rules.swift")
     let closure = RuntimeClosure(definition: RuntimeClosureDefinition(
-      parameters: [], body: RuntimeBody(statements: [RuntimeStatement(
+      parameters: nil, body: RuntimeBody(statements: [RuntimeStatement(
         kind: .expression(RuntimeExpression(
           kind: .boolean(false),
           location: location

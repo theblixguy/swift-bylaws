@@ -31,6 +31,8 @@ extension SupportedAPI {
 extension SupportedAPI.RuntimeReceiver {
   fileprivate var documentationName: String {
     switch self {
+    case .sourceSlice: "SourceSlice"
+    case .fixContext: "FixContext"
     case .url: "URL"
     case .dictionary: "Dictionary"
     case .array: "Array"

@@ -14,6 +14,14 @@ extension RuntimeEvaluator {
       return try manifestMethod(name, manifest: manifest, arguments: arguments)
     }
     switch (name, value) {
+    case let (.argument, .functionCall(call)):
+      try arguments.requireLabels([.labeled], for: name)
+      let label = try arguments.string(at: 0)
+      do {
+        return .model(.callArgument(try call.argument(labeled: label)))
+      } catch {
+        throw RuntimeError(wrapping: error, at: arguments.location)
+      }
     case let (.contains, .compilationBranch(branch)):
       try arguments.requireLabels([nil], for: name)
       guard case let .model(.check(.location(location))) = try arguments

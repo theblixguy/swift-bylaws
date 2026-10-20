@@ -165,7 +165,8 @@ extension RuntimeEvaluator {
         family: family,
         elements: selection.map(transform),
         queryDescription: selection.queryDescription,
-        rootPath: root
+        rootPath: root,
+        codebase: selection.codebase
       )
     )
   }
