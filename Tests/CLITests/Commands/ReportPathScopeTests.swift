@@ -1,5 +1,7 @@
 import BylawsCore
 import BylawsSemantics
+import BylawsTestSupport
+import Foundation
 import Testing
 @testable import BylawsRunner
 
@@ -69,6 +71,73 @@ struct ReportPathScopeTests {
     )
 
     #expect(scoped.violations.checkedCount == 3)
+  }
+
+  @Test("Scoping retains matching fixes and witnesses for correction")
+  func retainedCorrection() throws {
+    let project = try TemporaryProject(files: [
+      "First.swift": "let first = 1\n",
+      "Second.swift": "let second = 2\n",
+    ])
+    let first = try FileCollector.collect(
+      fileAt: project.fileURL(for: "First.swift").path
+    )
+    let second = try FileCollector.collect(
+      fileAt: project.fileURL(for: "Second.swift").path
+    )
+    let firstFix = try SourceFix(edits: [
+      first.source.replacement(with: "let first = 3\n"),
+    ])
+    let secondFix = try SourceFix(edits: [
+      second.source.replacement(with: "let second = 4\n"),
+    ])
+    let firstWitness = DeclarationLocation.start(
+      of: project.fileURL(for: "FirstWitness.swift").path
+    )
+    let secondWitness = DeclarationLocation.start(
+      of: project.fileURL(for: "SecondWitness.swift").path
+    )
+    let report = RuleReport(
+      id: "scoped", name: "Offenders stay in scope", enforcement: .enforced,
+      hint: nil,
+      location: .start(of: project.fileURL(for: "Bylaws.swift").path),
+      violations: Violations(
+        rule: "stay in scope",
+        offenders: [
+          Offender(
+            description: "first", name: "first",
+            location: .start(of: first.path)
+          ),
+          Offender(
+            description: "second", name: "second",
+            location: .start(of: second.path)
+          ),
+        ],
+        checkedCount: 2,
+        witnesses: [firstWitness, secondWitness],
+        fixes: [firstFix, secondFix]
+      ),
+      warnings: []
+    )
+
+    let scoped = report.scoped(to: ReportPathScope(
+      paths: ["Second.swift"], rootPath: project.rootURL.path
+    ))
+
+    #expect(scoped.violations.offenders.map(\.name) == ["second"])
+    #expect(scoped.violations.witnesses == [secondWitness])
+    #expect(scoped.violations.fixes == [secondFix])
+
+    let plan = CorrectionPlan.prepare(
+      reports: [scoped], rootPath: project.rootURL.path
+    )
+
+    #expect(plan.diagnostics.isEmpty)
+    #expect(plan.fixCount == 1)
+    #expect(plan.changes.map(\.path) == [second.path])
+    let change = try #require(plan.changes.first)
+    #expect(change.original == Data("let second = 2\n".utf8))
+    #expect(change.replacement == Data("let second = 4\n".utf8))
   }
 
   @Test("A backslash in a file name is part of the name")

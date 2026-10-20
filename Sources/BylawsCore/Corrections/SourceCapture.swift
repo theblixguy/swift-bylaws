@@ -119,7 +119,12 @@ package enum SourceCapture {
         }
         inputsByPath[input.path] = input
       }
-      let current = try await capture(record.scope)
+    }
+    var currentCaptures: [Scope: Record] = [:]
+    for record in records {
+      let current = if let cached = currentCaptures[record.scope] { cached }
+      else { try await capture(record.scope) }
+      currentCaptures[record.scope] = current
       guard current.inputs == record.inputs,
             record.sourcePaths == nil || current.sourcePaths == record
               .sourcePaths

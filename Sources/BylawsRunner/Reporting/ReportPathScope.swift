@@ -28,13 +28,9 @@ extension RuleReport {
       enforcement: enforcement,
       hint: hint,
       location: location,
-      violations: Violations(
-        rule: violations.rule,
-        offenders: violations.offenders.filter {
-          scope.contains(path: $0.affectedPath ?? $0.location.filePath)
-        },
-        checkedCount: violations.checkedCount
-      ),
+      violations: violations.filteringOffenders {
+        scope.contains(path: $0.affectedPath ?? $0.location.filePath)
+      },
       warnings: warnings.filter { scope.contains($0.location) }
     )
   }
