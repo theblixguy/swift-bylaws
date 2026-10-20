@@ -1,7 +1,17 @@
 /// An `init` declaration, as written in one source file.
+///
+/// A decoded model has no captured source. See ``SourceProviding``.
 public struct Initializer: Declaration, Visible, Attributed, Documented,
   Codable
 {
+  private enum CodingKeys: String, CodingKey {
+    case parameters, isFailable, isConvenience, isAsync, isThrowing,
+         isNonisolated, visibility, attributes, enclosingTypeName, calls,
+         awaitCount, cyclomaticComplexity, documentation, location
+  }
+
+  package var parsedSource: ParsedSource? = nil
+
   /// The initialiser's parameters, in order.
   public let parameters: [Parameter]
 

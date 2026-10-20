@@ -61,8 +61,8 @@ struct SourceRenderingTests {
     let store = try #require(file.structs.first)
     let load = try #require(file.functions.first)
 
-    #expect(file.source === store.storage.source)
-    #expect(file.source === load.source)
+    #expect(file.sourceBuffer === store.storage.sourceBuffer)
+    #expect(file.sourceBuffer === load.sourceBuffer)
     #expect(file.memberStorage === store.storage.memberStorage)
   }
 

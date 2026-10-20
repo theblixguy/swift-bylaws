@@ -1,5 +1,15 @@
 /// A `let` or `var` declaration, as written in one source file.
+///
+/// A decoded model has no captured source. See ``SourceProviding``.
 public struct Property: Declaration, Visible, Attributed, Documented, Codable {
+  private enum CodingKeys: String, CodingKey {
+    case name, type, isConstant, isStatic, ownership, isLazy, isDynamic,
+         isNonisolated, isNonisolatedUnsafe, visibility, attributes,
+         enclosingTypeName, calls, documentation, location
+  }
+
+  package var parsedSource: ParsedSource? = nil
+
   public let name: String
 
   /// The type annotation, or `nil` when the type is inferred.

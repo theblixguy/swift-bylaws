@@ -5,12 +5,42 @@ struct SourceText: Sendable {
   let swiftLanguageMode: SwiftLanguageMode
   private let lines: SourceLineTable
 
-  init(source: String, swiftLanguageMode: SwiftLanguageMode = .v6) {
+  init(
+    source: String, swiftLanguageMode: SwiftLanguageMode = .v6,
+    filePath: String? = nil
+  ) {
     self.swiftLanguageMode = swiftLanguageMode
     lines = SourceLineTable(source.utf8)
     buffer = SourceBuffer(
       source,
-      lineCount: source.isEmpty ? 0 : lines.count
+      lineCount: source.isEmpty ? 0 : lines.count,
+      snapshot: filePath.map {
+        SourceSnapshot(
+          filePath: $0,
+          text: source,
+          swiftLanguageMode: swiftLanguageMode
+        )
+      }
+    )
+  }
+
+  init(buffer: SourceBuffer, swiftLanguageMode: SwiftLanguageMode) {
+    self.swiftLanguageMode = swiftLanguageMode
+    self.buffer = buffer
+    lines = SourceLineTable(buffer.text.utf8)
+  }
+
+  init(
+    source: String, swiftLanguageMode: SwiftLanguageMode,
+    originalSource: SourceSlice?
+  ) {
+    self.swiftLanguageMode = swiftLanguageMode
+    lines = SourceLineTable(source.utf8)
+    buffer = SourceBuffer(
+      source, lineCount: source.isEmpty ? 0 : lines.count,
+      snapshot: originalSource.flatMap {
+        $0.text.utf8.elementsEqual(source.utf8) ? $0.snapshot : nil
+      }
     )
   }
 

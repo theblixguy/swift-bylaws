@@ -31,6 +31,7 @@ struct ParseCacheCoverageTests {
       let unwritten = fields
         .subtracting(Self.fields(written: encoder, among: encoders))
         .subtracting(Self.rebuiltFields)
+        .subtracting(Self.rebuiltFieldsByType[typeName] ?? [])
 
       #expect(
         unwritten.isEmpty,
@@ -71,6 +72,10 @@ struct ParseCacheCoverageTests {
   private static let storageTypeName = "NominalTypeStorage"
 
   private static let rebuiltFields: Set<String> = ["source", "filePath", "path"]
+
+  private static let rebuiltFieldsByType: [String: Set<String>] = [
+    "SourceSlice": ["snapshot"],
+  ]
 
   private static let typesWrittenAsOneValue: Set<String> = ["Visibility"]
 }

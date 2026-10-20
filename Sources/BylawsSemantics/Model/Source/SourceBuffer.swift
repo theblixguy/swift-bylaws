@@ -1,15 +1,20 @@
 package final class SourceBuffer: Sendable {
   package let text: String
   package let lineCount: Int
+  package let snapshot: SourceSnapshot?
 
   package init(_ text: String) {
     self.text = text
     lineCount = Self.lineCount(in: text)
+    snapshot = nil
   }
 
-  package init(_ text: String, lineCount: Int) {
+  package init(
+    _ text: String, lineCount: Int, snapshot: SourceSnapshot? = nil
+  ) {
     self.text = text
     self.lineCount = lineCount
+    self.snapshot = snapshot
   }
 
   package func contains(_ range: Range<Int>) -> Bool {

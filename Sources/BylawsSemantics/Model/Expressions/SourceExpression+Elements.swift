@@ -8,6 +8,26 @@ extension SourceExpression {
 
     /// The argument expression.
     public let expression: SourceExpression
+
+    /// The argument expression's source, excluding its label and outer trivia.
+    public var source: SourceSlice {
+      get throws { try expression.source }
+    }
+
+    /// The argument expression's source, excluding its label and outer trivia.
+    public var expressionSource: SourceSlice {
+      get throws { try source }
+    }
+
+    /// The label's source, or `nil` for an unlabelled argument.
+    public var labelSource: SourceSlice? {
+      get throws {
+        _ = try expression.source
+        guard let label = expression.syntax.parent?
+          .as(LabeledExprSyntax.self)?.label else { return nil }
+        return try expression.context.sourceSlice(of: label)
+      }
+    }
   }
 
   /// A key-value pair in a dictionary literal.
@@ -62,3 +82,5 @@ extension SourceExpression {
     Argument(label: node.label?.text, expression: child(node.expression))
   }
 }
+
+extension SourceExpression.Argument: SourceProviding {}

@@ -10,7 +10,7 @@ extension SourceFile {
   public var compilationBranches: [CompilationBranch] {
     let context = SourceContext(
       source: SourceText(
-        source: sourceText,
+        buffer: sourceBuffer,
         swiftLanguageMode: swiftLanguageMode
       ),
       origin: .start(of: path)

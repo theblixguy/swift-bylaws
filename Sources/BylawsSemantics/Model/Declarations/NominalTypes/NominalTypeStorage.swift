@@ -2,6 +2,8 @@
 ///
 /// Read this data through the declaration's own properties.
 public struct NominalTypeStorage: Sendable {
+  package var parsedSource: ParsedSource?
+
   /// The declared name, without enclosing types.
   public let name: String
 
@@ -11,7 +13,7 @@ public struct NominalTypeStorage: Sendable {
   /// The parameters of the type's generic clause, in order.
   public let genericParameters: [GenericParameter]
 
-  package let source: SourceBuffer
+  package let sourceBuffer: SourceBuffer
 
   /// The UTF-8 byte range of the declaration's source text in the file.
   public let sourceRange: Range<Int>
@@ -59,7 +61,7 @@ public struct NominalTypeStorage: Sendable {
     self.name = name
     self.inheritedTypes = inheritedTypes
     self.genericParameters = genericParameters
-    self.source = source
+    sourceBuffer = source
     self.sourceRange = sourceRange
     self.isNonisolated = isNonisolated
     self.visibility = visibility
@@ -74,7 +76,9 @@ public struct NominalTypeStorage: Sendable {
 extension NominalTypeStorage: SourceTextProviding {}
 
 /// A class, struct, enum or actor declaration.
-public protocol NominalTypeDeclaration: TypeDeclaration, Documented {
+public protocol NominalTypeDeclaration: TypeDeclaration, Documented,
+  SourceProviding
+{
   /// The data the declaration shares with the other nominal kinds.
   var storage: NominalTypeStorage { get }
 }

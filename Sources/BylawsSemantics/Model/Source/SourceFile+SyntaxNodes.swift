@@ -14,7 +14,7 @@ extension SourceFile {
 
   package func syntaxNodes(of kinds: Set<SourceNode.Kind>) -> [SourceNode] {
     let source = SourceText(
-      source: sourceText,
+      buffer: sourceBuffer,
       swiftLanguageMode: swiftLanguageMode
     )
     let collector = SourceNodeCollector(

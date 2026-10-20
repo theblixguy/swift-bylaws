@@ -2,10 +2,12 @@ package import BylawsSemantics
 
 extension SourceFile: CacheCodable {
   package init(from decoder: CacheDecoder) throws(CacheDecoder.Malformed) {
+    let swiftLanguageMode: SwiftLanguageMode = try decoder.decode()
+    decoder.bindSource(to: swiftLanguageMode)
     self.init(
       path: decoder.path,
       source: decoder.source,
-      swiftLanguageMode: try decoder.decode(),
+      swiftLanguageMode: swiftLanguageMode,
       imports: try decoder.decode(),
       classes: try decoder.decode(),
       actors: try decoder.decode(),
@@ -149,6 +151,7 @@ extension FunctionCall.Argument: CacheCodable {
       label: try decoder.decode(), text: try decoder.decode(),
       location: try decoder.decode(), swiftLanguageMode: try decoder.decode()
     )
+    parsedSource = try decoder.decode()
   }
 
   package func encode(to encoder: CacheEncoder) {
@@ -156,6 +159,7 @@ extension FunctionCall.Argument: CacheCodable {
     encoder.encode(text)
     encoder.encode(location)
     encoder.encode(swiftLanguageMode)
+    encoder.encode(parsedSource)
   }
 }
 
@@ -166,12 +170,14 @@ extension FunctionCall: CacheCodable {
       arguments: try decoder.decode(),
       location: try decoder.decode()
     )
+    parsedSource = try decoder.decode()
   }
 
   package func encode(to encoder: CacheEncoder) {
     encoder.encode(calledExpression)
     encoder.encode(arguments)
     encoder.encode(location)
+    encoder.encode(parsedSource)
   }
 }
 
@@ -184,6 +190,7 @@ extension Import: CacheCodable {
       attributes: try decoder.decode(),
       location: try decoder.decode()
     )
+    parsedSource = try decoder.decode()
   }
 
   package func encode(to encoder: CacheEncoder) {
@@ -192,6 +199,7 @@ extension Import: CacheCodable {
     encoder.encode(visibility)
     encoder.encode(attributes)
     encoder.encode(location)
+    encoder.encode(parsedSource)
   }
 }
 
@@ -204,6 +212,7 @@ extension Extension: CacheCodable {
       attributes: try decoder.decode(),
       location: try decoder.decode()
     )
+    parsedSource = try decoder.decode()
   }
 
   package func encode(to encoder: CacheEncoder) {
@@ -212,6 +221,7 @@ extension Extension: CacheCodable {
     encoder.encode(visibility)
     encoder.encode(attributes)
     encoder.encode(location)
+    encoder.encode(parsedSource)
   }
 }
 
@@ -226,6 +236,7 @@ extension Typealias: CacheCodable {
       documentation: try decoder.decode(),
       location: try decoder.decode()
     )
+    parsedSource = try decoder.decode()
   }
 
   package func encode(to encoder: CacheEncoder) {
@@ -236,5 +247,6 @@ extension Typealias: CacheCodable {
     encoder.encode(enclosingTypeName)
     encoder.encode(documentation)
     encoder.encode(location)
+    encoder.encode(parsedSource)
   }
 }

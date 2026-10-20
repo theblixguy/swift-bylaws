@@ -2,8 +2,10 @@
 public struct Function: Declaration, Visible, Attributed, Documented,
   SourceTextProviding
 {
+  package var parsedSource: ParsedSource?
+
   public let name: String
-  package let source: SourceBuffer
+  package let sourceBuffer: SourceBuffer
 
   /// The function's parameters, in order.
   public let parameters: [Parameter]
@@ -93,7 +95,7 @@ public struct Function: Declaration, Visible, Attributed, Documented,
     location: DeclarationLocation
   ) {
     self.name = name
-    self.source = source
+    sourceBuffer = source
     self.parameters = parameters
     self.returnType = returnType
     self.isStatic = isStatic

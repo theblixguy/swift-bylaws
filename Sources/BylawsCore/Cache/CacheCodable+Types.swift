@@ -15,7 +15,9 @@ extension NominalTypeStorage: CacheCodable {
       documentation: try decoder.decode(),
       location: try decoder.decode()
     )
-    guard source.contains(sourceRange) else { throw CacheDecoder.Malformed() }
+    guard sourceBuffer.contains(sourceRange)
+    else { throw CacheDecoder.Malformed() }
+    parsedSource = try decoder.decode()
   }
 
   package func encode(to encoder: CacheEncoder) {
@@ -29,6 +31,7 @@ extension NominalTypeStorage: CacheCodable {
     encoder.encode(enclosingTypeName)
     encoder.encode(documentation)
     encoder.encode(location)
+    encoder.encode(parsedSource)
   }
 }
 
@@ -86,6 +89,7 @@ extension EnumCase: CacheCodable {
       documentation: try decoder.decode(),
       location: try decoder.decode()
     )
+    parsedSource = try decoder.decode()
   }
 
   package func encode(to encoder: CacheEncoder) {
@@ -95,6 +99,7 @@ extension EnumCase: CacheCodable {
     encoder.encode(enclosingTypeName)
     encoder.encode(documentation)
     encoder.encode(location)
+    encoder.encode(parsedSource)
   }
 }
 
@@ -111,9 +116,11 @@ extension ProtocolDeclaration: CacheCodable {
       documentation: try decoder.decode(),
       location: try decoder.decode()
     )
-    guard source.contains(sourceRange) else { throw CacheDecoder.Malformed() }
+    guard sourceBuffer.contains(sourceRange)
+    else { throw CacheDecoder.Malformed() }
     requiredFunctions = try decoder.decode()
     requiredProperties = try decoder.decode()
+    parsedSource = try decoder.decode()
   }
 
   package func encode(to encoder: CacheEncoder) {
@@ -127,5 +134,6 @@ extension ProtocolDeclaration: CacheCodable {
     encoder.encode(location)
     encoder.encode(requiredFunctions)
     encoder.encode(requiredProperties)
+    encoder.encode(parsedSource)
   }
 }

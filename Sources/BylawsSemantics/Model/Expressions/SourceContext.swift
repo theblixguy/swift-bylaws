@@ -17,6 +17,18 @@ struct SourceContext: Sendable {
     self.inheritedBranches = inheritedBranches
   }
 
+  func sourceSlice(of node: some SyntaxProtocol) throws -> SourceSlice {
+    let snapshot = try source.buffer.snapshot.required()
+    guard snapshot.filePath == origin.filePath,
+          let offset = origin.utf8Offset
+    else { throw SourceError.unavailable }
+    let range = source.trimmedRange(of: node)
+    return try SourceSlice(
+      snapshot: snapshot,
+      range: (offset + range.lowerBound)..<(offset + range.upperBound)
+    )
+  }
+
   func location(at start: AbsolutePosition) -> DeclarationLocation {
     let relative = source.location(of: start)
     let column = if relative.line == 1 {

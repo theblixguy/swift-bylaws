@@ -1,5 +1,14 @@
 /// A `typealias` declaration, as written in one source file.
+///
+/// A decoded model has no captured source. See ``SourceProviding``.
 public struct Typealias: Declaration, Visible, Attributed, Documented, Codable {
+  private enum CodingKeys: String, CodingKey {
+    case name, aliasedTypeName, visibility, attributes, enclosingTypeName,
+         documentation, location
+  }
+
+  package var parsedSource: ParsedSource? = nil
+
   public let name: String
 
   /// The aliased type as written, such as `Result<String, Error>`.

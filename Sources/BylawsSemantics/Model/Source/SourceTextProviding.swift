@@ -1,5 +1,5 @@
 package protocol SourceTextProviding {
-  var source: SourceBuffer { get }
+  var sourceBuffer: SourceBuffer { get }
   var sourceRange: Range<Int> { get }
 }
 
@@ -11,6 +11,6 @@ extension SourceTextProviding {
   ///
   /// - Complexity: O(n), where n is the number of UTF-8 bytes in the text.
   public var sourceText: String {
-    source.text(inUTF8Range: sourceRange)
+    sourceBuffer.text(inUTF8Range: sourceRange)
   }
 }

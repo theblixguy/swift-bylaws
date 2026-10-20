@@ -118,7 +118,7 @@ final class DeclarationVisitor: SyntaxVisitor {
       enclosingTypeName: enclosingTypeName,
       documentation: fields.documentation,
       location: fields.location
-    )
+    ).withParsedSource(fields.parsedSource)
   }
 
   private func nominalTypeFields(
@@ -134,7 +134,10 @@ final class DeclarationVisitor: SyntaxVisitor {
       ),
       attributes: ModifierReader.attributes(node.attributes),
       documentation: reader.documentation(of: node),
-      location: reader.location(of: node.name)
+      location: reader.location(of: node.name),
+      parsedSource: reader.parsedSource(
+        of: node, name: node.name, body: node.memberBlock
+      )
     )
   }
 
@@ -177,7 +180,7 @@ final class DeclarationVisitor: SyntaxVisitor {
         requiredProperties: requiredProperties,
         documentation: fields.documentation,
         location: fields.location
-      )
+      ).withParsedSource(fields.parsedSource)
     )
     return .skipChildren
   }
@@ -197,7 +200,9 @@ final class DeclarationVisitor: SyntaxVisitor {
         visibility: modifiers.visibility,
         attributes: ModifierReader.attributes(node.attributes),
         location: reader.location(of: node.extendedType)
-      )
+      ).withParsedSource(reader.parsedSource(
+        of: node, name: node.extendedType, body: node.memberBlock
+      ))
     )
     enterType(name: extendedTypeName, visibility: modifiers.visibility)
     return .visitChildren
@@ -236,7 +241,11 @@ final class DeclarationVisitor: SyntaxVisitor {
         cyclomaticComplexity: metrics.cyclomaticComplexity,
         documentation: reader.documentation(of: node),
         location: reader.location(of: node.initKeyword)
-      )
+      ).withParsedSource(reader.parsedSource(
+        of: node,
+        name: node.initKeyword,
+        body: node.body
+      ))
     )
     return .skipChildren
   }
@@ -262,7 +271,7 @@ final class DeclarationVisitor: SyntaxVisitor {
         enclosingTypeName: enclosingTypeName,
         documentation: reader.documentation(of: node),
         location: reader.location(of: node.name)
-      )
+      ).withParsedSource(reader.parsedSource(of: node, name: node.name))
     )
     return .skipChildren
   }
@@ -279,7 +288,7 @@ final class DeclarationVisitor: SyntaxVisitor {
           enclosingTypeName: enclosingTypeName,
           documentation: reader.documentation(of: node),
           location: reader.location(of: element.name)
-        )
+        ).withParsedSource(reader.parsedSource(of: element, name: element.name))
       )
     }
     return .skipChildren
@@ -322,7 +331,7 @@ final class DeclarationVisitor: SyntaxVisitor {
         visibility: modifiers.visibility,
         attributes: ModifierReader.attributes(node.attributes),
         location: reader.location(of: node.path)
-      )
+      ).withParsedSource(reader.parsedSource(of: node, name: node.path))
     )
     return .skipChildren
   }
@@ -362,7 +371,11 @@ final class DeclarationVisitor: SyntaxVisitor {
       sourceRange: reader.trimmedRange(of: node),
       documentation: reader.documentation(of: node),
       location: reader.location(of: node.name)
-    )
+    ).withParsedSource(reader.parsedSource(
+      of: node,
+      name: node.name,
+      body: node.body
+    ))
   }
 
   private func properties(
@@ -405,7 +418,9 @@ final class DeclarationVisitor: SyntaxVisitor {
           + reader.calls(in: binding.accessorBlock),
         documentation: reader.documentation(of: node),
         location: reader.location(of: pattern.identifier)
-      )
+      ).withParsedSource(reader.parsedSource(
+        of: binding, name: pattern.identifier, body: binding.accessorBlock
+      ))
     }
   }
 
@@ -448,4 +463,5 @@ private struct NominalTypeFields {
   let attributes: [Attribute]
   let documentation: String?
   let location: DeclarationLocation
+  let parsedSource: ParsedSource?
 }

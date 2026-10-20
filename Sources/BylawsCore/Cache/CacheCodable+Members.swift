@@ -26,7 +26,9 @@ extension Function: CacheCodable {
       documentation: try decoder.decode(),
       location: try decoder.decode()
     )
-    guard source.contains(sourceRange) else { throw CacheDecoder.Malformed() }
+    guard sourceBuffer.contains(sourceRange)
+    else { throw CacheDecoder.Malformed() }
+    parsedSource = try decoder.decode()
   }
 
   package func encode(to encoder: CacheEncoder) {
@@ -51,6 +53,7 @@ extension Function: CacheCodable {
     encoder.encode(sourceRange)
     encoder.encode(documentation)
     encoder.encode(location)
+    encoder.encode(parsedSource)
   }
 }
 
@@ -73,6 +76,7 @@ extension Property: CacheCodable {
       documentation: try decoder.decode(),
       location: try decoder.decode()
     )
+    parsedSource = try decoder.decode()
   }
 
   package func encode(to encoder: CacheEncoder) {
@@ -91,6 +95,7 @@ extension Property: CacheCodable {
     encoder.encode(calls)
     encoder.encode(documentation)
     encoder.encode(location)
+    encoder.encode(parsedSource)
   }
 }
 
@@ -112,6 +117,7 @@ extension Initializer: CacheCodable {
       documentation: try decoder.decode(),
       location: try decoder.decode()
     )
+    parsedSource = try decoder.decode()
   }
 
   package func encode(to encoder: CacheEncoder) {
@@ -129,5 +135,6 @@ extension Initializer: CacheCodable {
     encoder.encode(cyclomaticComplexity)
     encoder.encode(documentation)
     encoder.encode(location)
+    encoder.encode(parsedSource)
   }
 }

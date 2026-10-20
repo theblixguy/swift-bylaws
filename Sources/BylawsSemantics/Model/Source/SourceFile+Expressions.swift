@@ -9,7 +9,7 @@ extension SourceFile {
   /// - Complexity: O(n), where n is the length of the source file.
   public var expressions: [SourceExpression] {
     let source = SourceText(
-      source: sourceText,
+      buffer: sourceBuffer,
       swiftLanguageMode: swiftLanguageMode
     )
     let collector = ExpressionCollector(source: source, path: path)

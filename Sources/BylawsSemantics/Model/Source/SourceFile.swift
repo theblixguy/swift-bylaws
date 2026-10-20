@@ -11,10 +11,10 @@ public struct SourceFile: Named, Located, Hashable {
   /// The language mode used to parse this file and its syntax queries.
   public let swiftLanguageMode: SwiftLanguageMode
 
-  package let source: SourceBuffer
+  package let sourceBuffer: SourceBuffer
 
   /// The file's source text.
-  public var sourceText: String { source.text }
+  public var sourceText: String { sourceBuffer.text }
 
   /// The import declarations in the file.
   public package(set) var imports: [Import]
@@ -77,7 +77,7 @@ public struct SourceFile: Named, Located, Hashable {
     macroExpansions: [FunctionCall] = []
   ) {
     self.path = path
-    self.source = source
+    sourceBuffer = source
     self.swiftLanguageMode = swiftLanguageMode
     self.imports = imports
     let memberStorage = MemberStorage(
@@ -97,7 +97,7 @@ public struct SourceFile: Named, Located, Hashable {
   }
 
   /// The number of lines in the file.
-  public var lineCount: Int { source.lineCount }
+  public var lineCount: Int { sourceBuffer.lineCount }
 
   /// The last path component of the file path.
   public var name: String {
