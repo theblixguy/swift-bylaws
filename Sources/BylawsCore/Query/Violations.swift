@@ -14,7 +14,11 @@ public struct Violations<Element: Sendable>: Sendable {
   /// The number of elements the rule checked.
   public let checkedCount: Int
 
+  /// The proposed correction for each offender, in the same order.
+  public let fixes: [SourceFix?]
+
   package let witnesses: [DeclarationLocation?]
+  package let codebase: Codebase?
 
   /// Creates a violations value from a checked rule's results.
   public init(rule: String, offenders: [Element], checkedCount: Int) {
@@ -30,12 +34,18 @@ public struct Violations<Element: Sendable>: Sendable {
     rule: String,
     offenders: [Element],
     checkedCount: Int,
-    witnesses: [DeclarationLocation?]
+    witnesses: [DeclarationLocation?],
+    fixes: [SourceFix?]? = nil,
+    codebase: Codebase? = nil
   ) {
     self.rule = rule
     self.offenders = offenders
     self.checkedCount = checkedCount
     self.witnesses = witnesses
+    self.fixes = fixes ?? Array(repeating: nil, count: offenders.count)
+    self.codebase = codebase
+    precondition(self.fixes.count == offenders.count)
+    precondition(witnesses.count == offenders.count)
   }
 
   /// Whether every checked element satisfied the rule.
@@ -62,7 +72,8 @@ extension Violations {
       rule: matcher.requirementDescription,
       offenders: offenders,
       checkedCount: selection.count,
-      witnesses: witnesses
+      witnesses: witnesses,
+      codebase: selection.codebase
     )
   }
 
@@ -83,6 +94,7 @@ extension Violations: Equatable where Element: Equatable {
     lhs.rule == rhs.rule
       && lhs.offenders == rhs.offenders
       && lhs.checkedCount == rhs.checkedCount
+      && lhs.fixes == rhs.fixes
   }
 }
 
@@ -91,6 +103,7 @@ extension Violations: Hashable where Element: Hashable {
     hasher.combine(rule)
     hasher.combine(offenders)
     hasher.combine(checkedCount)
+    hasher.combine(fixes)
   }
 }
 
@@ -99,14 +112,25 @@ extension Violations: Codable where Element: Codable {
     case rule
     case offenders
     case checkedCount
+    case fixes
   }
 
   public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    let offenders = try container.decode([Element].self, forKey: .offenders)
+    let fixes = try container.decodeIfPresent([SourceFix?].self, forKey: .fixes)
+    guard fixes == nil || fixes?.count == offenders.count else {
+      throw DecodingError.dataCorruptedError(
+        forKey: .fixes, in: container,
+        debugDescription: "The fix count must equal the offender count."
+      )
+    }
     self.init(
       rule: try container.decode(String.self, forKey: .rule),
-      offenders: try container.decode([Element].self, forKey: .offenders),
-      checkedCount: try container.decode(Int.self, forKey: .checkedCount)
+      offenders: offenders,
+      checkedCount: try container.decode(Int.self, forKey: .checkedCount),
+      witnesses: Array(repeating: nil, count: offenders.count),
+      fixes: fixes
     )
   }
 
@@ -115,6 +139,9 @@ extension Violations: Codable where Element: Codable {
     try container.encode(rule, forKey: .rule)
     try container.encode(offenders, forKey: .offenders)
     try container.encode(checkedCount, forKey: .checkedCount)
+    if fixes.contains(where: { $0 != nil }) {
+      try container.encode(fixes, forKey: .fixes)
+    }
   }
 }
 
@@ -180,7 +207,26 @@ extension Violations where Element: Located {
           location: witness ?? element.location
         )
       },
-      checkedCount: checkedCount
+      checkedCount: checkedCount,
+      witnesses: Array(repeating: nil, count: offenders.count),
+      fixes: fixes,
+      codebase: codebase
+    )
+  }
+}
+
+extension Violations {
+  package func filteringOffenders(
+    _ isIncluded: (Element) -> Bool
+  ) -> Self {
+    let indices = offenders.indices.filter { isIncluded(offenders[$0]) }
+    return Self(
+      rule: rule,
+      offenders: indices.map { offenders[$0] },
+      checkedCount: checkedCount,
+      witnesses: indices.map { witnesses[$0] },
+      fixes: indices.map { fixes[$0] },
+      codebase: codebase
     )
   }
 }

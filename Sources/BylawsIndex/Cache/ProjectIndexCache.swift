@@ -15,65 +15,85 @@ package actor ProjectIndexCache {
     modules: Set<String>?,
     unitOutputFiles: Set<String>?
   ) async throws(ProjectIndexError) -> ProjectIndex {
-    let root = try codebase.indexRootPath()
-    let key = Key(
-      root: root,
-      modules: modules,
-      unitOutputFiles: unitOutputFiles,
-      including: modules == nil ? codebase.including : nil,
-      excluding: modules == nil ? codebase.excluding : nil
-    )
-    do {
-      let index = try await MemoisedTask.value(
-        name: "bylaws: read index store",
-        lookup: { entries[key] },
-        insert: { entry in
-          entries[key] = entry
-          readCount += 1
-        },
-        remove: { entries[key] = nil }
-      ) { () throws(IndexStoreError) in
-        let path = try IndexStoreLocation.path(forPackageAt: root)
-        let store = try IndexStore(path: path)
-        let rootPath = LexicalFilePath(root)
-        guard let physicalRoot = rootPath.resolvingSymbolicLinks() else {
-          throw IndexStoreError.unreadablePath(
-            path: root,
-            reason: NSError(
-              domain: NSPOSIXErrorDomain,
-              code: Int(errno)
-            ).localizedDescription
+    do throws(ProjectIndexError) {
+      let root = try codebase.indexRootPath()
+      let forcedPath: String?
+      do {
+        forcedPath = try await Self.correctionIndexStore(forRoot: root)
+      } catch {
+        throw .indexUnavailable(error)
+      }
+      let key = Key(
+        root: root,
+        store: forcedPath,
+        modules: modules,
+        unitOutputFiles: unitOutputFiles,
+        including: modules == nil ? codebase.including : nil,
+        excluding: modules == nil ? codebase.excluding : nil
+      )
+      do {
+        let index = try await MemoisedTask.value(
+          name: "bylaws: read index store",
+          lookup: { entries[key] },
+          insert: { entry in
+            entries[key] = entry
+            readCount += 1
+          },
+          remove: { entries[key] = nil }
+        ) { () throws(IndexStoreError) in
+          let path: String = if let forcedPath {
+            forcedPath
+          } else {
+            try IndexStoreLocation.path(forPackageAt: root)
+          }
+          let store = try IndexStore(path: path)
+          let rootPath = LexicalFilePath(root)
+          guard let physicalRoot = rootPath.resolvingSymbolicLinks() else {
+            throw IndexStoreError.unreadablePath(
+              path: root,
+              reason: NSError(
+                domain: NSPOSIXErrorDomain,
+                code: Int(errno)
+              ).localizedDescription
+            )
+          }
+          func relativePath(for file: String) -> LexicalFilePath? {
+            let path = LexicalFilePath(file)
+            if let relative = path.relative(to: rootPath) { return relative }
+            guard physicalRoot != rootPath else { return nil }
+            return path.relative(to: physicalRoot)
+          }
+          func mappedPath(for file: String) -> String {
+            guard physicalRoot != rootPath,
+                  let relative = relativePath(for: file) else { return file }
+            return rootPath.appending(relative.string).string
+          }
+          return try ProjectIndex(
+            store: store,
+            modules: modules,
+            unitOutputFiles: unitOutputFiles,
+            includingFile: { file in
+              if modules != nil { return true }
+              guard file.hasSuffix(".swift"),
+                    let relative = relativePath(for: file)
+              else { return false }
+              return codebase.covers(Glob.Path(relative.string))
+            },
+            mapFilePath: { mappedPath(for: $0) }
           )
         }
-        func relativePath(for file: String) -> LexicalFilePath? {
-          let path = LexicalFilePath(file)
-          if let relative = path.relative(to: rootPath) { return relative }
-          guard physicalRoot != rootPath else { return nil }
-          return path.relative(to: physicalRoot)
-        }
-        func mappedPath(for file: String) -> String {
-          guard physicalRoot != rootPath,
-                let relative = relativePath(for: file) else { return file }
-          return rootPath.appending(relative.string).string
-        }
-        return try ProjectIndex(
-          store: store,
-          modules: modules,
-          unitOutputFiles: unitOutputFiles,
-          includingFile: { file in
-            if modules != nil { return true }
-            guard file.hasSuffix(".swift"),
-                  let relative = relativePath(for: file)
-            else { return false }
-            return codebase.covers(Glob.Path(relative.string))
-          },
-          mapFilePath: { mappedPath(for: $0) }
-        )
+        await RuleDependencyTracking.recordUntrackedDependency()
+        return index
+      } catch {
+        throw .indexUnavailable(error)
       }
-      await RuleDependencyTracking.recordUntrackedDependency()
-      return index
     } catch {
-      throw .indexUnavailable(error)
+      do {
+        try await SourceCapture.recordFailure(error, for: codebase)
+      } catch {
+        throw .unreadableCodebase(error)
+      }
+      throw error
     }
   }
 
@@ -85,6 +105,7 @@ package actor ProjectIndexCache {
 
   private struct Key: Hashable {
     let root: String
+    let store: String?
     let modules: Set<String>?
     let unitOutputFiles: Set<String>?
     let including: [Glob]?

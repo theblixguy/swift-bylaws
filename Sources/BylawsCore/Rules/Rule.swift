@@ -54,6 +54,17 @@ public struct Rule: Sendable, Identifiable, Located {
   /// The position of the rule's declaration, which is its `Rule(...)`
   /// line in a `Bylaws.swift` file or the code that constructed it.
   public let location: DeclarationLocation
+  package var origin: Origin?
+
+  package struct Origin: Sendable, Hashable, Codable {
+    package let filePath: String
+    package let ruleID: ID
+
+    package init(filePath: String, ruleID: ID) {
+      self.filePath = filePath
+      self.ruleID = ruleID
+    }
+  }
 
   /// One warning a run of a rule reports beside its violations, such as
   /// a layer whose globs match no file.

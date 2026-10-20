@@ -18,25 +18,30 @@ public struct Selection<Element: Sendable>: Sendable {
   public let queryDescription: String
 
   package let rootPath: String
+  package let codebase: Codebase?
 
   package init(
     elements: [Element],
     queryDescription: String,
-    rootPath: String
+    rootPath: String,
+    codebase: Codebase? = nil
   ) {
     storage = SelectionStorage(elements)
     self.queryDescription = queryDescription
     self.rootPath = rootPath
+    self.codebase = codebase
   }
 
   package init(
     storage: SelectionStorage<Element>,
     queryDescription: String,
-    rootPath: String
+    rootPath: String,
+    codebase: Codebase? = nil
   ) {
     self.storage = storage
     self.queryDescription = queryDescription
     self.rootPath = rootPath
+    self.codebase = codebase
   }
 
   func narrowed(to elements: [Element], appending clause: String) -> Selection {
@@ -49,7 +54,8 @@ public struct Selection<Element: Sendable>: Sendable {
     return Selection(
       elements: elements,
       queryDescription: description,
-      rootPath: rootPath
+      rootPath: rootPath,
+      codebase: codebase
     )
   }
 
@@ -286,7 +292,8 @@ extension Selection where Element: Named {
       },
       queryDescription: ([queryDescription] + filters.map(\.description))
         .joined(separator: " "),
-      rootPath: rootPath
+      rootPath: rootPath,
+      codebase: codebase
     )
   }
 }

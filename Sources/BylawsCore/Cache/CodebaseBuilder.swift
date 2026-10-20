@@ -11,6 +11,18 @@ enum CodebaseBuilder {
   struct Build: Sendable {
     let parsed: ParsedCodebase
     let rawFilesByPath: [String: SourceFile]
+    let languageInputs: [SourceCapture.Input]
+    let xcodeProjects: [String]?
+
+    init(
+      parsed: ParsedCodebase, rawFilesByPath: [String: SourceFile],
+      languageInputs: [SourceCapture.Input] = [], xcodeProjects: [String]? = nil
+    ) {
+      self.parsed = parsed
+      self.rawFilesByPath = rawFilesByPath
+      self.languageInputs = languageInputs
+      self.xcodeProjects = xcodeProjects
+    }
   }
 
   struct ReusableFiles: Sendable {
@@ -61,9 +73,9 @@ enum CodebaseBuilder {
         )
       )
     }
-    let (diskPaths, unopenableDirectories) = await swiftFilePaths(
-      under: rootPath,
-      in: codebase
+    let (diskPaths, unopenableDirectories) = await SourceFileDiscovery.paths(
+      under: rootPath, including: codebase.including,
+      excluding: codebase.excluding
     )
     let paths = merging(
       diskPaths,
@@ -130,7 +142,9 @@ enum CodebaseBuilder {
     let files = paths.compactMap { filesByPath[$0] }
     return Build(
       parsed: ParsedCodebase(rootPath: rootPath, files: files),
-      rawFilesByPath: filesByPath
+      rawFilesByPath: filesByPath,
+      languageInputs: settings.inputs,
+      xcodeProjects: settings.xcodeProjects
     )
   }
 
@@ -141,10 +155,14 @@ enum CodebaseBuilder {
     let root = LexicalFilePath(parsedCodebase.rootPath)
     let manifestPath = root.appending("Package.swift").string
     let manifest: PackageManifest
+    let manifestInput: SourceCapture.Input
     do {
       let source = if let overlaid = overlay
         .text(forFileAt: manifestPath) { overlaid }
       else { try FileCollector.readSource(atPath: manifestPath) }
+      manifestInput = .init(
+        path: manifestPath, digest: SourceCapture.digest(Data(source.utf8))
+      )
       manifest = PackageManifest(source: source)
       let mode = SwiftLanguageMode(toolsVersion: manifest.toolsVersion)
       _ = try FileCollector.collect(
@@ -163,7 +181,8 @@ enum CodebaseBuilder {
     }
     return PackageAnalysis(
       parsedCodebase: parsedCodebase,
-      manifest: manifest
+      manifest: manifest,
+      manifestInput: manifestInput
     )
   }
 
@@ -268,47 +287,5 @@ enum CodebaseBuilder {
       return codebase.covers(Glob.Path(relativePath))
     }
     return (diskPaths + overlaid).sorted()
-  }
-
-  private static func swiftFilePaths(
-    under rootPath: String,
-    in codebase: Codebase
-  ) async -> (
-    paths: [String],
-    unopenableDirectories: [CodebaseError.ReadFailure]
-  ) {
-    let rootPrefix = rootPath == "/" ? rootPath : rootPath + "/"
-    var paths: [String] = []
-    let unopenable = await DirectoryWalker
-      .walk(rootPath) { relativePath, entry in
-        switch entry {
-        case .directory:
-          let directory = Glob.Path(relativePath)
-          let covered = codebase.excluding.contains {
-            $0.coversEverything(under: directory)
-          }
-          let reachable = codebase.including.isEmpty
-            || codebase.including.contains {
-              $0.canMatchDescendant(of: directory)
-            }
-          return covered || !reachable ? .skipDescendants : .descend
-        case .regularFile:
-          guard relativePath.hasSuffix(".swift") else { return .descend }
-          if codebase.covers(Glob.Path(relativePath)) {
-            paths.append(rootPrefix + relativePath)
-          }
-          return .descend
-        }
-      }
-    return (
-      paths,
-      unopenable.map { directory in
-        CodebaseError.ReadFailure(
-          path: directory.relativePath.isEmpty
-            ? rootPath : rootPrefix + directory.relativePath,
-          reason: directory.reason
-        )
-      }
-    )
   }
 }
