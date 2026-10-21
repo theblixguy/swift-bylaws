@@ -136,7 +136,7 @@ struct RuntimeEvaluator: Sendable {
       )
       guard case let .genericType(typeName, _) = receiver,
             let owner = SupportedAPI.StaticMemberType(rawValue: typeName)?
-            .owner,
+              .owner,
             literal.owners.contains(owner)
       else {
         throw failure(

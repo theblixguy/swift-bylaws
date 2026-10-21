@@ -150,13 +150,11 @@ enum ManifestPluginCollector {
     from expression: ExprSyntax,
     resolver: ManifestSyntaxResolver
   ) -> (lowerBound: Int, upperBound: Int)? {
-    guard let expression = resolver.resolvedExpression(from: expression) else {
-      return nil
-    }
-    guard let operands = ManifestBinaryOperation(expression)?
-      .operands(forOperator: ["..<"]),
-      let lowerBound = resolver.integer(from: operands.left),
-      let upperBound = resolver.integer(from: operands.right)
+    guard let expression = resolver.resolvedExpression(from: expression),
+          let operands = ManifestBinaryOperation(expression)?
+            .operands(forOperator: ["..<"]),
+          let lowerBound = resolver.integer(from: operands.left),
+          let upperBound = resolver.integer(from: operands.right)
     else { return nil }
     return (lowerBound, upperBound)
   }

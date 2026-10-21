@@ -51,8 +51,8 @@ enum ManifestCollector {
         guard binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text
           == "package",
           let call = binding.initializer?.value
-          .as(FunctionCallExprSyntax.self),
-          call.isManifestPackageInitializer
+            .as(FunctionCallExprSyntax.self),
+            call.isManifestPackageInitializer
         else { continue }
         return call
       }

@@ -38,7 +38,7 @@ struct RuntimeStatementParser {
         guard loop.tryKeyword == nil, loop.awaitKeyword == nil,
               loop.caseKeyword == nil, loop.whereClause == nil,
               let name = loop.pattern.as(IdentifierPatternSyntax.self)?
-              .identifier.text,
+                .identifier.text,
               let sequence = RuntimeExpressionParser(syntax: syntax).parse(
                 loop.sequence,
                 diagnostics: &diagnostics
@@ -100,7 +100,7 @@ struct RuntimeStatementParser {
             variable.bindings.count == 1,
             let binding = variable.bindings.first,
             let name = binding.pattern.as(IdentifierPatternSyntax.self)?
-            .identifier.text,
+              .identifier.text,
             let expression = binding.initializer?.value,
             let value = RuntimeExpressionParser(syntax: syntax).parse(
               expression,
@@ -201,7 +201,7 @@ struct RuntimeStatementParser {
     case let .optionalBinding(binding):
       guard binding.bindingSpecifier.tokenKind == .keyword(.let),
             let name = binding.pattern.as(IdentifierPatternSyntax.self)?
-            .identifier.text,
+              .identifier.text,
             let expression = binding.initializer?.value,
             let value = RuntimeExpressionParser(syntax: syntax).parse(
               expression,

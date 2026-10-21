@@ -155,10 +155,8 @@ enum ManifestDependencyCollector {
     upperBound: PackageManifest.Version,
     isClosed: Bool
   )? {
-    guard let expression = resolver.resolvedExpression(from: expression) else {
-      return nil
-    }
-    guard let range = ManifestBinaryOperation(expression),
+    guard let expression = resolver.resolvedExpression(from: expression),
+          let range = ManifestBinaryOperation(expression),
           let operands = range.operands(forOperator: ["..<", "..."]),
           let lower = resolver.string(from: operands.left),
           let upper = resolver.string(from: operands.right),

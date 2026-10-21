@@ -190,8 +190,7 @@ enum ManifestTargetCollector {
       guard let name = resolver.string(
         from: call.manifestArgument(labelled: "name")
           ?? call.manifestUnlabelledArgument()
-      ) else { return nil }
-      guard let aliases = resolver.stringDictionary(
+      ), let aliases = resolver.stringDictionary(
         from: call.manifestArgument(labelled: "moduleAliases")
       ) else { return nil }
       var unresolved: [PackageManifest.UnresolvedValue] = []

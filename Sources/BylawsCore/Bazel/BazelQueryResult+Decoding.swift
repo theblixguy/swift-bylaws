@@ -5,7 +5,7 @@ extension BazelQueryResult {
     let configurationsKey = Field(stringValue: "configurations")
     if !fields.contains(resultsKey),
        fields.allKeys
-       .contains(where: { $0.stringValue != configurationsKey.stringValue })
+         .contains(where: { $0.stringValue != configurationsKey.stringValue })
     {
       throw DecodingError.keyNotFound(resultsKey, .init(
         codingPath: decoder.codingPath,

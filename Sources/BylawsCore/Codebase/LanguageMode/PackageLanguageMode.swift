@@ -96,7 +96,7 @@ struct PackageLanguageMode {
     }) { return false }
     if case let .explicit(paths) = target.sources,
        !paths.knownValues
-       .contains(where: { root.appending($0).contains(path) })
+         .contains(where: { root.appending($0).contains(path) })
     {
       return paths.isComplete ? false : nil
     }

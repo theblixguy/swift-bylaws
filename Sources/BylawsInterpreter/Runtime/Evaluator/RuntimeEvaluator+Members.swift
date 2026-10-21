@@ -173,7 +173,7 @@ extension RuntimeEvaluator {
       if name == .selfType { return receiver }
       if name == .kindType,
          let nestedType = SupportedAPI.ModelType(rawValue: type)?
-         .nestedStaticMemberType
+           .nestedStaticMemberType
       {
         return .genericType(
           name: nestedType.rawValue,

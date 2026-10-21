@@ -12,9 +12,9 @@ struct RulesBindingParser {
           let binding = variable.bindings.first,
           variable.bindings.count == 1,
           let name = binding.pattern.as(IdentifierPatternSyntax.self)?
-          .identifier.text,
+            .identifier.text,
           let value = binding.initializer?.value
-          .as(FunctionCallExprSyntax.self),
+            .as(FunctionCallExprSyntax.self),
           let callee = syntax.identifier(of: value.calledExpression),
           let keyword = SupportedAPI.Value(rawValue: callee)
     else {
@@ -71,7 +71,7 @@ struct RulesBindingParser {
     for argument in call.arguments {
       guard argument.label == nil,
             let layerCall = argument.expression
-            .as(FunctionCallExprSyntax.self),
+              .as(FunctionCallExprSyntax.self),
             syntax.identifier(of: layerCall.calledExpression)
             == SupportedAPI.Value.layer.rawValue,
             let layer = parseLayer(layerCall, into: &parsed)

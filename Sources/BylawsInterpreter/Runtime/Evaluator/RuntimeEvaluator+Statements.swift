@@ -89,7 +89,7 @@ extension RuntimeEvaluator {
           if result.returned { return result }
           if collecting,
              case let .array(values) = result
-             .value { collected.append(contentsOf: values) }
+               .value { collected.append(contentsOf: values) }
         }
         last = .void
       case let .guardStatement(condition, failure):
@@ -138,7 +138,7 @@ extension RuntimeEvaluator {
           last = result.value
           if collecting,
              case let .array(values) = result
-             .value { collected.append(contentsOf: values) }
+               .value { collected.append(contentsOf: values) }
         } else {
           last = .void
         }

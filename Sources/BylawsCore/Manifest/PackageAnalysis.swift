@@ -180,11 +180,9 @@ struct PackageAnalysis: Sendable {
     }
     return files.filter { file in
       guard let relativePath = LexicalFilePath(file.path)
-        .relative(to: directory)?.string
-      else { return false }
-      guard !excluded.contains(where: {
-        path(relativePath, belongsTo: $0)
-      }) else { return false }
+        .relative(to: directory)?.string, !excluded.contains(where: {
+          path(relativePath, belongsTo: $0)
+        }) else { return false }
       guard let included else { return true }
       return included.contains { path(relativePath, belongsTo: $0) }
     }

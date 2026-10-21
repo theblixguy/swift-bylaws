@@ -217,8 +217,8 @@ struct PackageDependencyTests {
     await #expect {
       _ = try await codebase.packageManifest
     } throws: { error in
-      guard let error = error as? CodebaseError else { return false }
-      guard case let .unreadable(failures) = error else { return false }
+      guard let error = error as? CodebaseError,
+            case let .unreadable(failures) = error else { return false }
       return failures.count == 1
         && failures[0].path == path
         && !failures[0].reason.isEmpty

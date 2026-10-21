@@ -49,16 +49,13 @@ package struct IndexedLayeringAnalyser {
           })
         }
       for reference in occurrences where isExplicitReference(reference) {
-        guard let source = layerByFile[Self.standardisedPath(reference.file)]
-        else {
-          continue
-        }
-        guard let targets = targetsByModule[reference.module],
+        guard let source = layerByFile[Self.standardisedPath(reference.file)],
+              let targets = targetsByModule[reference.module],
               targets.count == 1, let target = targets.first else { continue }
 
         let dependency = Dependency(reference: reference, target: target)
-        guard checkedDependencies.insert(dependency).inserted else { continue }
-        guard source.name != target else { continue }
+        guard checkedDependencies.insert(dependency).inserted,
+              source.name != target else { continue }
         usedEdges.insert(.init(source: source.name, target: target))
         guard !plan.allowsDependency(from: source, to: target) else {
           continue

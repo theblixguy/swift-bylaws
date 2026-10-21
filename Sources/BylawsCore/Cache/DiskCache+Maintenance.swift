@@ -39,10 +39,11 @@ extension DiskCache {
 
     var dated: [(url: URL, date: Date, size: Int)] = []
     for case let url as URL in walker {
-      guard url.lastPathComponent != Self.maintenanceStampName else {
-        continue
-      }
-      guard let values = Self.attributes(of: url, Set(keys)),
+      guard url.lastPathComponent != Self.maintenanceStampName,
+            let values = Self.attributes(
+              of: url,
+              Set(keys)
+            ),
             values.isRegularFile == true,
             let size = values.fileSize,
             let date = values.contentModificationDate

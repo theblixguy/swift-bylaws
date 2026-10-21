@@ -1,6 +1,6 @@
 package import BylawsCore
-import BylawsPaths
 package import BylawsIndexStore
+import BylawsPaths
 import Foundation
 
 package actor ProjectIndexCache {
@@ -52,8 +52,8 @@ package actor ProjectIndexCache {
           return path.relative(to: physicalRoot)
         }
         func mappedPath(for file: String) -> String {
-          guard physicalRoot != rootPath else { return file }
-          guard let relative = relativePath(for: file) else { return file }
+          guard physicalRoot != rootPath,
+                let relative = relativePath(for: file) else { return file }
           return rootPath.appending(relative.string).string
         }
         return try ProjectIndex(

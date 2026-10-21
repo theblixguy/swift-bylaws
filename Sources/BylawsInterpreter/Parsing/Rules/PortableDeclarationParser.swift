@@ -22,7 +22,7 @@ struct PortableDeclarationParser {
           variable.bindings.count == 1,
           let binding = variable.bindings.first,
           let name = binding.pattern.as(IdentifierPatternSyntax.self)?
-          .identifier.text,
+            .identifier.text,
           let initializer = binding.initializer?.value
     else {
       parsed.diagnostics.append(unsupported(variable))

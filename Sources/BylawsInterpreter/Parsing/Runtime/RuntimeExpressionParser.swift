@@ -86,7 +86,7 @@ struct RuntimeExpressionParser {
     }
     if let infix = expression.as(InfixOperatorExprSyntax.self),
        let operatorExpression = infix.operator
-       .as(BinaryOperatorExprSyntax.self),
+         .as(BinaryOperatorExprSyntax.self),
        let left = parse(infix.leftOperand, diagnostics: &diagnostics),
        let right = parse(infix.rightOperand, diagnostics: &diagnostics)
     {

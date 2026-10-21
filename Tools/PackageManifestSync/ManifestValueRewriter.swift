@@ -38,7 +38,7 @@ final class ManifestValueRewriter: SyntaxRewriter {
           node.bindings.count == 1,
           let binding = node.bindings.first,
           let name = binding.pattern.as(IdentifierPatternSyntax.self)?
-          .identifier.text,
+            .identifier.text,
           let initializer = binding.initializer,
           let value = pluginValue(named: name)
     else {
@@ -130,7 +130,7 @@ final class ManifestValueRewriter: SyntaxRewriter {
     guard case let .case(label) = node.label,
           label.caseItems.count == 1,
           let pattern = label.caseItems.first?.pattern
-          .as(ExpressionPatternSyntax.self),
+            .as(ExpressionPatternSyntax.self),
           let member = pattern.expression.as(MemberAccessExprSyntax.self)
     else {
       return nil

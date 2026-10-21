@@ -92,7 +92,7 @@ extension RuntimeTypeResolver {
       let baseType = resolve(base)
       guard case let .staticType(typeName) = baseType,
             let owner = SupportedAPI.StaticMemberType(rawValue: typeName)?
-            .owner,
+              .owner,
             literal.owners.contains(owner)
       else {
         diagnose(
@@ -202,7 +202,7 @@ extension RuntimeTypeResolver {
       if name == .selfType { return type }
       if name == .kindType,
          let nestedType = SupportedAPI.ModelType(rawValue: typeName)?
-         .nestedStaticMemberType
+           .nestedStaticMemberType
       {
         return .staticType(nestedType.rawValue)
       }

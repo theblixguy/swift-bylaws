@@ -72,8 +72,10 @@ struct ClassCollectionTests {
     #expect {
       try FileCollector.collect(fileAt: "/nonexistent/Missing.swift")
     } throws: { error in
-      guard let error = error as? ParseError else { return false }
-      guard case let .unreadable(path, reason) = error else { return false }
+      guard let error = error as? ParseError, case let .unreadable(
+        path,
+        reason
+      ) = error else { return false }
       return path == "/nonexistent/Missing.swift" && !reason.isEmpty
     }
   }

@@ -56,7 +56,7 @@ private func evaluateCompilationCondition(_ expression: ExprSyntax) -> Bool? {
   guard let call = expression.as(FunctionCallExprSyntax.self),
         call.manifestAccessPath == ["os"],
         let argument = call.manifestUnlabelledArgument()?
-        .as(DeclReferenceExprSyntax.self),
+          .as(DeclReferenceExprSyntax.self),
         let operatingSystem = ManifestOperatingSystem(
           rawValue: argument.baseName.text
         )

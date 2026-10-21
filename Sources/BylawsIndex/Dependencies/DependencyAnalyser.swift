@@ -49,8 +49,8 @@ package struct DependencyAnalyser {
           ambiguousSymbols.insert(reference.symbol.name)
           continue
         }
-        guard !checkingCycles || target.group != nil else { continue }
-        guard checked.insert(reference).inserted else { continue }
+        guard !checkingCycles || target.group != nil,
+              checked.insert(reference).inserted else { continue }
         if checkingCycles, let from = source.group, let to = target.group,
            from != to
         {
@@ -78,7 +78,7 @@ package struct DependencyAnalyser {
     }
     if checkingCycles,
        let cycle = OrderedDirectedGraph(nodes: plan.groups, edges: edges)
-       .firstCycle()
+         .firstCycle()
     {
       let description = "dependency cycle: " + cycle
         .joined(separator: " -> ")

@@ -13,8 +13,8 @@ struct UnreadableSourceTests {
     await #expect {
       try await Codebase(root: .directory(root)).structs
     } throws: { error in
-      guard let error = error as? CodebaseError else { return false }
-      guard case let .unreadable(failures) = error else { return false }
+      guard let error = error as? CodebaseError,
+            case let .unreadable(failures) = error else { return false }
       return failures == [
         .init(path: path, reason: "the file is not UTF-8 text"),
       ]
@@ -57,8 +57,8 @@ struct UnreadableSourceTests {
     await #expect {
       try await Codebase(root: .directory(root)).structs
     } throws: { error in
-      guard let error = error as? CodebaseError else { return false }
-      guard case let .unreadable(failures) = error else { return false }
+      guard let error = error as? CodebaseError,
+            case let .unreadable(failures) = error else { return false }
       return failures.map(\.path) == [directory]
     }
   }
@@ -90,8 +90,8 @@ struct UnreadableSourceTests {
     #expect {
       try Codebase.automaticRoot(above: "\(directory)/Rules.swift")
     } throws: { error in
-      guard let error = error as? CodebaseError else { return false }
-      guard case let .unreadable(failures) = error else { return false }
+      guard let error = error as? CodebaseError,
+            case let .unreadable(failures) = error else { return false }
       return failures.map(\.path) == [directory]
     }
   }

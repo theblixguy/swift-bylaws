@@ -50,7 +50,7 @@ enum CodebaseBuilder {
       let files = prepared.files.filter { file in
         guard contains(file.path, in: rootPath),
               let relativePath = LexicalFilePath(file.path)
-              .relative(to: LexicalFilePath(rootPath))?.string
+                .relative(to: LexicalFilePath(rootPath))?.string
         else { return false }
         return codebase.covers(Glob.Path(relativePath))
       }

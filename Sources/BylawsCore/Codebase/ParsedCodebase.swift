@@ -1,6 +1,6 @@
 import BylawsPaths
-import Foundation
 package import BylawsSemantics
+import Foundation
 
 package struct ParsedCodebase: Sendable {
   package enum Declarations: Sendable, Hashable {

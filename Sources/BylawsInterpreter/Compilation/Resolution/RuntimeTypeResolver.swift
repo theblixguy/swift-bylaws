@@ -237,7 +237,7 @@ struct RuntimeTypeResolver {
     case "+":
       if case .array = leftType, case .array = rightType,
          leftType.isAssignable(to: rightType) || rightType
-         .isAssignable(to: leftType)
+           .isAssignable(to: leftType)
       {
         return leftType.containsUnknown ? rightType : leftType
       }

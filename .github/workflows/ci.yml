@@ -76,8 +76,8 @@ jobs:
         && '[{"swift":"6.2","swift_syntax":"602.0.0"},{"swift":"6.3","swift_syntax":"602.0.0"},{"swift":"6.3","swift_syntax":"603.0.2"}]'
         || '[{"swift":"6.2","swift_syntax":"602.0.0"}]' }}
     env:
-      SWIFTFORMAT_VERSION: "0.62.1"
-      SWIFTFORMAT_SHA256: "61ff55f3581e2144a4ad114831167102c38be853df75c1477d20b40a8e8120aa"
+      SWIFTFORMAT_VERSION: "0.64.0"
+      SWIFTFORMAT_SHA256: "599eb5d2d8cf43e1128e79cd72f3bc2fec1b3189c3ac7593fbe732f2568fed36"
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -152,7 +152,7 @@ struct RuleBodyParser {
     let check: Check?
     if violationsArgument.hasLabel(.outsidePaths),
        violationsArgument.value.isString || violationsArgument.value
-       .isStringArray
+         .isStringArray
     {
       check = .outsidePaths(violationsArgument.value.stringValues)
     } else if let matcher {

@@ -133,7 +133,7 @@ enum ManifestBuildSettingCollector {
   ) -> Bool {
     guard let expression,
           let member = resolver.resolvedExpression(from: expression)?
-          .as(MemberAccessExprSyntax.self),
+            .as(MemberAccessExprSyntax.self),
           member.declName.baseName.text == "self",
           member.base?.as(DeclReferenceExprSyntax.self)?.baseName.text
           == "MainActor"

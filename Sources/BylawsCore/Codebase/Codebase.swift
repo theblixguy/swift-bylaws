@@ -1,5 +1,5 @@
-import BylawsSemantics
 package import BylawsPaths
+import BylawsSemantics
 import Foundation
 
 /// The Swift source files that rules query and lint.

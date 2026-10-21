@@ -24,7 +24,7 @@ extension RuntimeTypeResolver {
     )
     guard case let .model(member)? = members.sequenceElement,
           SupportedAPI
-          .runtimeProperty(named: .location, on: .model(member)) != nil
+            .runtimeProperty(named: .location, on: .model(member)) != nil
     else {
       diagnose(
         "the key path must select a sequence of members",

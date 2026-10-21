@@ -41,10 +41,9 @@ final class IssueRecorder: Sendable {
     let message = issue.comments.first?.rawValue ?? ""
     guard expectedMessage.matches(message) else { return issue }
     #if compiler(>=6.3)
-      guard expectedSeverity != .warning || issue.severity == .warning else {
-        return issue
-      }
-      guard expectedSeverity != .error || issue.severity == .error else {
+      guard expectedSeverity != .warning || issue.severity == .warning,
+            expectedSeverity != .error || issue.severity == .error
+      else {
         return issue
       }
     #endif

@@ -94,11 +94,9 @@ extension RulesBindingParser {
           call.trailingClosure == nil,
           call.additionalTrailingClosures.isEmpty,
           let member = call.calledExpression.as(MemberAccessExprSyntax.self),
-          member.base == nil
-    else { return nil }
-    guard let root = SupportedAPI.CodebaseRoot(
-      rawValue: member.declName.baseName.text
-    )
+          member.base == nil, let root = SupportedAPI.CodebaseRoot(
+            rawValue: member.declName.baseName.text
+          )
     else { return nil }
     switch root {
     case .automatic where call.arguments.isEmpty:

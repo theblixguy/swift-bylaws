@@ -37,10 +37,10 @@ struct BaselineFileParser {
           let variable = baselineVariable(in: baselineExtension),
           let binding = variable.bindings.first,
           let name = binding.pattern.as(IdentifierPatternSyntax.self)?
-          .identifier.text,
+            .identifier.text,
           BaselineFile.isValidIdentifier(name),
           let value = binding.initializer?.value
-          .as(FunctionCallExprSyntax.self),
+            .as(FunctionCallExprSyntax.self),
           let entries = entries(in: value, named: name)
     else { return .failure(malformedFile(at: tree)) }
     return entries
