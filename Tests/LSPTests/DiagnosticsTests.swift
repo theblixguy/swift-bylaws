@@ -244,7 +244,10 @@ struct DiagnosticsTests {
     #expect(published.diagnostics.isEmpty)
   }
 
-  @Test("Rule syntax errors clear pushed source diagnostics")
+  @Test(
+    "Rule syntax errors clear pushed source diagnostics",
+    .timeLimit(.minutes(3))
+  )
   func pushRuleSyntaxError() async throws {
     let project = try DiagnosticTestProject()
     let connection = TestConnection()
