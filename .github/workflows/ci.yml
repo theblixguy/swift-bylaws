@@ -218,7 +218,7 @@ jobs:
       - name: Run CLI and process tests
         env:
           BYLAWS_REQUIRE_INDEX_STORE: "1"
-        run: swift test --skip-build --filter 'CLITests|ProcessTests'
+        run: swift test --skip-build --no-parallel --filter 'CLITests|ProcessTests'
       - name: Check Bylaws' own rules
         if: matrix.swift == '6.2'
         run: swift run --skip-build bylaws lint --format github
