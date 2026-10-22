@@ -101,13 +101,9 @@
             try await commands.waitForAll()
           }
           #expect(try await iterator.next() == "interrupted")
-          #expect(try await iterator.next() == nil)
-
-          let status = kill(toolPID, 0)
-          let error = errno
-          toolStopped = status == -1 && error == ESRCH
-          #expect(status == -1)
-          #expect(error == ESRCH)
+          let end = try await iterator.next()
+          try #require(end == nil)
+          toolStopped = true
         }
         try await readers.waitForAll()
       }
@@ -177,8 +173,12 @@
 
         @main struct HoldTool {
           static func main() async throws {
-            let events = try FileHandle(forWritingTo:
-              URL(fileURLWithPath: CommandLine.arguments[1]))
+            let descriptor = open(CommandLine.arguments[1], O_WRONLY | O_CLOEXEC)
+            guard descriptor >= 0 else {
+              throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+            }
+            // EOF must mean that the tool has exited.
+            let events = FileHandle(fileDescriptor: descriptor, closeOnDealloc: false)
             signal(SIGINT, SIG_IGN)
             let source = DispatchSource.makeSignalSource(
               signal: SIGINT, queue: .global()
@@ -196,7 +196,6 @@
             try events.write(contentsOf: Data("\(getpid()) \(getpgrp())\n".utf8))
             for await _ in interrupts { break }
             try events.write(contentsOf: Data("interrupted\n".utf8))
-            try events.close()
           }
         }
         """#,
