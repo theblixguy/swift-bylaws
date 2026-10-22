@@ -14,18 +14,17 @@ import Testing
 struct SwiftPMCommandTests {
   @Test("Arguments, environment and working directory retain their values")
   func commandInputs() async throws {
-    let project = try project(
-      script: #"""
-      printf '%s\n' "$PWD" "$MOCK_VALUE" "$#" "$1" "$2"
-      printf 'build error\n' >&2
-      exit 7
-      """#
-    )
+    let project = try project()
+    let script = #"""
+    printf '%s\n' "$PWD" "$MOCK_VALUE" "$#" "$1" "$2"
+    printf 'build error\n' >&2
+    exit 7
+    """#
     var environment = environment(in: project)
     environment["MOCK_VALUE"] = "café and $HOME"
 
     let result = try await SwiftPMCommand.run(
-      arguments: ["value with spaces", "$(literal)"],
+      arguments: ["-c", script, "swift", "value with spaces", "$(literal)"],
       rootPath: project.rootURL.path,
       directory: project.rootURL,
       environment: environment
@@ -51,15 +50,14 @@ struct SwiftPMCommandTests {
 
   @Test("Large stdout and stderr remain complete")
   func largeOutput() async throws {
-    let project = try project(
-      script: """
-      /bin/dd if=/dev/zero bs=4096 count=512 2>/dev/null
-      /bin/dd if=/dev/zero bs=4096 count=512 >&2 2>/dev/null
-      """
-    )
+    let project = try project()
+    let script = """
+    /bin/dd if=/dev/zero bs=4096 count=512 2>/dev/null
+    /bin/dd if=/dev/zero bs=4096 count=512 >&2 2>/dev/null
+    """
 
     let result = try await SwiftPMCommand.run(
-      arguments: [], rootPath: project.rootURL.path,
+      arguments: ["-c", script], rootPath: project.rootURL.path,
       directory: project.rootURL, environment: environment(in: project)
     )
 
@@ -71,16 +69,16 @@ struct SwiftPMCommandTests {
 
   @Test("Signal termination fails collection")
   func signalTermination() async throws {
-    let project = try project(script: #"kill -TERM "$$""#)
+    let project = try project()
     let result = try await SwiftPMCommand.run(
-      arguments: [], rootPath: project.rootURL.path,
+      arguments: ["-c", #"kill -TERM "$$""#], rootPath: project.rootURL.path,
       directory: project.rootURL, environment: environment(in: project)
     )
 
     #expect(result.terminationStatus == .signaled(SIGTERM))
     #expect(throws: SwiftPMTestRunnerError.processSignaled(
       SIGTERM,
-      "swift \n"
+      "swift -c kill -TERM \"$$\"\n"
     )) {
       try SwiftPMTestRunner.checkStatus(result)
     }
@@ -102,14 +100,15 @@ struct SwiftPMCommandTests {
 
   @Test("Cancellation interrupts command")
   func cancellation() async throws {
-    let project = try project(script: "exec /bin/sleep 60")
+    let project = try project()
     let (started, continuation) = AsyncStream<Int32>.makeStream()
 
     let parent = try await withThrowingTaskGroup(of: Void.self) { group in
       group.addTask {
         defer { continuation.finish() }
         _ = try await SwiftPMCommand.run(
-          arguments: [], rootPath: project.rootURL.path,
+          arguments: ["-c", "exec /bin/sleep 60"],
+          rootPath: project.rootURL.path,
           directory: project.rootURL, environment: environment(in: project),
           onStart: { continuation.yield($0) }
         )
@@ -132,13 +131,14 @@ struct SwiftPMCommandTests {
 
   @Test("Cancelled task skips command launch")
   func cancelledBeforeLaunch() async throws {
-    let project = try project(script: "printf launched > launched")
+    let project = try project()
     await withTaskGroup(of: Void.self) { group in
       group.cancelAll()
       group.addTask {
         await #expect(throws: CancellationError.self) {
           try await SwiftPMCommand.run(
-            arguments: [], rootPath: project.rootURL.path,
+            arguments: ["-c", "printf launched > launched"],
+            rootPath: project.rootURL.path,
             directory: project.rootURL, environment: environment(in: project)
           )
         }
@@ -149,12 +149,14 @@ struct SwiftPMCommandTests {
     #expect(try outputFiles(in: project).isEmpty)
   }
 
-  private func project(script: String) throws -> TemporaryProject {
-    let project =
-      try TemporaryProject(files: ["bin/swift": "#!/bin/sh\n" + script])
-    try FileManager.default.setAttributes(
-      [.posixPermissions: 0o700],
-      ofItemAtPath: project.fileURL(for: "bin/swift").path
+  private func project() throws -> TemporaryProject {
+    let project = try TemporaryProject(files: [:])
+    try FileManager.default.createDirectory(
+      at: project.fileURL(for: "bin"), withIntermediateDirectories: true
+    )
+    try FileManager.default.createSymbolicLink(
+      at: project.fileURL(for: "bin/swift"),
+      withDestinationURL: URL(fileURLWithPath: "/bin/sh")
     )
     return project
   }
