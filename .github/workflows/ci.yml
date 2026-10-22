@@ -148,7 +148,11 @@ jobs:
       - name: Run tests
         env:
           BYLAWS_REQUIRE_INDEX_STORE: "1"
-        run: swift test --skip-build
+        run: swift test --skip-build --skip 'CLITests|ProcessTests'
+      - name: Run CLI and process tests
+        env:
+          BYLAWS_REQUIRE_INDEX_STORE: "1"
+        run: swift test --skip-build --filter 'CLITests|ProcessTests'
       - parallel:
           - name: Test SwiftSyntax artifact tool
             if: needs.changes.outputs.consumers == 'true'
@@ -210,7 +214,11 @@ jobs:
       - name: Run tests
         env:
           BYLAWS_REQUIRE_INDEX_STORE: "1"
-        run: swift test --skip-build
+        run: swift test --skip-build --skip 'CLITests|ProcessTests'
+      - name: Run CLI and process tests
+        env:
+          BYLAWS_REQUIRE_INDEX_STORE: "1"
+        run: swift test --skip-build --filter 'CLITests|ProcessTests'
       - name: Check Bylaws' own rules
         if: matrix.swift == '6.2'
         run: swift run --skip-build bylaws lint --format github
