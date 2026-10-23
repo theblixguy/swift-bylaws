@@ -1,6 +1,28 @@
 import BylawsSyntax
 
 extension SourceNode {
+  /// The direct elements of a represented syntax list, in source order.
+  ///
+  /// Returns an empty array for a node that is not a represented list.
+  /// Elements without a more specific kind use ``Kind/syntaxElement``.
+  /// An element's `source` and `text` include its trailing comma, when present.
+  /// Nested layout edits must leave that separator outside their source range.
+  /// - Complexity: O(n), where n is the number of elements.
+  public var elements: [Self] {
+    switch kind {
+    case .conditionList, .genericParameterList, .genericArgumentList,
+         .genericRequirementList, .inheritedTypeList, .expressionList,
+         .tupleTypeElementList, .tuplePatternElementList, .closureParameterList,
+         .closureShorthandParameterList, .closureCaptureList,
+         .enumCaseParameterList, .primaryAssociatedTypeList, .accessorList,
+         .switchCaseList, .switchCaseItemList:
+      syntax.children(viewMode: .sourceAccurate).map {
+        Self($0, context: context, kind: Kind($0) ?? .syntaxElement)
+      }
+    default: []
+    }
+  }
+
   /// The direct members of a declaration, in source order.
   ///
   /// Returns an empty array for a node without a member block.

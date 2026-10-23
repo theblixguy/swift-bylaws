@@ -108,17 +108,18 @@ extension SourceLayoutReplacement {
     }
 
     static func contentEnd(of node: Syntax) -> Int {
-      if let comma = node.as(LabeledExprSyntax.self)?.trailingComma
-        ?? node.as(ArrayElementSyntax.self)?.trailingComma
-        ?? node.as(DictionaryElementSyntax.self)?.trailingComma
-        ?? node.as(EnumCaseElementSyntax.self)?.trailingComma
-        ?? node.as(FunctionParameterSyntax.self)?.trailingComma
+      if let comma = trailingComma(of: node)
       { return comma.position.utf8Offset }
       return node.endPositionBeforeTrailingTrivia.utf8Offset
     }
   }
 
   struct List {
+    enum IndentationBase {
+      case owner
+      case contents
+    }
+
     let range: Range<Int>
     let leadingContentStart: Int
     let trailingContentEnd: Int
@@ -128,6 +129,7 @@ extension SourceLayoutReplacement {
     let isVertical: Bool
     let isDelimited: Bool
     let ownerStart: Int?
+    let indentationBase: IndentationBase?
     let nextContentStart: Int?
     let closesOwner: Bool
 
@@ -148,25 +150,33 @@ extension SourceLayoutReplacement {
         throw SourceLayoutReplacementError.noncontiguousElements
       }
       let isAttributes = list.is(AttributeListSyntax.self)
+      indentationBase = switch list.kind {
+      case .conditionElementList, .genericRequirementList, .inheritedTypeList,
+           .switchCaseList: .owner
+      case .accessorDeclList, .memberBlockItemList: .contents
+      case .codeBlockItemList:
+        list.parent?.is(SourceFileSyntax.self) == true ? .owner : .contents
+      default: nil
+      }
       hasDeclarationBoundary = isAttributes || list
         .is(DeclModifierListSyntax.self)
-      hasCommas = list.is(LabeledExprListSyntax.self)
-        || list.is(ArrayElementListSyntax.self) || list
-        .is(DictionaryElementListSyntax.self)
-        || list.is(EnumCaseElementListSyntax.self) || list
-        .is(FunctionParameterListSyntax.self)
+      hasCommas = isCommaSeparatedList(list)
       isVertical = list.is(MemberBlockItemListSyntax.self) || list
-        .is(CodeBlockItemListSyntax.self)
+        .is(CodeBlockItemListSyntax.self) || list.is(SwitchCaseListSyntax.self)
+        || list.is(AccessorDeclListSyntax.self)
       isDelimited = list.is(LabeledExprListSyntax.self)
         || list.is(ArrayElementListSyntax.self) || list
         .is(DictionaryElementListSyntax.self)
         || list.is(FunctionParameterListSyntax.self)
-      hasTrailingComma = last.node.as(LabeledExprSyntax.self)?
-        .trailingComma != nil
-        || last.node.as(ArrayElementSyntax.self)?.trailingComma != nil
-        || last.node.as(DictionaryElementSyntax.self)?.trailingComma != nil
-        || last.node.as(EnumCaseElementSyntax.self)?.trailingComma != nil
-        || last.node.as(FunctionParameterSyntax.self)?.trailingComma != nil
+        || list.is(GenericParameterListSyntax.self)
+        || list.is(GenericArgumentListSyntax.self)
+        || list.is(TupleTypeElementListSyntax.self)
+        || list.is(TuplePatternElementListSyntax.self)
+        || list.is(ClosureParameterListSyntax.self)
+        || list.is(ClosureCaptureListSyntax.self)
+        || list.is(EnumCaseParameterListSyntax.self)
+        || list.is(PrimaryAssociatedTypeListSyntax.self)
+      hasTrailingComma = trailingComma(of: last.node) != nil
       if hasCommas || hasDeclarationBoundary {
         guard items.count == siblings.count else {
           throw SourceLayoutReplacementError.noncontiguousElements
@@ -179,11 +189,11 @@ extension SourceLayoutReplacement {
       nextContentStart = next?.positionAfterSkippingLeadingTrivia.utf8Offset
       closesOwner = next?.tokenKind == .rightBrace || next?
         .tokenKind == .rightParen
-        || next?.tokenKind == .rightSquare
+        || next?.tokenKind == .rightSquare || next?.tokenKind == .rightAngle
       let owner = list.parent
-      ownerStart = if owner?.is(MemberBlockSyntax.self) == true
-        || owner?.is(CodeBlockSyntax.self) == true
-        || owner?.is(ClosureExprSyntax.self) == true
+      ownerStart = if owner?.is(SourceFileSyntax.self) == true {
+        0
+      } else if indentationBase != nil
       { owner?.positionAfterSkippingLeadingTrivia.utf8Offset } else { nil }
       if hasDeclarationBoundary || isDelimited {
         guard next?.leadingTrivia.allSatisfy(\.isLayoutWhitespace) != false
@@ -211,15 +221,49 @@ extension SourceLayoutReplacement {
 
   static func isList(_ node: Syntax?) -> Bool {
     guard let node else { return false }
-    return node.is(AttributeListSyntax.self) || node
-      .is(MemberBlockItemListSyntax.self)
-      || node.is(CodeBlockItemListSyntax.self) || node
-      .is(LabeledExprListSyntax.self)
-      || node.is(ArrayElementListSyntax.self) || node
-      .is(DictionaryElementListSyntax.self)
-      || node.is(EnumCaseElementListSyntax.self) || node
-      .is(DeclModifierListSyntax.self)
-      || node.is(FunctionParameterListSyntax.self)
+    return switch node.kind {
+    case .attributeList, .memberBlockItemList, .codeBlockItemList,
+         .declModifierList, .switchCaseList, .accessorDeclList: true
+    default: isCommaSeparatedList(node)
+    }
+  }
+
+  private static func isCommaSeparatedList(_ node: Syntax) -> Bool {
+    switch node.kind {
+    case .labeledExprList, .arrayElementList, .dictionaryElementList,
+         .enumCaseElementList, .functionParameterList, .conditionElementList,
+         .genericParameterList, .genericArgumentList, .genericRequirementList,
+         .inheritedTypeList, .tupleTypeElementList, .tuplePatternElementList,
+         .closureParameterList, .closureShorthandParameterList,
+         .closureCaptureList, .enumCaseParameterList,
+         .primaryAssociatedTypeList,
+         .switchCaseItemList: true
+    default: false
+    }
+  }
+
+  private static func trailingComma(of node: Syntax) -> TokenSyntax? {
+    switch node.as(SyntaxEnum.self) {
+    case let .labeledExpr(node): node.trailingComma
+    case let .arrayElement(node): node.trailingComma
+    case let .dictionaryElement(node): node.trailingComma
+    case let .enumCaseElement(node): node.trailingComma
+    case let .functionParameter(node): node.trailingComma
+    case let .conditionElement(node): node.trailingComma
+    case let .genericParameter(node): node.trailingComma
+    case let .genericArgument(node): node.trailingComma
+    case let .genericRequirement(node): node.trailingComma
+    case let .inheritedType(node): node.trailingComma
+    case let .tupleTypeElement(node): node.trailingComma
+    case let .tuplePatternElement(node): node.trailingComma
+    case let .closureParameter(node): node.trailingComma
+    case let .closureShorthandParameter(node): node.trailingComma
+    case let .closureCapture(node): node.trailingComma
+    case let .enumCaseParameter(node): node.trailingComma
+    case let .primaryAssociatedType(node): node.trailingComma
+    case let .switchCaseItem(node): node.trailingComma
+    default: nil
+    }
   }
 
   static func canonicalRange(of syntax: Syntax) -> Range<Int> {

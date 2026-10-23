@@ -29,7 +29,7 @@ public enum SourceLayoutReplacementError: Error, Sendable, Equatable,
     case .differentSnapshots:
       "SourceLayout must use one source snapshot. Select elements from the same parsed file."
     case .unsupportedElement:
-      "SourceLayout must contain complete supported list elements. Select attributes, declarations, statements or literal elements."
+      "SourceLayout must contain complete supported list elements. Select elements from a supported syntax list."
     case .noncontiguousElements:
       "SourceLayout must contain consecutive elements from one list. Select a complete list or a consecutive run of declarations or statements."
     case .repeatedElement:

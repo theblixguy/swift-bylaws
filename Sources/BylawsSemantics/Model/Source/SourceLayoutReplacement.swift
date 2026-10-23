@@ -6,6 +6,8 @@ extension Collection where Element: SourceProviding {
   /// The collection must be nonempty and come from one snapshot of a file.
   /// It can contain attributes, modifiers, members, statements, call arguments,
   /// parameters, enum case elements or array and dictionary elements.
+  /// The `elements` projection also supports conditions, generic clauses,
+  /// inherited types, tuples, closure signatures, accessors and switch cases.
   /// Attribute, modifier and comma-separated lists must be complete. Member
   /// and statement lists can be consecutive regions within a larger list.
   ///
@@ -13,8 +15,9 @@ extension Collection where Element: SourceProviding {
   /// retains each input element and regenerates list separators. An embedded
   /// edit can change part of one element. Comments with
   /// unclear ownership and conditional-compilation boundaries stop the fix.
-  /// Indentation comes from the source, with two spaces used when no existing
-  /// indentation can be inferred. Wrapping defaults to 100 characters.
+  /// Space indentation comes from source outside the replaced list, with two
+  /// spaces used when none can be inferred. Tabs use one tab per level.
+  /// Wrapping defaults to 100 characters.
   /// - Throws: ``SourceError`` when captured source cannot be read,
   ///   ``SourceLayoutReplacementError`` for unsupported input or source
   ///   ownership, or ``SourceLayoutError`` for a layout that cannot be rendered.
@@ -84,17 +87,19 @@ package enum SourceLayoutReplacement {
       in: first.snapshot.text,
       before: sourceList.ownerStart ?? sourceList.range.lowerBound
     )
-    let unit = indentationUnit(in: first.snapshot.text)
-    let contentIndent =
+    let unit = indentationUnit(
+      in: first.snapshot.text, excluding: sourceList.range
+    )
+    let contentIndent = switch sourceList.indentationBase {
+    case .owner: ownerIndent
+    case .contents: ownerIndent + unit
+    case nil:
       if sourceList.isDelimited {
-        ownerIndent + unit
-      } else if sourceList.isVertical, sourceList.ownerStart != nil,
-                !leadingWhitespace.contains(where: \.isPhysicalLayoutLineEnding)
-      {
         ownerIndent + unit
       } else {
         originalIndent
       }
+    }
     let closingIndent =
       if sourceList.closesOwner {
         ownerIndent
@@ -198,12 +203,27 @@ package enum SourceLayoutReplacement {
     return String(line.prefix { $0 == " " || $0 == "\t" })
   }
 
-  private static func indentationUnit(in text: String) -> String {
+  private static func indentationUnit(
+    in text: String, excluding range: Range<Int>
+  ) -> String {
     let indents = text.split(whereSeparator: \.isPhysicalLayoutLineEnding).map {
       String($0.prefix { $0 == " " || $0 == "\t" })
     }.filter { !$0.isEmpty }
     if indents.contains(where: { $0.hasPrefix("\t") }) { return "\t" }
-    return indents.min(by: { $0.count < $1.count }) ?? "  "
+    // The edited list can change the inferred unit on the next run.
+    let bytes = text.utf8
+    let surrounding = String(
+      decoding: bytes.prefix(range.lowerBound),
+      as: UTF8.self
+    )
+      + "\n" + String(
+        decoding: bytes.dropFirst(range.upperBound),
+        as: UTF8.self
+      )
+    return surrounding.split(whereSeparator: \.isPhysicalLayoutLineEnding)
+      .map { String($0.prefix { $0 == " " }) }
+      .filter { !$0.isEmpty }
+      .min(by: { $0.count < $1.count }) ?? "  "
   }
 }
 
