@@ -1,7 +1,16 @@
 /// An `extension` declaration, as written in one source file.
+///
+/// A decoded model has no captured source. See ``SourceProviding``.
 public struct Extension: Named, Located, Visible, Attributed, Hashable,
   Codable
 {
+  private enum CodingKeys: String, CodingKey {
+    case extendedTypeName, inheritedTypes, visibility, attributes, location,
+         allInheritedTypes
+  }
+
+  package var parsedSource: ParsedSource? = nil
+
   /// The extended type's name, as written, such as `HomeViewModel`
   /// or `Legacy.Helper`.
   public let extendedTypeName: String
@@ -58,5 +67,27 @@ extension Extension: Summarised, CustomStringConvertible {
   /// `extension Name (File.swift:line)`.
   public var description: String {
     "\(summary) (\(location.fileName):\(location.line))"
+  }
+}
+
+extension Extension {
+  /// Compares the extensions' values, excluding their captured source.
+  public static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.extendedTypeName == rhs.extendedTypeName
+      && lhs.inheritedTypes == rhs.inheritedTypes
+      && lhs.visibility == rhs.visibility
+      && lhs.attributes == rhs.attributes
+      && lhs.location == rhs.location
+      && lhs.allInheritedTypes == rhs.allInheritedTypes
+  }
+
+  /// Hashes the extension's values, excluding its captured source.
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(extendedTypeName)
+    hasher.combine(inheritedTypes)
+    hasher.combine(visibility)
+    hasher.combine(attributes)
+    hasher.combine(location)
+    hasher.combine(allInheritedTypes)
   }
 }

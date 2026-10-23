@@ -118,7 +118,7 @@ final class DeclarationVisitor: SyntaxVisitor {
       enclosingTypeName: enclosingTypeName,
       documentation: fields.documentation,
       location: fields.location
-    )
+    ).withParsedSource(fields.parsedSource)
   }
 
   private func nominalTypeFields(
@@ -132,9 +132,12 @@ final class DeclarationVisitor: SyntaxVisitor {
         node.modifiers,
         defaultVisibility: memberVisibility
       ),
-      attributes: ModifierReader.attributes(node.attributes),
+      attributes: ModifierReader.attributes(node.attributes, reader: reader),
       documentation: reader.documentation(of: node),
-      location: reader.location(of: node.name)
+      location: reader.location(of: node.name),
+      parsedSource: reader.parsedSource(
+        of: node, name: node.name, body: node.memberBlock
+      )
     )
   }
 
@@ -177,7 +180,7 @@ final class DeclarationVisitor: SyntaxVisitor {
         requiredProperties: requiredProperties,
         documentation: fields.documentation,
         location: fields.location
-      )
+      ).withParsedSource(fields.parsedSource)
     )
     return .skipChildren
   }
@@ -195,9 +198,11 @@ final class DeclarationVisitor: SyntaxVisitor {
         extendedTypeName: extendedTypeName,
         inheritedTypes: reader.inheritedTypeNames(node.inheritanceClause),
         visibility: modifiers.visibility,
-        attributes: ModifierReader.attributes(node.attributes),
+        attributes: ModifierReader.attributes(node.attributes, reader: reader),
         location: reader.location(of: node.extendedType)
-      )
+      ).withParsedSource(reader.parsedSource(
+        of: node, name: node.extendedType, body: node.memberBlock
+      ))
     )
     enterType(name: extendedTypeName, visibility: modifiers.visibility)
     return .visitChildren
@@ -229,14 +234,18 @@ final class DeclarationVisitor: SyntaxVisitor {
         isThrowing: node.signature.effectSpecifiers?.throwsClause != nil,
         isNonisolated: modifiers.isNonisolated,
         visibility: modifiers.visibility,
-        attributes: ModifierReader.attributes(node.attributes),
+        attributes: ModifierReader.attributes(node.attributes, reader: reader),
         enclosingTypeName: enclosingTypeName,
         calls: reader.calls(in: node.body),
         awaitCount: metrics.awaitCount,
         cyclomaticComplexity: metrics.cyclomaticComplexity,
         documentation: reader.documentation(of: node),
         location: reader.location(of: node.initKeyword)
-      )
+      ).withParsedSource(reader.parsedSource(
+        of: node,
+        name: node.initKeyword,
+        body: node.body
+      ))
     )
     return .skipChildren
   }
@@ -258,11 +267,11 @@ final class DeclarationVisitor: SyntaxVisitor {
         name: node.name.text,
         aliasedTypeName: node.initializer.value.trimmedDescription,
         visibility: modifiers.visibility,
-        attributes: ModifierReader.attributes(node.attributes),
+        attributes: ModifierReader.attributes(node.attributes, reader: reader),
         enclosingTypeName: enclosingTypeName,
         documentation: reader.documentation(of: node),
         location: reader.location(of: node.name)
-      )
+      ).withParsedSource(reader.parsedSource(of: node, name: node.name))
     )
     return .skipChildren
   }
@@ -279,7 +288,7 @@ final class DeclarationVisitor: SyntaxVisitor {
           enclosingTypeName: enclosingTypeName,
           documentation: reader.documentation(of: node),
           location: reader.location(of: element.name)
-        )
+        ).withParsedSource(reader.parsedSource(of: element, name: element.name))
       )
     }
     return .skipChildren
@@ -320,9 +329,9 @@ final class DeclarationVisitor: SyntaxVisitor {
         kind: node.importKindSpecifier
           .flatMap { ImportKind(rawValue: $0.text) },
         visibility: modifiers.visibility,
-        attributes: ModifierReader.attributes(node.attributes),
+        attributes: ModifierReader.attributes(node.attributes, reader: reader),
         location: reader.location(of: node.path)
-      )
+      ).withParsedSource(reader.parsedSource(of: node, name: node.path))
     )
     return .skipChildren
   }
@@ -353,7 +362,7 @@ final class DeclarationVisitor: SyntaxVisitor {
       genericParameters: reader
         .genericParameters(of: node.genericParameterClause),
       visibility: modifiers.visibility,
-      attributes: ModifierReader.attributes(node.attributes),
+      attributes: ModifierReader.attributes(node.attributes, reader: reader),
       enclosingTypeName: enclosing,
       calls: reader.calls(in: node.body),
       bodyLineCount: reader.lineCount(of: node.body),
@@ -362,7 +371,11 @@ final class DeclarationVisitor: SyntaxVisitor {
       sourceRange: reader.trimmedRange(of: node),
       documentation: reader.documentation(of: node),
       location: reader.location(of: node.name)
-    )
+    ).withParsedSource(reader.parsedSource(
+      of: node,
+      name: node.name,
+      body: node.body
+    ))
   }
 
   private func properties(
@@ -374,7 +387,7 @@ final class DeclarationVisitor: SyntaxVisitor {
       node.modifiers,
       defaultVisibility: defaultVisibility ?? memberVisibility
     )
-    let attributes = ModifierReader.attributes(node.attributes)
+    let attributes = ModifierReader.attributes(node.attributes, reader: reader)
     let isConstant = node.bindingSpecifier.tokenKind == .keyword(.let)
     var inheritedType: TypeSyntax?
     let bindings = node.bindings.reversed().map { binding in
@@ -405,7 +418,9 @@ final class DeclarationVisitor: SyntaxVisitor {
           + reader.calls(in: binding.accessorBlock),
         documentation: reader.documentation(of: node),
         location: reader.location(of: pattern.identifier)
-      )
+      ).withParsedSource(reader.parsedSource(
+        of: binding, name: pattern.identifier, body: binding.accessorBlock
+      ))
     }
   }
 
@@ -448,4 +463,5 @@ private struct NominalTypeFields {
   let attributes: [Attribute]
   let documentation: String?
   let location: DeclarationLocation
+  let parsedSource: ParsedSource?
 }

@@ -17,28 +17,6 @@ public struct SourceNode: Located, Summarised, Hashable, Sendable {
   /// The node's source text, excluding leading and trailing trivia.
   public var text: String { context.source.trimmedText(of: syntax) }
 
-  /// The call represented by this node, or `nil` for another syntax kind.
-  public var call: FunctionCall? {
-    if let call = syntax.as(FunctionCallExprSyntax.self) {
-      return reader.call(call)
-    }
-    if let macro = syntax.as(MacroExpansionExprSyntax.self) {
-      return reader.call(
-        named: macro.macroName.text,
-        arguments: macro.arguments,
-        at: macro
-      )
-    }
-    if let macro = syntax.as(MacroExpansionDeclSyntax.self) {
-      return reader.call(
-        named: macro.macroName.text,
-        arguments: macro.arguments,
-        at: macro
-      )
-    }
-    return nil
-  }
-
   /// The expression represented by this node, or `nil` for another syntax
   /// kind.
   public var expression: SourceExpression? {
@@ -116,10 +94,6 @@ public struct SourceNode: Located, Summarised, Hashable, Sendable {
         modelledChildren(of: child)
       }
     }
-  }
-
-  private var reader: SyntaxReader {
-    SyntaxReader(path: context.origin.filePath, text: context.source)
   }
 }
 

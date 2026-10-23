@@ -7,7 +7,7 @@ extension SourceFile {
   /// The query includes every `#if` branch and parses the file on each access.
   public var assignments: [SourceAssignment] {
     let source = SourceText(
-      source: sourceText,
+      buffer: sourceBuffer,
       swiftLanguageMode: swiftLanguageMode
     )
     let collector = AssignmentCollector(source: source, path: path)
@@ -20,7 +20,7 @@ extension SourceFile {
   /// The query includes every `#if` branch and parses the file on each access.
   public var variableBindings: [VariableBinding] {
     let source = SourceText(
-      source: sourceText,
+      buffer: sourceBuffer,
       swiftLanguageMode: swiftLanguageMode
     )
     let collector = BindingCollector(source: source, path: path)

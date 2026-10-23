@@ -11,6 +11,17 @@ extension SourceNode {
     case actorDeclaration
     /// A class declaration.
     case classDeclaration
+    /// A declaration without a more specific represented kind.
+    case declaration
+    /// An enum case declaration.
+    case enumCaseDeclaration
+    /// One element of an enum case declaration.
+    case enumCaseElement
+    /// A declaration modifier.
+    case declarationModifier
+    /// A function, initialiser or subscript parameter.
+    case functionParameter
+
     /// A deinitializer declaration.
     case deinitializerDeclaration
     /// An enum declaration.
@@ -73,6 +84,9 @@ extension SourceNode {
     /// A tuple expression.
     case tupleExpression
 
+    /// A statement without a more specific represented kind.
+    case statement
+
     /// A break statement.
     case breakStatement
     /// A continue statement.
@@ -106,6 +120,41 @@ extension SourceNode {
     case attribute
     /// A code block.
     case codeBlock
+
+    /// A condition list.
+    case conditionList
+    /// A generic parameter list.
+    case genericParameterList
+    /// A generic argument list.
+    case genericArgumentList
+    /// A generic requirement list.
+    case genericRequirementList
+    /// An inherited type list.
+    case inheritedTypeList
+    /// A labelled expression list, including call arguments and tuple elements.
+    case expressionList
+    /// A tuple type element list.
+    case tupleTypeElementList
+    /// A tuple pattern element list.
+    case tuplePatternElementList
+    /// A closure parameter list.
+    case closureParameterList
+    /// An unparenthesised closure parameter list.
+    case closureShorthandParameterList
+    /// A closure capture list.
+    case closureCaptureList
+    /// An enum case associated-value parameter list.
+    case enumCaseParameterList
+    /// A primary associated type list.
+    case primaryAssociatedTypeList
+    /// An accessor declaration list.
+    case accessorList
+    /// A switch case list.
+    case switchCaseList
+    /// A switch case pattern list.
+    case switchCaseItemList
+    /// A list element without a more specific represented kind.
+    case syntaxElement
   }
 }
 
@@ -115,6 +164,10 @@ extension SourceNode.Kind {
     case .sourceFile: .sourceFile
     case .actorDecl: .actorDeclaration
     case .classDecl: .classDeclaration
+    case .enumCaseDecl: .enumCaseDeclaration
+    case .enumCaseElement: .enumCaseElement
+    case .declModifier: .declarationModifier
+    case .functionParameter: .functionParameter
     case .deinitializerDecl: .deinitializerDeclaration
     case .enumDecl: .enumDeclaration
     case .extensionDecl: .extensionDeclaration
@@ -161,7 +214,31 @@ extension SourceNode.Kind {
     case .yieldStmt: .yieldStatement
     case .attribute: .attribute
     case .codeBlock: .codeBlock
-    default: nil
+    case .conditionElementList: .conditionList
+    case .genericParameterList: .genericParameterList
+    case .genericArgumentList: .genericArgumentList
+    case .genericRequirementList: .genericRequirementList
+    case .inheritedTypeList: .inheritedTypeList
+    case .labeledExprList: .expressionList
+    case .tupleTypeElementList: .tupleTypeElementList
+    case .tuplePatternElementList: .tuplePatternElementList
+    case .closureParameterList: .closureParameterList
+    case .closureShorthandParameterList: .closureShorthandParameterList
+    case .closureCaptureList: .closureCaptureList
+    case .enumCaseParameterList: .enumCaseParameterList
+    case .primaryAssociatedTypeList: .primaryAssociatedTypeList
+    case .accessorDeclList: .accessorList
+    case .switchCaseList: .switchCaseList
+    case .switchCaseItemList: .switchCaseItemList
+    case .conditionElement, .genericParameter, .genericArgument,
+         .genericRequirement, .inheritedType, .labeledExpr, .tupleTypeElement,
+         .tuplePatternElement, .closureParameter, .closureShorthandParameter,
+         .closureCapture, .enumCaseParameter, .primaryAssociatedType,
+         .accessorDecl, .switchCase, .switchCaseItem: .syntaxElement
+    default:
+      if syntax.is(DeclSyntax.self) { .declaration }
+      else if syntax.is(StmtSyntax.self) { .statement }
+      else { nil }
     }
     guard let kind else { return nil }
     self = kind

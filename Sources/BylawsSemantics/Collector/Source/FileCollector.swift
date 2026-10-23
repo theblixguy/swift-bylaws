@@ -30,7 +30,8 @@ public enum FileCollector {
     -> String
   {
     let bytes = try readBytes(atPath: path)
-    guard let source = String(bytes: bytes, encoding: .utf8) else {
+    let source = String(decoding: bytes, as: UTF8.self)
+    guard source.utf8.elementsEqual(bytes) else {
       throw .unreadable(path: path, reason: "the file is not UTF-8 text")
     }
     return source
@@ -70,7 +71,9 @@ public enum FileCollector {
 
     let visitor = DeclarationVisitor(
       path: path,
-      text: SourceText(source: source, swiftLanguageMode: swiftLanguageMode)
+      text: SourceText(
+        source: source, swiftLanguageMode: swiftLanguageMode, filePath: path
+      )
     )
     visitor.walk(tree)
 

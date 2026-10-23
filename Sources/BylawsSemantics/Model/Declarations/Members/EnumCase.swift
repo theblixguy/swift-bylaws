@@ -1,5 +1,13 @@
 /// One case of an `enum` declaration.
+///
+/// A decoded model has no captured source. See ``SourceProviding``.
 public struct EnumCase: Declaration, Documented, Codable {
+  private enum CodingKeys: String, CodingKey {
+    case name, isIndirect, rawValue, enclosingTypeName, documentation, location
+  }
+
+  package var parsedSource: ParsedSource? = nil
+
   public let name: String
 
   /// Whether the case is marked `indirect`.

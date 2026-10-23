@@ -5,7 +5,7 @@ public struct SourceExpression: Declaration {
   let syntax: ExprSyntax
   let context: SourceContext
 
-  var source: SourceText { context.source }
+  var sourceTextContext: SourceText { context.source }
   var origin: DeclarationLocation { context.origin }
 
   init(
@@ -23,15 +23,23 @@ public struct SourceExpression: Declaration {
 
   static func parse(
     _ text: String, at location: DeclarationLocation,
-    swiftLanguageMode: SwiftLanguageMode
+    swiftLanguageMode: SwiftLanguageMode,
+    originalSource: SourceSlice? = nil
   ) -> Self? {
     let tree = swiftLanguageMode.parse(text)
     guard !tree.hasError, tree.statements.count == 1,
           let expression = tree.statements.first?.item.as(ExprSyntax.self)
     else { return nil }
+    let originalSource = originalSource.flatMap {
+      $0.filePath == location.filePath
+        && $0.range.lowerBound == location.utf8Offset ? $0 : nil
+    }
     return Self(
       expression,
-      source: SourceText(source: text, swiftLanguageMode: swiftLanguageMode),
+      source: SourceText(
+        source: text, swiftLanguageMode: swiftLanguageMode,
+        originalSource: originalSource
+      ),
       origin: location
     )
   }
@@ -39,7 +47,7 @@ public struct SourceExpression: Declaration {
   /// The expression text, excluding leading and trailing trivia.
   ///
   /// - Complexity: O(n), where n is the expression's length.
-  public var text: String { source.trimmedText(of: syntax) }
+  public var text: String { sourceTextContext.trimmedText(of: syntax) }
 
   /// The expression text.
   public var name: String { text }
@@ -80,6 +88,9 @@ public struct SourceExpression: Declaration {
 
   /// Whether the expression is the `nil` literal.
   public var isNilLiteral: Bool { syntax.is(NilLiteralExprSyntax.self) }
+
+  /// Whether the expression is a key-path literal.
+  public var isKeyPath: Bool { syntax.is(KeyPathExprSyntax.self) }
 
   /// The identifier or member name, without a receiver or argument labels.
   public var referenceName: String? {
@@ -124,7 +135,7 @@ public struct SourceExpression: Declaration {
 
   func child(_ node: ExprSyntax) -> Self {
     Self(
-      node, source: source, origin: origin,
+      node, source: sourceTextContext, origin: origin,
       inheritedDeclarations: context.inheritedDeclarations,
       inheritedBranches: context.inheritedBranches
     )

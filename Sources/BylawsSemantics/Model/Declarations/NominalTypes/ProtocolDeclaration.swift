@@ -2,9 +2,11 @@
 public struct ProtocolDeclaration: Declaration, Visible, Attributed,
   InheritanceProviding, Documented, SourceTextProviding
 {
+  package var parsedSource: ParsedSource?
+
   public let name: String
   public let inheritedTypes: [String]
-  package let source: SourceBuffer
+  package let sourceBuffer: SourceBuffer
 
   /// The UTF-8 byte range of `sourceText` in the file's text.
   public let sourceRange: Range<Int>
@@ -40,7 +42,7 @@ public struct ProtocolDeclaration: Declaration, Visible, Attributed,
   ) {
     self.name = name
     self.inheritedTypes = inheritedTypes
-    self.source = source
+    sourceBuffer = source
     self.sourceRange = sourceRange
     self.isNonisolated = isNonisolated
     allInheritedTypes = inheritedTypes

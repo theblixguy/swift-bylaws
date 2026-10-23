@@ -5,16 +5,31 @@ struct SourceContext: Sendable {
   let origin: DeclarationLocation
   let inheritedDeclarations: [EnclosingDeclaration]
   let inheritedBranches: [CompilationBranch]
+  let propertiesByOffset: [Int: Property]
 
   init(
     source: SourceText, origin: DeclarationLocation,
     inheritedDeclarations: [EnclosingDeclaration] = [],
-    inheritedBranches: [CompilationBranch] = []
+    inheritedBranches: [CompilationBranch] = [],
+    propertiesByOffset: [Int: Property] = [:]
   ) {
     self.source = source
     self.origin = origin
     self.inheritedDeclarations = inheritedDeclarations
     self.inheritedBranches = inheritedBranches
+    self.propertiesByOffset = propertiesByOffset
+  }
+
+  func sourceSlice(of node: some SyntaxProtocol) throws -> SourceSlice {
+    let snapshot = try source.buffer.snapshot.required()
+    guard snapshot.filePath == origin.filePath,
+          let offset = origin.utf8Offset
+    else { throw SourceError.unavailable }
+    let range = source.trimmedRange(of: node)
+    return try SourceSlice(
+      snapshot: snapshot,
+      range: (offset + range.lowerBound)..<(offset + range.upperBound)
+    )
   }
 
   func location(at start: AbsolutePosition) -> DeclarationLocation {

@@ -1,5 +1,13 @@
 /// An `import` declaration, as written in one source file.
+///
+/// A decoded model has no captured source. See ``SourceProviding``.
 public struct Import: Declaration, Visible, Attributed, Codable {
+  private enum CodingKeys: String, CodingKey {
+    case name, kind, visibility, attributes, location
+  }
+
+  package var parsedSource: ParsedSource? = nil
+
   /// The imported module path, as written, such as `Foundation`
   /// or `Foundation.Date`.
   public let name: String

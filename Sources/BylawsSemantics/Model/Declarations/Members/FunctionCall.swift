@@ -1,7 +1,23 @@
 /// One call expression in a parsed source file.
+///
+/// A decoded model has no captured source. See ``SourceProviding``.
 public struct FunctionCall: Declaration, Codable {
+  private enum CodingKeys: String, CodingKey {
+    case calledExpression, arguments, location
+  }
+
+  package var parsedSource: ParsedSource? = nil
+
   /// One argument of a call.
+  ///
+  /// A decoded model has no captured source. See ``SourceProviding``.
   public struct Argument: Sendable, Hashable, Codable {
+    private enum CodingKeys: String, CodingKey {
+      case label, text, location, swiftLanguageMode
+    }
+
+    package var parsedSource: ParsedSource? = nil
+
     /// The argument's label, or `nil` when the argument has no label.
     public let label: String?
 
@@ -36,7 +52,8 @@ public struct FunctionCall: Declaration, Codable {
     public var expression: SourceExpression? {
       guard let location else { return nil }
       return SourceExpression.parse(
-        text, at: location, swiftLanguageMode: swiftLanguageMode
+        text, at: location, swiftLanguageMode: swiftLanguageMode,
+        originalSource: parsedSource?.whole
       )
     }
   }
@@ -68,6 +85,17 @@ public struct FunctionCall: Declaration, Codable {
   /// in `UIImage(named: "logo")`.
   public func hasArgumentLabel(_ label: String) -> Bool {
     argumentLabels.contains(label)
+  }
+
+  /// Returns the argument with the given label.
+  ///
+  /// Throws when no argument or more than one argument has the label.
+  public func argument(labeled label: String) throws -> Argument {
+    let arguments = arguments.filter { $0.label == label }
+    guard arguments.count == 1, let argument = arguments.first else {
+      throw SourceError.matchCount(arguments.count)
+    }
+    return argument
   }
 
   /// The called expression.
@@ -144,4 +172,21 @@ public struct FunctionCall: Declaration, Codable {
 extension FunctionCall: CustomStringConvertible {
   /// The called expression, as written.
   public var summary: String { calledExpression }
+}
+
+extension FunctionCall.Argument {
+  /// Compares the arguments' values, excluding their captured source.
+  public static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.label == rhs.label && lhs.text == rhs.text
+      && lhs.location == rhs.location
+      && lhs.swiftLanguageMode == rhs.swiftLanguageMode
+  }
+
+  /// Hashes the argument's values, excluding its captured source.
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(label)
+    hasher.combine(text)
+    hasher.combine(location)
+    hasher.combine(swiftLanguageMode)
+  }
 }

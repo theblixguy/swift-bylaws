@@ -40,7 +40,7 @@ package final class CacheDecoder {
 
   package let path: String
 
-  package let source: SourceBuffer
+  package private(set) var source: SourceBuffer
 
   private var cursor: Cursor
 
@@ -52,6 +52,15 @@ package final class CacheDecoder {
   }
 
   package var isAtEnd: Bool { cursor.isAtEnd }
+
+  package func bindSource(to swiftLanguageMode: SwiftLanguageMode) {
+    source = SourceBuffer(
+      source.text, lineCount: source.lineCount,
+      snapshot: SourceSnapshot(
+        filePath: path, text: source.text, swiftLanguageMode: swiftLanguageMode
+      )
+    )
+  }
 
   package func decode<Value: CacheCodable>() throws(Malformed) -> Value {
     try Value(from: self)
