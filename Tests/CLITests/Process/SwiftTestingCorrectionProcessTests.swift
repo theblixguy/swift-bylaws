@@ -181,6 +181,54 @@
         == FormattingMock.formattedCombined)
     }
 
+    @Test(
+      "Layout builder previews applies and verifies a native rule",
+      .timeLimit(.minutes(10))
+    )
+    func layoutBuilderLifecycle() async throws {
+      let consumer = try SwiftTestingReportConsumer(additionalTests: """
+      @Test("Class attributes use separate declaration line")
+      func reportsLayout() async throws {
+        let violations = try await app.classes.violations("Order attributes on one line") { declaration in
+          if !declaration.attributes.isEmpty {
+            try declaration.attributes.replacement {
+              Line {
+                declaration.attributes.sorted { $0.name > $1.name }
+              }
+            }
+          }
+        }
+        violations.report(ruleID: "attribute-layout", enforcement: .enforced)
+      }
+      """)
+      let original = "@MainActor\n@available(*, deprecated) class Screen {}\n"
+      let expected = "@available(*, deprecated) @MainActor\nclass Screen {}\n"
+      try consumer.writeSource(original)
+
+      let preview = try await run(
+        consumer, function: "reportsLayout",
+        arguments: ["--autocorrect", "--dry-run"]
+      )
+      try #require(
+        preview.status == .exited(1),
+        "\(preview.standardOutput)\n\(preview.standardError)"
+      )
+      try expectReport(preview, violations: 1, ruleID: "attribute-layout")
+      #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8) ==
+        original)
+
+      let correction = try await run(
+        consumer, function: "reportsLayout", arguments: ["--autocorrect"]
+      )
+      try #require(
+        correction.status == .exited(0),
+        "\(correction.standardOutput)\n\(correction.standardError)"
+      )
+      try expectReport(correction, violations: 0, ruleID: "attribute-layout")
+      #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8) ==
+        expected)
+    }
+
     private func expectReport(
       _ result: Result,
       violations: Int,

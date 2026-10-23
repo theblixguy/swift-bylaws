@@ -51,6 +51,11 @@ edit arrays, `if` and `for` statements in its result builder.
 All edits for one offender form one correction, including edits in several
 files. An empty result leaves that offender without a correction.
 
+You can also propose corrections directly with
+`selection.violations("Requirement") { element in ... }`. Bylaws reports each
+selected element whose edits change its original source.
+<doc:FormattingSource> shows how to describe a layout with a result builder.
+
 If you want to give the correction a title, use
 `.withFix("Use uppercase hex digits") { ... }`.
 
@@ -270,7 +275,9 @@ Portable rules support the fix builder, source projections and single-line
 Swift regex literals, including raw delimiters such as `#/usr/local/#`.
 Multiline regex literals and regex capture APIs are outside the portable
 subset. Portable matcher and collection callbacks are synchronous and
-nonthrowing. The fix closure can query a codebase asynchronously and use a
+nonthrowing. A `sorted(by:)` comparison and a `hasAttribute(_:argument:)`
+predicate can throw.
+The fix closure can query a codebase asynchronously and use a
 loop for throwing source projections. A portable rule also has interpreter
 instruction and call-depth limits, so a large edit loop can stop with an
 execution-limit error.

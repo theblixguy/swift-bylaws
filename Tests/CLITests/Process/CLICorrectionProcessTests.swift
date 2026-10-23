@@ -52,6 +52,39 @@ struct CLICorrectionProcessTests {
     #expect(result.standardError.isEmpty)
   }
 
+  @Test("Layout correction previews applies and verifies attribute order")
+  func attributeLayout() throws {
+    let original = "@MainActor\n@Observable class Screen {}\n"
+    let project = try CLIProcessProject(
+      source: original,
+      rules: """
+      let app = Codebase(including: ["Sources/**"])
+      Rule("attributes", "Observable precedes MainActor") {
+        try await app.classes.violations("Order attributes") { declaration in
+          if !declaration.attributes.isEmpty {
+            try declaration.attributes.replacement {
+              Line { declaration.attributes.sorted { $0.name > $1.name } }
+            }
+          }
+        }
+      }
+      """
+    )
+
+    let preview = try project.run("--autocorrect", "--dry-run")
+
+    #expect(preview.status == 1)
+    #expect(preview.standardError.contains("+@Observable @MainActor"))
+    #expect(try sourceBytes(in: project) == Data(original.utf8))
+
+    let correction = try project.run("--autocorrect")
+
+    #expect(correction.status == 0)
+    #expect(correction.standardOutput.contains("0 violations"))
+    #expect(try sourceBytes(in: project)
+      == Data("@Observable @MainActor\nclass Screen {}\n".utf8))
+  }
+
   @Test("Autocorrect applies regex edits and reports final passing check")
   func correctHex() throws {
     let project = try CLIProcessProject(
