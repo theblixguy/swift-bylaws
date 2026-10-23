@@ -90,11 +90,11 @@ public struct SourceSlice: Sendable, Hashable, Codable {
   }
 }
 
-extension Collection<SourceSlice> {
-  /// Returns the single source slice.
+extension Collection where Element: SourceProviding {
+  /// Returns the collection's single element.
   ///
-  /// Throws when the collection is empty or contains more than one slice.
-  public func only() throws -> SourceSlice {
+  /// Throws when the collection is empty or contains more than one element.
+  public func only() throws(SourceError) -> Element {
     guard count == 1, let value = first else {
       throw SourceError.matchCount(count)
     }
