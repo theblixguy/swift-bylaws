@@ -4,7 +4,7 @@ extension RuntimeTypeResolver {
     expected: RuntimeType?,
     builder: RuntimeBuilder? = nil
   ) -> RuntimeBodyResolution {
-    var result: RuntimeType = .void
+    var results: [RuntimeType] = [.void]
     var returned: [RuntimeType] = []
     var alwaysReturns = false
     for statement in body.statements {
@@ -23,9 +23,28 @@ extension RuntimeTypeResolver {
         } else {
           environment[name] = type
         }
-        result = .void
+        results = [.void]
       case let .expression(expression):
-        result = resolve(expression, expected: expected)
+        let result = resolve(expression, expected: expected)
+        results = [result]
+        if builder == .layout {
+          switch result {
+          case let .layoutGroup(element), let .conditionalLayoutOperation(
+            _,
+            element
+          ):
+            layoutUsesAutomaticOperations = true
+            if let layoutElementType {
+              require(
+                element,
+                toMatch: layoutElementType,
+                subject: "the layout element",
+                at: expression.location
+              )
+            }
+          default: break
+          }
+        }
         if let builder, !builder.accepts(result) {
           diagnose(
             builder.argumentRequirement,
@@ -44,17 +63,15 @@ extension RuntimeTypeResolver {
           resolver.resolveBody(body, expected: expected, builder: builder)
         }
         returned.append(contentsOf: resolution.returnedTypes)
-        result = .void
+        results = [.void]
       case let .return(expression):
         let type = expression.map { resolve($0, expected: expected) } ?? .void
         returned.append(type)
-        result = type
+        results = [type]
         statementAlwaysReturns = true
       case let .guardStatement(condition, failure):
         let outer = environment
-        let binding = withEnvironment(outer) { resolver in
-          resolver.resolve(condition)
-        }
+        let bindings = resolve(condition)
         let failureResolution = withEnvironment(outer) { resolver in
           resolver.resolveBody(failure, expected: expected)
         }
@@ -64,14 +81,14 @@ extension RuntimeTypeResolver {
             at: statement.location
           )
         }
-        if let binding {
+        for binding in bindings {
           environment[binding.name] = binding.type
         }
         returned.append(contentsOf: failureResolution.returnedTypes)
-        result = .void
+        results = [.void]
       case let .ifStatement(condition, success, failure):
         var successEnvironment = environment
-        if let binding = resolve(condition) {
+        for binding in resolve(condition) {
           successEnvironment[binding.name] = binding.type
         }
         let outer = environment
@@ -85,18 +102,16 @@ extension RuntimeTypeResolver {
           }
         } else {
           RuntimeBodyResolution(
-            fallthroughType: .void,
+            fallthroughTypes: [.void],
             returnedTypes: [],
             alwaysReturns: false
           )
         }
         returned.append(contentsOf: successResolution.returnedTypes)
         returned.append(contentsOf: failureResolution.returnedTypes)
-        let fallthroughTypes = [successResolution, failureResolution]
+        results = [successResolution, failureResolution]
           .filter { !$0.alwaysReturns }
-          .map(\.fallthroughType)
-        result = fallthroughTypes.isEmpty
-          ? .void : commonType(in: fallthroughTypes)
+          .flatMap(\.fallthroughTypes)
         statementAlwaysReturns = successResolution.alwaysReturns
           && failureResolution.alwaysReturns
       }
@@ -106,7 +121,7 @@ extension RuntimeTypeResolver {
       }
     }
     return RuntimeBodyResolution(
-      fallthroughType: builder?.resultType ?? result,
+      fallthroughTypes: builder.map { [$0.resultType] } ?? results,
       returnedTypes: returned,
       alwaysReturns: alwaysReturns
     )
@@ -114,11 +129,11 @@ extension RuntimeTypeResolver {
 }
 
 struct RuntimeBodyResolution {
-  let fallthroughType: SupportedAPI.RuntimeType
+  let fallthroughTypes: [SupportedAPI.RuntimeType]
   let returnedTypes: [SupportedAPI.RuntimeType]
   let alwaysReturns: Bool
 
   var resultTypes: [SupportedAPI.RuntimeType] {
-    alwaysReturns ? returnedTypes : returnedTypes + [fallthroughType]
+    alwaysReturns ? returnedTypes : returnedTypes + fallthroughTypes
   }
 }

@@ -6,6 +6,7 @@ extension RuntimeEvaluator {
     _ value: SourceExpression
   ) -> RuntimeValue? {
     switch name {
+    case .isKeyPath: .boolean(value.isKeyPath)
     case .name: .string(value.name)
     case .text: .string(value.text)
     case .compilationBranches: modelArray(

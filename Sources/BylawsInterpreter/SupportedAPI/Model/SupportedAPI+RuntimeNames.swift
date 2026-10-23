@@ -1,5 +1,15 @@
 extension SupportedAPI {
   package enum Member: String, CaseIterable, Hashable, Sendable {
+    case elements, trivia, previous, next
+    case modifiers
+    case spacing, before, after
+    case indices, startIndex, endIndex, dropFirst, prefix
+    case statements, property, isKeyPath
+    case sorted, reversed
+    case source, nameSource, bodySource, calledExpressionSource,
+         memberNameSource
+    case expressionSource, labelSource, offender, codebase, range
+    case matches, replacement, only, argument, withFix, slice
     case stringValue, integerValue, floatingPointValue, booleanValue
     case isNilLiteral, referenceName, referenceLocation, base, arrayElements
     case dictionaryElements
@@ -13,6 +23,7 @@ extension SupportedAPI {
     case enclosingDeclarations
     case compilationBranches
     case precedingConditions
+    case uppercased
     case lowercased
     case deletingLastPathComponent
     case lastPathComponent
@@ -295,6 +306,10 @@ extension SupportedAPI {
   }
 
   package enum Method: String, CaseIterable, Sendable {
+    case dropFirst, prefix
+    case sorted, reversed
+    case matches, replacement, only, argument, withFix, slice
+    case uppercased
     case lowercased
     case bazelGraph
     case deletingLastPathComponent
@@ -355,6 +370,15 @@ extension SupportedAPI {
   }
 
   package enum Constructor: String, CaseIterable, Sendable {
+    case group = "Group"
+    case newline = "Newline"
+    case sourceLayout = "SourceLayout"
+    case line = "Line"
+    case blankLine = "BlankLine"
+    case indent = "Indent"
+    case wrap = "Wrap"
+    case softBreak = "Break"
+    case align = "Align"
     case url = "URL"
     case dictionary = "Dictionary"
     case dependencyGroup = "DependencyGroup"
@@ -434,6 +458,8 @@ extension SupportedAPI {
     case property = "Property"
     case protocolDeclaration = "ProtocolDeclaration"
     case ruleWarning = "Rule.Warning"
+    case sourceToken = "SourceToken"
+    case sourceTrivia = "SourceTrivia"
     case sourceFile = "SourceFile"
     case structDeclaration = "Struct"
     case syntaxClass = "ClassDeclSyntax"

@@ -70,8 +70,10 @@ struct RuntimeArguments {
     return value
   }
 
-  func sequence(at index: Int) throws(RuntimeError) -> [RuntimeValue] {
-    guard let elements = try value(at: index).sequenceElements
+  func sequence(at index: Int) throws(RuntimeError)
+    -> AnySequence<RuntimeValue>
+  {
+    guard let elements = try value(at: index).sequenceValues
     else { throw typeFailure(
       "a sequence",
       at: index

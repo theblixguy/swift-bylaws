@@ -51,7 +51,7 @@ struct RulesFileStructureTests {
       ),
       RecoveryCase(
         invalidSource: "Rule(\"broken\", \"Broken\")",
-        message: "a rule's body must be one query expression"
+        message: "Rule takes one body closure without parameters"
       ),
     ]
   }

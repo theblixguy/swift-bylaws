@@ -19,6 +19,25 @@ struct RuntimeExpressionParser {
     if let awaited = expression.as(AwaitExprSyntax.self) {
       return parse(awaited.expression, diagnostics: &diagnostics)
     }
+    if let literal = expression.as(RegexLiteralExprSyntax.self) {
+      let pattern = literal.regex.text
+      guard !pattern.contains("\n"), !pattern.contains("\r") else {
+        diagnostics.append(syntax.error(
+          "portable rules do not support multiline regex literals",
+          at: literal,
+          hint: "use a single-line regex literal"
+        ))
+        return nil
+      }
+      let regex = RuntimeRegex(pattern: pattern)
+      do {
+        _ = try regex.compiled(at: location)
+      } catch {
+        diagnostics.append(syntax.error(error.message, at: literal))
+        return nil
+      }
+      return RuntimeExpression(kind: .regex(regex), location: location)
+    }
     if let literal = expression.as(StringLiteralExprSyntax.self) {
       return parseString(literal, diagnostics: &diagnostics)
     }
@@ -136,21 +155,42 @@ struct RuntimeExpressionParser {
       diagnostics.append(unsupported(closure))
       return nil
     }
-    let parameters: [String]? = switch closure.signature?.parameterClause {
+    let parameters: [RuntimeClosureDefinition.Parameter]?
+    switch closure.signature?.parameterClause {
     case nil:
-      []
+      parameters = nil
     case let .simpleInput(input):
-      input.map(\.name.text)
+      parameters = input.map { .init(name: $0.name.text, type: nil) }
     case let .parameterClause(clause):
-      clause.parameters.map {
-        $0.secondName?.text ?? $0.firstName.text
+      var parsed: [RuntimeClosureDefinition.Parameter] = []
+      for parameter in clause.parameters {
+        let type: SupportedAPI.RuntimeType?
+        if let annotation = parameter.type {
+          guard let resolved = syntax.runtimeType(
+            from: annotation, diagnostics: &diagnostics
+          ) else { return nil }
+          type = resolved
+        } else {
+          type = nil
+        }
+        parsed.append(.init(
+          name: parameter.secondName?.text ?? parameter.firstName.text,
+          type: type
+        ))
       }
+      parameters = parsed
     case .some:
-      nil
-    }
-    guard let parameters else {
       diagnostics.append(unsupported(closure))
       return nil
+    }
+    let resultType: SupportedAPI.RuntimeType?
+    if let result = closure.signature?.returnClause {
+      guard let resolved = syntax.runtimeType(
+        from: result.type, diagnostics: &diagnostics
+      ) else { return nil }
+      resultType = resolved
+    } else {
+      resultType = nil
     }
     guard let body = RuntimeStatementParser(syntax: syntax).parse(
       closure.statements,
@@ -166,7 +206,8 @@ struct RuntimeExpressionParser {
       usesAwait: effects.usesAwait || closure.signature?.effectSpecifiers?
         .asyncSpecifier != nil,
       usesTry: effects.usesTry || closure.signature?.effectSpecifiers?
-        .throwsClause != nil
+        .throwsClause != nil,
+      resultType: resultType
     )
   }
 

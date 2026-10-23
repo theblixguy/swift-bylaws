@@ -4,7 +4,9 @@ extension SupportedAPI.RuntimeType {
   init(writtenType: String) {
     let reference = TypeReference(writtenType)
     let nominalName = Self.nominalName(in: reference)
-    let base: Self = if nominalName == "Rule.Findings" {
+    let base: Self = if nominalName == "SourceFix.Edit" {
+      .sourceEdit
+    } else if nominalName == "Rule.Findings" {
       .findings
     } else if let type = SupportedAPI.StaticMemberType(
       rawValue: nominalName
@@ -17,6 +19,31 @@ extension SupportedAPI.RuntimeType {
       case "Int": .integer
       case "Double": .double
       case "String": .string
+      case "SourceSlice": .sourceSlice
+      case "SourceFix": .sourceFix
+      case "SourceLayout": .sourceLayout
+      case "Group":
+        .layoutGroup(Self.singleGenericArgument(of: reference).map {
+          Self(writtenType: $0.text)
+        } ?? .unknown)
+      case "Line": .layoutOperation(.line)
+      case "Newline", "BlankLine":
+        if let element = Self.singleGenericArgument(of: reference),
+           element.name != "Never"
+        {
+          .conditionalLayoutOperation(
+            reference.name == "Newline" ? .newline : .blankLine,
+            Self(writtenType: element.text)
+          )
+        } else {
+          .layoutOperation(reference.name == "Newline" ? .newline : .blankLine)
+        }
+      case "Indent": .layoutOperation(.indent)
+      case "Wrap": .layoutOperation(.wrap)
+      case "Break": .layoutOperation(.softBreak)
+      case "Align": .layoutOperation(.align)
+      case "SourceSpacing": .sourceSpacing
+      case "Regex": .regex
       case "URL": .url
       case "Dictionary":
         if reference.genericArguments.count == 2 {
@@ -30,6 +57,12 @@ extension SupportedAPI.RuntimeType {
       case "Array":
         if let argument = Self.singleGenericArgument(of: reference) {
           .array(Self(writtenType: argument.text))
+        } else {
+          .unknown
+        }
+      case "ArraySlice":
+        if let argument = Self.singleGenericArgument(of: reference) {
+          .arraySlice(Self(writtenType: argument.text))
         } else {
           .unknown
         }
@@ -64,6 +97,13 @@ extension SupportedAPI.RuntimeType {
         if let argument = Self.singleGenericArgument(of: reference) {
           SupportedAPI.ModelType(rawValue: Self.nominalName(in: argument))
             .map(Self.matcher) ?? .unknown
+        } else {
+          .unknown
+        }
+      case "FixContext":
+        if let argument = Self.singleGenericArgument(of: reference) {
+          SupportedAPI.ModelType(rawValue: Self.nominalName(in: argument))
+            .map(Self.fixContext) ?? .unknown
         } else {
           .unknown
         }
@@ -107,8 +147,10 @@ extension SupportedAPI.RuntimeType {
       key.containsUnknown || value.containsUnknown
     case .unknown:
       true
-    case let .array(element), let .manifestList(element), let .set(element),
-         let .optional(element):
+    case let .array(element), let .arraySlice(element),
+         let .manifestList(element), let .set(element),
+         let .optional(element), let .layoutGroup(element),
+         let .conditionalLayoutOperation(_, element):
       element.containsUnknown
     case let .constructor(_, arguments):
       arguments.contains(where: \.containsUnknown)
@@ -125,9 +167,14 @@ extension SupportedAPI.RuntimeType {
 
   var receiver: SupportedAPI.RuntimeReceiver? {
     switch self {
+    case .layoutGroup: .layoutGroup
+    case .sourceSlice: .sourceSlice
+    case .sourceSpacing: .sourceSpacing
+    case .fixContext: .fixContext
     case .url: .url
     case .dictionary: .dictionary
     case .array: .array
+    case .arraySlice: .arraySlice
     case .manifestList: .manifestList
     case .set: .set
     case .string: .string
@@ -152,6 +199,7 @@ extension SupportedAPI.RuntimeType {
     switch self {
     case .dictionary: "Dictionary"
     case .array: "Array"
+    case .arraySlice: "ArraySlice"
     case .manifestList: "ManifestList"
     case .set: "Set"
     case let .selection(family):
@@ -163,7 +211,8 @@ extension SupportedAPI.RuntimeType {
 
   var collectionElement: Self {
     switch self {
-    case let .array(element): element
+    case let .layoutGroup(element): element
+    case let .array(element), let .arraySlice(element): element
     case let .manifestList(element): element
     case let .set(element): element
     case let .selection(family):
@@ -175,7 +224,9 @@ extension SupportedAPI.RuntimeType {
 
   var sequenceElement: Self? {
     switch self {
-    case let .array(element), let .set(element): element
+    case .integerRange: .integer
+    case let .array(element), let .arraySlice(element),
+         let .set(element): element
     case .selection: collectionElement
     default: nil
     }
@@ -218,6 +269,8 @@ extension SupportedAPI.RuntimeType {
       actualKey.isAssignable(to: wantedKey) && actualValue
         .isAssignable(to: wantedValue)
     case let (.array(actual), .array(wanted)):
+      actual.isAssignable(to: wanted)
+    case let (.arraySlice(actual), .arraySlice(wanted)):
       actual.isAssignable(to: wanted)
     case let (.manifestList(actual), .manifestList(wanted)):
       actual.isAssignable(to: wanted)

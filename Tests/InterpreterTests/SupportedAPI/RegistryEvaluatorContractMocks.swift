@@ -7,6 +7,7 @@ enum ContractMocks {
   /// Renders values into text.
   @available(macOS 14, *)
   @MainActor
+  @Tracked("widget")
   public final class Widget<Value: Equatable>: NSObject, Sendable {
     /// Identifies one widget.
     @available(macOS 14, *)

@@ -6,7 +6,11 @@ enum RuntimeProgramResolver {
     _ file: inout ParsedRulesFile,
     importing importedSymbols: [String: SupportedAPI.RuntimeType] = [:]
   ) -> RuntimeProgramSymbols {
-    guard !file.runtimeBindings.isEmpty || !file.runtimeFunctions.isEmpty
+    let hasRuntimeRules = file.rules.contains {
+      if case .runtime = $0.body { true } else { false }
+    }
+    guard !file.runtimeBindings.isEmpty || !file.runtimeFunctions
+      .isEmpty || hasRuntimeRules
     else { return RuntimeProgramSymbols(all: importedSymbols, exported: [:]) }
 
     var environment = importedSymbols
@@ -58,16 +62,31 @@ enum RuntimeProgramResolver {
     for function in file.runtimeFunctions {
       resolver.resolve(function)
     }
+    for rule in file.rules {
+      guard case let .runtime(body) = rule.body else { continue }
+      resolver.resolveRuleBody(body)
+    }
 
-    if !resolver.constructors.isEmpty {
-      let resolution = RuntimeConstructorResolution(constructors: resolver
-        .constructors)
+    if !resolver.constructors.isEmpty || !resolver.automaticLayoutClosures
+      .isEmpty
+    {
+      let resolution = RuntimeConstructorResolution(
+        constructors: resolver.constructors,
+        automaticLayoutClosures: resolver.automaticLayoutClosures
+      )
       file.runtimeBindings = file.runtimeBindings.map {
         RuntimeGlobalBinding(
           name: $0.name, type: $0.type,
           expression: resolution.resolve($0.expression),
           location: $0.location, access: $0.access
         )
+      }
+      file.rules = file.rules.map { rule in
+        var rule = rule
+        if case let .runtime(body) = rule.body {
+          rule.body = .runtime(resolution.resolve(body))
+        }
+        return rule
       }
       file.runtimeFunctions = file.runtimeFunctions.map {
         RuntimeFunctionDefinition(
@@ -82,6 +101,8 @@ enum RuntimeProgramResolver {
     if !resolver.diagnostics.isEmpty {
       file.diagnostics.append(contentsOf: resolver.diagnostics)
       file.runtimeRuleBindings.removeAll()
+      file.rules
+        .removeAll { if case .runtime = $0.body { true } else { false } }
     }
     let exportedNames = Set(
       file.runtimeFunctions.filter { $0.access == .exported }.map(\.name)

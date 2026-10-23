@@ -12,6 +12,7 @@ struct RuntimeEvaluationState {
   var remainingInstructions: Int
   var callDepth = 0
   var synchronousClosureDepth = 0
+  var synchronousClosureAllowsThrowing = false
   let maximumCallDepth: Int
 
   init(limits: RuntimeLimits) {

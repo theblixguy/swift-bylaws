@@ -46,6 +46,16 @@ extension SupportedAPI {
     ),
     property(
       .kindType,
+      on: [.staticType(ModelType.sourceToken.rawValue)],
+      result: .fixed(.staticType(StaticMemberType.sourceTokenKind.rawValue))
+    ),
+    property(
+      .kindType,
+      on: [.staticType(ModelType.sourceTrivia.rawValue)],
+      result: .fixed(.staticType(StaticMemberType.sourceTriviaKind.rawValue))
+    ),
+    property(
+      .kindType,
       on: [.staticType(ModelType.sourceNode.rawValue)],
       result: .fixed(.staticType(StaticMemberType.sourceNodeKind.rawValue))
     ),

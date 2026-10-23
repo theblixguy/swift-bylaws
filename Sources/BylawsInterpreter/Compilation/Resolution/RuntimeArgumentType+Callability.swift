@@ -1,7 +1,8 @@
 extension SupportedAPI.RuntimeArgumentType {
   var isCallable: Bool {
     switch self {
-    case .collectionCallable, .callable, .dictionaryValueCallable: true
+    case .collectionCallable, .collectionComparator, .callable,
+         .dictionaryValueCallable: true
     default: false
     }
   }

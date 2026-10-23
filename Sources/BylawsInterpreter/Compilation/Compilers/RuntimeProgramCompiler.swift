@@ -1,4 +1,5 @@
 import BylawsCore
+import BylawsPaths
 import BylawsSemantics
 
 enum RuntimeProgramCompiler {
@@ -6,34 +7,57 @@ enum RuntimeProgramCompiler {
     _ value: RuntimeRule,
     in file: ParsedRulesFile,
     indexProvider: (any RuntimeIndexProvider)? = nil,
+    runtimeContext: RuntimeProgramContext? = nil,
     excludingSubtrees: [String] = []
   ) -> Rule {
-    makeRule(
+    let excluded = ExcludedSubtrees(
+      subtrees: excludingSubtrees,
+      under: [LexicalFilePath(file.path).removingLastComponent().string]
+    )
+    return makeRule(
       id: value.id,
       name: value.name,
       enforcement: value.enforcement,
       hint: value.hint,
       location: value.location,
-      codebases: file.codebases,
-      excludingSubtrees: excludingSubtrees
+      excludingSubtrees: excluded
     ) {
-      try await findings(of: value, indexProvider: indexProvider)
+      _ = try await runtimeContext?.resolvedEnvironment()
+      return try await findings(
+        of: value, indexProvider: indexProvider, excludingSubtrees: excluded
+      )
     }
   }
 
-  private static func findings(
+  static func findings(
     of value: RuntimeRule,
-    indexProvider: (any RuntimeIndexProvider)?
+    indexProvider: (any RuntimeIndexProvider)?,
+    excludingSubtrees: ExcludedSubtrees
+  ) async throws -> Rule.Findings {
+    try await findings(
+      body: value.body,
+      at: value.location,
+      indexProvider: indexProvider,
+      excludingSubtrees: excludingSubtrees
+    )
+  }
+
+  static func findings(
+    body: RuntimeClosure,
+    at location: DeclarationLocation,
+    indexProvider: (any RuntimeIndexProvider)?,
+    excludingSubtrees: ExcludedSubtrees
   ) async throws -> Rule.Findings {
     let evaluator = RuntimeEvaluator(
-      globals: value.body.captures,
-      indexProvider: indexProvider
+      globals: body.captures,
+      indexProvider: indexProvider,
+      excludingSubtrees: excludingSubtrees
     )
     var state = RuntimeEvaluationState(limits: .standard)
     let result: RuntimeValue
     do {
       result = try await evaluator.invoke(
-        value.body,
+        body,
         arguments: [],
         builder: .checks,
         state: &state
@@ -43,7 +67,7 @@ enum RuntimeProgramCompiler {
       if error.kind == .cancelled { throw CancellationError() }
       throw error
     }
-    return try findings(from: result, at: value.location)
+    return try findings(from: result, at: location)
   }
 
   private static func makeRule(
@@ -52,8 +76,7 @@ enum RuntimeProgramCompiler {
     enforcement: Enforcement,
     hint: String?,
     location: DeclarationLocation,
-    codebases: [String: Codebase],
-    excludingSubtrees: [String],
+    excludingSubtrees: ExcludedSubtrees,
     findings body: @escaping @Sendable () async throws -> Rule.Findings
   ) -> Rule {
     Rule(
@@ -64,12 +87,7 @@ enum RuntimeProgramCompiler {
       location: location,
       body: {
         let findings = try await body()
-        guard !excludingSubtrees.isEmpty else { return findings }
-        let excluded = try ExcludedSubtrees(
-          subtrees: excludingSubtrees,
-          under: codebases.values.map { try $0.resolvedRootPath() }
-        )
-        return excluded.filteringOffenders(from: findings)
+        return excludingSubtrees.filteringOffenders(from: findings)
       }
     )
   }

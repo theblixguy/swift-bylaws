@@ -45,13 +45,31 @@ extension RuntimeEvaluator {
     if let method = api?.method {
       return .boundMethod(receiver: receiver, name: method)
     }
-    if api?.canSuspend == true, state.synchronousClosureDepth > 0 {
-      throw RuntimeError(
-        message: "a synchronous closure cannot suspend",
-        location: location
-      )
-    }
+    try requireEffects(of: api, at: location, state: state)
     switch receiver {
+    case let .sourceSpacing(value):
+      if name == .before { return .sourceSlice(value.before) }
+      if name == .after { return .sourceSlice(value.after) }
+    case let .sourceSlice(value):
+      if name == .spacing {
+        do { return .sourceSpacing(try value.spacing) }
+        catch { throw RuntimeError(wrapping: error, at: location) }
+      }
+      switch name {
+      case .tokens:
+        do { return .array(try value.tokens.map { .model(.sourceToken($0)) }) }
+        catch { throw RuntimeError(wrapping: error, at: location) }
+      case .trivia:
+        do { return .array(try value.trivia.map { .model(.sourceTrivia($0)) }) }
+        catch { throw RuntimeError(wrapping: error, at: location) }
+      case .text: return .string(value.text)
+      case .file: return .sourceSlice(value.file)
+      case .filePath: return .string(value.filePath)
+      case .range: return .integerRange(value.range)
+      default: break
+      }
+    case let .fixContext(context):
+      return try context.member(name, at: location)
     case let .url(value):
       switch name {
       case .path: return .string(value.path)
@@ -73,8 +91,21 @@ extension RuntimeEvaluator {
       }
     case let .array(values) where name == .first:
       return .optional(values.first)
+    case let .arraySlice(values):
+      switch name {
+      case .indices: return .integerRange(values.indices)
+      case .startIndex: return .integer(values.startIndex)
+      case .endIndex: return .integer(values.endIndex)
+      case .count: return .integer(values.count)
+      case .isEmpty: return .boolean(values.isEmpty)
+      case .first: return .optional(values.first)
+      default: break
+      }
     case let .array(values), let .set(values):
       switch name {
+      case .indices: return .integerRange(values.indices)
+      case .startIndex: return .integer(values.startIndex)
+      case .endIndex: return .integer(values.endIndex)
       case .count: return .integer(values.count)
       case .isEmpty: return .boolean(values.isEmpty)
       default: break
@@ -90,7 +121,16 @@ extension RuntimeEvaluator {
       }
     case let .integerRange(value):
       switch name {
-      case .count: return .integer(value.count)
+      case .count:
+        let count = value.upperBound
+          .subtractingReportingOverflow(value.lowerBound)
+        guard !count.overflow else {
+          throw RuntimeError(
+            message: "Range.count must fit in Int. Use a smaller range.",
+            location: location
+          )
+        }
+        return .integer(count.partialValue)
       case .isEmpty: return .boolean(value.isEmpty)
       case .lowerBound: return .integer(value.lowerBound)
       case .upperBound: return .integer(value.upperBound)
@@ -123,6 +163,9 @@ extension RuntimeEvaluator {
       )
     case let .selection(selection):
       switch name {
+      case .indices: return .integerRange(selection.elements.indices)
+      case .startIndex: return .integer(selection.elements.startIndex)
+      case .endIndex: return .integer(selection.elements.endIndex)
       case .count: return .integer(selection.elements.count)
       case .isEmpty: return .boolean(selection.elements.isEmpty)
       case .first:
@@ -131,6 +174,9 @@ extension RuntimeEvaluator {
       default: break
       }
     case let .model(value):
+      if let projection = try sourceProjection(name, of: value, at: location) {
+        return projection
+      }
       if let property = modelMember(name, of: value) {
         return property
       }
@@ -155,7 +201,9 @@ extension RuntimeEvaluator {
           .violations(RuntimeViolations(
             rule: check.rule,
             offenders: check.offenders.map(RuntimeModelValue.offender),
-            checkedCount: check.checkedCount
+            checkedCount: check.checkedCount,
+            fixes: check.fixes,
+            codebase: check.codebase
           ))
         })
       case .violations:
@@ -163,7 +211,9 @@ extension RuntimeEvaluator {
           rule: findings.violations.rule,
           offenders: findings.violations.offenders
             .map(RuntimeModelValue.offender),
-          checkedCount: findings.violations.checkedCount
+          checkedCount: findings.violations.checkedCount,
+          fixes: findings.violations.fixes,
+          codebase: findings.violations.codebase
         ))
       case .warnings:
         return .array(findings.warnings.map { .model(.check(.warning($0))) })
@@ -203,11 +253,16 @@ extension SupportedAPI.RuntimeMemberAPI {
 }
 
 extension RuntimeValue {
-  fileprivate var runtimeReceiver: SupportedAPI.RuntimeReceiver? {
+  var runtimeReceiver: SupportedAPI.RuntimeReceiver? {
     switch self {
+    case .layoutGroup: .layoutGroup
+    case .sourceSlice: .sourceSlice
+    case .sourceSpacing: .sourceSpacing
+    case .fixContext: .fixContext
     case .url: .url
     case .dictionary: .dictionary
     case .array: .array
+    case .arraySlice: .arraySlice
     case .set: .set
     case .string: .string
     case .codebase: .codebase

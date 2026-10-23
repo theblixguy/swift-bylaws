@@ -4,10 +4,13 @@ import BylawsSemantics
 
 extension RuleProgramLoader {
   static func compileDeclaredRules(
-    in parsedFiles: [LoadedRulesFile]
+    in parsedFiles: [LoadedRulesFile],
+    sourceModules: SourceModuleLoadResult? = nil,
+    indexProvider: (any RuntimeIndexProvider)? = nil
   ) -> RuleCompilation {
     var compilation = RuleCompilation()
     var headers: [Rule.ID: [String: RuleCompiler.Header]] = [:]
+    var runtimeContexts: [String: RuntimeProgramContext] = [:]
     var compiledRules: [(
       declared: DeclaredRule,
       compiled: RuleCompiler.Compiled
@@ -65,10 +68,26 @@ extension RuleProgramLoader {
         header = declared.rule.header()
       }
       headers[declared.id, default: [:]][directory] = header
+      let runtimeContext: RuntimeProgramContext
+      if let existing = runtimeContexts[declared.file.path] {
+        runtimeContext = existing
+      } else {
+        runtimeContext = RuntimeProgramContext(
+          file: declared.parsed,
+          sourceModules: sourceModules?
+            .modules(importedBy: declared.parsed) ?? [],
+          importedModuleNames: declared.parsed.imports
+            .filter(\.isInterpretedSourceModule).map(\.moduleName),
+          indexProvider: indexProvider
+        )
+        runtimeContexts[declared.file.path] = runtimeContext
+      }
       switch RuleCompiler.compile(
         declared.rule,
         as: header,
-        in: declared.parsed
+        in: declared.parsed,
+        runtimeContext: runtimeContext,
+        indexProvider: indexProvider
       ) {
       case let .success(compiled):
         compiledRules.append((declared, compiled))
@@ -91,8 +110,10 @@ extension RuleProgramLoader {
       let relativeExclusions = exclusions.map {
         directory.isEmpty ? $0 : String($0.dropFirst(directory.count + 1))
       }
+      var rule = compiled.rule(excludingSubtrees: relativeExclusions)
+      rule.origin = .init(filePath: declared.file.path, ruleID: declared.id)
       compilation.loadedRules.append(.init(
-        rule: compiled.rule(excludingSubtrees: relativeExclusions),
+        rule: rule,
         scope: RuleScope(
           id: declared.id,
           directory: directory,

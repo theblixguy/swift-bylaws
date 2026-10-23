@@ -45,6 +45,7 @@ struct RuntimeStatement: Sendable {
 }
 
 enum RuntimeCondition: Sendable {
+  case all([RuntimeCondition])
   case boolean(RuntimeExpression)
   case optionalBinding(name: String, value: RuntimeExpression)
 }

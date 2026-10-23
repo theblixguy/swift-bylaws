@@ -51,29 +51,6 @@ extension RuntimeTypeResolver {
     }
     return result
   }
-
-  mutating func resolveSubscript(
-    receiver: RuntimeType,
-    key: RuntimeExpression,
-    at location: DeclarationLocation
-  ) -> RuntimeType {
-    if case let .optional(wrapped) = receiver {
-      return resolveSubscript(receiver: wrapped, key: key, at: location)
-        .optionalChained
-    }
-    guard case let .dictionary(keyType, valueType) = receiver else {
-      diagnose("Subscript must have a Dictionary receiver", at: location)
-      _ = resolve(key)
-      return .unknown
-    }
-    require(
-      resolve(key, expected: keyType),
-      toMatch: keyType,
-      subject: "the dictionary key",
-      at: key.location
-    )
-    return .optional(valueType)
-  }
 }
 
 extension SupportedAPI.RuntimeType {

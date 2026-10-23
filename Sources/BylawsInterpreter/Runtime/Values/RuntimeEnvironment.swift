@@ -52,13 +52,19 @@ extension RuntimeValue {
   ) -> RuntimeValue {
     switch self {
     case let .array(values):
-      .array(values.map { $0.resolvingRuleCaptures(with: globals) })
+      return .array(values.map { $0.resolvingRuleCaptures(with: globals) })
+    case let .arraySlice(values):
+      var result = values
+      for index in values.indices {
+        result[index] = values[index].resolvingRuleCaptures(with: globals)
+      }
+      return .arraySlice(result)
     case let .set(values):
-      .set(values.map { $0.resolvingRuleCaptures(with: globals) })
+      return .set(values.map { $0.resolvingRuleCaptures(with: globals) })
     case let .rule(rule):
-      .rule(rule.resolvingCaptures(with: globals))
+      return .rule(rule.resolvingCaptures(with: globals))
     default:
-      self
+      return self
     }
   }
 }

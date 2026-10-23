@@ -12,6 +12,7 @@ struct RegistryEvaluatorContractTests {
     let samples = try await ModelSamples()
     let evaluator = RuntimeEvaluator(globals: RuntimeEnvironment())
     var problems: [String] = []
+    var state = RuntimeEvaluationState(limits: .standard)
 
     for api in SupportedAPI.runtimeMembers {
       guard case let .property(.fixed(expected)) = api.kind else { continue }
@@ -26,9 +27,18 @@ struct RegistryEvaluatorContractTests {
         }
         var provesType = false
         for value in values {
-          guard let result = evaluator.modelMember(api.name, of: value)
-          else {
-            problems.append("\(member): the evaluator has no implementation")
+          let result: RuntimeValue
+          do {
+            result = try await evaluator.member(
+              named: api.name,
+              of: .model(value),
+              at: .start(of: "<registry test>"),
+              state: &state
+            )
+          } catch where api.name == .bodySource {
+            continue
+          } catch {
+            problems.append("\(member): \(error.message)")
             continue
           }
           if !result.hasRuntimeType(expected) {
@@ -39,7 +49,10 @@ struct RegistryEvaluatorContractTests {
             provesType = true
           }
         }
-        if !provesType {
+        let isEmptyLexicalProjection = (modelType == .sourceToken && api
+          .name == .trivia)
+          || (modelType == .sourceTrivia && api.name == .tokens)
+        if !provesType, !isEmptyLexicalProjection {
           problems.append(
             "\(member): sample values do not prove \(expected.writtenName)"
           )
@@ -174,12 +187,14 @@ extension ModelSamples {
         let enabled = false
       #endif
         log("text", "\(user, privacy: .public)", false, 0, 1.5, nil,
-            Store.save(value: value), ["key": value], [value])
+            Store.save(value: /* Keep */ value), ["key": value], [value])
       }
       """#,
       path: "/virtual/Expressions.swift"
     )
     let arguments = file.calls.flatMap(\.arguments)
+    add(try file.tokens, as: RuntimeModelValue.sourceToken)
+    add(try file.trivia, as: RuntimeModelValue.sourceTrivia)
     add(.sourceFile(file))
     add(file.assignments, as: RuntimeModelValue.sourceAssignment)
     add(file.compilationBranches, as: RuntimeModelValue.compilationBranch)
@@ -190,6 +205,11 @@ extension ModelSamples {
       as: RuntimeModelValue.enclosingDeclaration
     )
     add(arguments, as: RuntimeModelValue.callArgument)
+    let calls = file.syntaxNodes(of: .functionCall).compactMap(\.expression)
+    add(
+      calls.flatMap { $0.arguments ?? [] },
+      as: RuntimeModelValue.expressionArgument
+    )
     var expressions = arguments.compactMap(\.expression)
     while let expression = expressions.popLast() {
       add(.sourceExpression(expression))
@@ -235,7 +255,12 @@ extension ModelSamples {
       try await codebase.syntaxNodes(
         of: .functionCall,
         .functionDeclaration,
-        .codeBlock
+        .codeBlock,
+        .classDeclaration,
+        .variableDeclaration,
+        .enumDeclaration,
+        .enumCaseDeclaration,
+        .genericParameterList
       ),
       as: RuntimeModelValue.sourceNode
     )

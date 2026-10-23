@@ -1,10 +1,57 @@
 extension SupportedAPI {
   static let collectionRuntimeMembers: [RuntimeMemberAPI] = [
+    property(
+      .indices,
+      on: [.array, .arraySlice, .selection],
+      result: .fixed(.integerRange)
+    ),
+    property(
+      .startIndex,
+      on: [.array, .arraySlice, .selection],
+      result: .fixed(.integer)
+    ),
+    property(
+      .endIndex,
+      on: [.array, .arraySlice, .selection],
+      result: .fixed(.integer)
+    ),
+    method(
+      .dropFirst,
+      on: [.array, .arraySlice, .selection],
+      arguments: .optional(.init(nil, .exact(.integer))),
+      result: .slicedCollection
+    ),
+    method(
+      .prefix,
+      on: [.array, .arraySlice, .selection],
+      arguments: .alternatives([
+        [.init(.while, .collectionCallable(result: .boolean))],
+        [.init(nil, .collectionCallable(result: .boolean))],
+        [.init(nil, .exact(.integer))],
+      ]),
+      result: .slicedCollection
+    ),
+    method(
+      .sorted,
+      on: collectionReceivers,
+      arguments: .alternatives([
+        [],
+        [.init(.by, .collectionComparator)],
+        [.init(nil, .collectionComparator)],
+      ]),
+      result: .orderedCollection
+    ),
+    method(
+      .reversed,
+      on: collectionReceivers,
+      arguments: .exact([]),
+      result: .orderedCollection
+    ),
     property(.count, on: collectionReceivers, result: .fixed(.integer)),
     property(.isEmpty, on: collectionReceivers, result: .fixed(.boolean)),
     property(
       .first,
-      on: [.array, .selection],
+      on: [.array, .arraySlice, .selection],
       result: .optionalCollectionElement
     ),
     method(
@@ -62,7 +109,18 @@ extension SupportedAPI {
     property(.first, on: [.string], result: .fixed(.optional(.string))),
     stringMethod(.hasPrefix),
     stringMethod(.hasSuffix),
-    stringMethod(.contains),
+    method(
+      .contains,
+      on: [.string],
+      arguments: .exact([.init(nil, .oneOf([.string, .regex]))]),
+      result: .fixed(.boolean)
+    ),
+    method(
+      .uppercased,
+      on: [.string],
+      arguments: .exact([]),
+      result: .fixed(.string)
+    ),
     method(
       .lowercased,
       on: [.string],
@@ -73,6 +131,12 @@ extension SupportedAPI {
 
   static let selectionRuntimeMembers: [RuntimeMemberAPI] = [
     property(.queryDescription, on: [.selection], result: .fixed(.string)),
+    method(
+      .only,
+      on: [.selection],
+      arguments: .exact([]),
+      result: .collectionElement, canThrow: true
+    ),
     method(
       .where,
       on: [.selection],
@@ -95,6 +159,8 @@ extension SupportedAPI {
       .violations,
       on: [.selection],
       arguments: .alternatives([
+        [.init(nil, .exact(.string)), .init(nil)],
+        [.init(nil, .exact(.string)), .init(.changes)],
         [.init(.of, .matcherForSelection)],
         [.init(.matching, .matcherForSelection)],
         [.init(.outsidePaths, .oneOf([.string, .array(.string)]))],

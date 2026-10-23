@@ -6,9 +6,20 @@ extension SupportedAPI {
     case integer
     case double
     case string
+    case regex
+    case sourceSlice
+    case sourceEdit
+    case sourceFix
+    case sourceLayout
+    case layoutGroup(RuntimeType)
+    case layoutOperation(Constructor)
+    case conditionalLayoutOperation(Constructor, RuntimeType)
+    case sourceSpacing
+    case fixContext(ModelType?)
     case url
     case dictionary(key: RuntimeType, value: RuntimeType)
     case array(RuntimeType)
+    case arraySlice(RuntimeType)
     case manifestList(RuntimeType)
     case set(RuntimeType)
     case optional(RuntimeType)
@@ -33,7 +44,7 @@ extension SupportedAPI {
     case boundMethod(
       receiver: RuntimeType,
       call: RuntimeCall,
-      canSuspend: Bool
+      canSuspend: Bool, canThrow: Bool
     )
     case prebuiltMatcher(String)
     case function(RuntimeFunctionType)
@@ -47,10 +58,23 @@ extension SupportedAPI {
       case .integer: "Int"
       case .double: "Double"
       case .string: "String"
+      case .regex: "Regex"
+      case .sourceSlice: "SourceSlice"
+      case .sourceEdit: "SourceFix.Edit"
+      case .sourceFix: "SourceFix"
+      case .sourceLayout: "SourceLayout"
+      case let .layoutGroup(element): "Group<\(element.writtenName)>"
+      case let .layoutOperation(operation): operation.rawValue
+      case let .conditionalLayoutOperation(operation, element):
+        "\(operation.rawValue)<\(element.writtenName)>"
+      case .sourceSpacing: "SourceSpacing"
+      case let .fixContext(subject):
+        subject.map { "FixContext<\($0.rawValue)>" } ?? "FixContext"
       case .url: "URL"
       case let .dictionary(key, value):
         "[\(key.writtenName): \(value.writtenName)]"
       case let .array(element): "[\(element.writtenName)]"
+      case let .arraySlice(element): "ArraySlice<\(element.writtenName)>"
       case let .manifestList(element): "ManifestList<\(element.writtenName)>"
       case let .set(element): "Set<\(element.writtenName)>"
       case let .optional(wrapped): "\(wrapped.writtenName)?"
@@ -104,6 +128,9 @@ extension SupportedAPI {
   }
 
   package enum RuntimeReceiver: Hashable, Sendable {
+    case layoutGroup
+    case arraySlice
+    case sourceSlice, sourceSpacing, fixContext
     case url
     case dictionary
     case dependencyGroup
@@ -125,10 +152,14 @@ extension SupportedAPI {
   }
 
   package enum RuntimeResult: Equatable, Sendable {
+    case fixOffender
     case mappedDictionary
     case fixed(RuntimeType)
     case receiver
     case collection
+    case orderedCollection
+    case slicedCollection
+    case collectionElement
     case optionalCollectionElement
     case manifestListKnownValues
     case manifestListConditionalValues
@@ -149,6 +180,7 @@ extension SupportedAPI {
     case exact(RuntimeType)
     case sequenceOfCollectionElement
     case collectionCallable(result: RuntimeType?)
+    case collectionComparator
     case collectionElement
     case callable(input: RuntimeType, result: RuntimeType?)
     case matcherForSelection
@@ -199,6 +231,7 @@ extension SupportedAPI {
     package let name: Member
     package let kind: RuntimeMemberKind
     package let canSuspend: Bool
+    package let canThrow: Bool
   }
 
   package static let staticMemberTypeNames: Set<String> =

@@ -5,16 +5,23 @@ extension SupportedAPI.RuntimeResult {
     argumentLabels: [String?] = []
   ) -> SupportedAPI.RuntimeType {
     switch self {
+    case .fixOffender:
+      guard case let .fixContext(subject) = receiver else { return .unknown }
+      return subject.map(SupportedAPI.RuntimeType.model) ?? .unknown
     case .mappedDictionary:
       guard case let .dictionary(key, _) = receiver else { return .unknown }
       return .dictionary(key: key, value: closureResult ?? .unknown)
     case let .fixed(type): return type
     case .receiver: return receiver
+    case .orderedCollection: return .array(receiver.collectionElement)
+    case .slicedCollection: return .arraySlice(receiver.collectionElement)
     case .collection:
       switch receiver {
-      case .selection: return .array(receiver.collectionElement)
+      case .selection, .arraySlice: return .array(receiver.collectionElement)
       default: return receiver
       }
+    case .collectionElement:
+      return receiver.collectionElement
     case .optionalCollectionElement:
       return .optional(receiver.collectionElement)
     case .manifestListKnownValues, .manifestListConditionalValues,
@@ -27,7 +34,7 @@ extension SupportedAPI.RuntimeResult {
       if case let .optional(wrapped) = closureResult { return .array(wrapped) }
       return .array(closureResult ?? .unknown)
     case .flattenedClosureResult:
-      if case let .array(element) = closureResult { return .array(element) }
+      if let element = closureResult?.sequenceElement { return .array(element) }
       return .array(.unknown)
     case .syntaxClosureResult:
       let result = closureResult ?? .unknown

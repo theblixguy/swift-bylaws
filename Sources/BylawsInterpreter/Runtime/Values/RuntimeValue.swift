@@ -4,6 +4,7 @@ import Foundation
 
 indirect enum RuntimeValue: Sendable {
   case array([RuntimeValue])
+  case arraySlice(ArraySlice<RuntimeValue>)
   case boolean(Bool)
   case boundMethod(receiver: RuntimeValue, name: SupportedAPI.Method)
   case closure(RuntimeClosure)
@@ -31,15 +32,37 @@ indirect enum RuntimeValue: Sendable {
   case symbolRoles(Set<RuntimeSymbolRole>)
   case selection(RuntimeSelection)
   case string(String)
+  case regex(RuntimeRegex)
+  case sourceSlice(SourceSlice)
+  case sourceEdit(SourceFix.Edit)
+  case sourceFix(SourceFix)
+  case sourceLayout(SourceLayout)
+  case layoutPlan([RuntimeLayoutOperation])
+  case layoutGroup(predicate: RuntimeValue, comparison: RuntimeValue?)
+  case sourceSpacing(SourceSpacing)
+  case fixContext(RuntimeFixContext)
   case url(URL)
   case violations(RuntimeViolations)
   case void
 }
 
 extension RuntimeValue {
+  var sequenceValues: AnySequence<RuntimeValue>? {
+    switch self {
+    case let .array(values), let .set(values): AnySequence(values)
+    case let .arraySlice(values): AnySequence(values)
+    case let .selection(selection):
+      AnySequence(selection.elements.lazy.map(RuntimeValue.model))
+    case let .integerRange(range):
+      AnySequence(range.lazy.map(RuntimeValue.integer))
+    default: nil
+    }
+  }
+
   var sequenceElements: [RuntimeValue]? {
     switch self {
     case let .array(values), let .set(values): values
+    case let .arraySlice(values): Array(values)
     case let .selection(selection): selection.elements.map(RuntimeValue.model)
     default: nil
     }
@@ -73,6 +96,8 @@ extension RuntimeValue {
       value?.hasRuntimeType(wrapped) ?? true
     case let (.array(element), .array(values)):
       values.allSatisfy { $0.hasRuntimeType(element) }
+    case let (.arraySlice(element), .arraySlice(values)):
+      values.allSatisfy { $0.hasRuntimeType(element) }
     case let (.manifestList(element), .manifestList(value)):
       value.possibleValues.allSatisfy { $0.hasRuntimeType(element) }
     case let (.set(element), .set(values)):
@@ -89,11 +114,20 @@ extension RuntimeValue {
     case let (.violations(subject), .violations(violations)):
       subject == nil
         || violations.offenders.allSatisfy { $0.modelType == subject }
+    case (.sourceSlice, .sourceSlice), (.sourceEdit, .sourceEdit): true
+    case (.sourceFix, .sourceFix): true
+    case (.sourceLayout, .sourceLayout): true
+    case (.sourceLayout, .layoutPlan), (.layoutGroup, .layoutGroup): true
+    case (.conditionalLayoutOperation, .layoutPlan): true
+    case (.layoutOperation, .sourceLayout): true
+    case (.sourceSpacing, .sourceSpacing): true
+    case let (.fixContext(subject), .fixContext(context)):
+      subject == nil || context.offender.modelType == subject
     case (.findings, .findings):
       true
     case (.ruleResults, .ruleResults): true
     case (.boolean, .boolean), (.string, .string), (.integer, .integer),
-         (.double, .double), (.codebase, .codebase),
+         (.double, .double), (.regex, .regex), (.codebase, .codebase),
          (.integerRange, .integerRange), (.layering, .layering),
          (.layer, .layer), (.dependencyGroup, .dependencyGroup),
          (.rule, .rule), (.void, .void), (.projectIndex, .projectIndex),
@@ -117,6 +151,16 @@ extension RuntimeValue {
     case let (.array(element), .array(values)):
       let coerced = values.compactMap { $0.coerced(to: element) }
       return coerced.count == values.count ? .array(coerced) : nil
+    case let (.arraySlice(element), .arraySlice(values)):
+      var result = values
+      for index in values.indices {
+        guard let value = values[index].coerced(to: element) else { return nil }
+        result[index] = value
+      }
+      return .arraySlice(result)
+    case let (.arraySlice(element), .array(values)):
+      let coerced = values.compactMap { $0.coerced(to: element) }
+      return coerced.count == values.count ? .arraySlice(coerced[...]) : nil
     case let (.set(element), .set(values)):
       let coerced = values.compactMap { $0.coerced(to: element) }
       return coerced.count == values.count ? .set(coerced) : nil

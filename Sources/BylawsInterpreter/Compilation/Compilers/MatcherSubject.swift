@@ -238,7 +238,8 @@ extension RuntimeModelValue {
     case let .sourceAssignment(value): value
     case let .variableBinding(value): value
     case let .compilationBranch(value): value
-    case .sourceNode, .callArgument, .expressionArgument, .enclosingDeclaration,
+    case .sourceToken, .sourceTrivia, .sourceNode, .callArgument,
+         .expressionArgument, .enclosingDeclaration,
          .dictionaryElement,
          .check, .typeReference, .parameter, .attribute, .genericParameter,
          .enumCase, .importGraph, .importGraphTarget, .bazelGraph, .bazelTarget,

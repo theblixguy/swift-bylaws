@@ -14,6 +14,26 @@ extension RuntimeEvaluator {
       return try manifestMethod(name, manifest: manifest, arguments: arguments)
     }
     switch (name, value) {
+    case let (.contains, .sourceNode(node)):
+      try arguments.requireLabels([nil], for: name)
+      guard case let .member(literal) = try arguments.value(at: 0),
+            literal.owners.contains(.sourceNodeKind),
+            let kind = SourceNode.Kind(rawValue: literal.rawValue)
+      else {
+        throw RuntimeError(
+          message: "contains takes one SourceNode.Kind",
+          location: arguments.location
+        )
+      }
+      return .boolean(node.contains(kind))
+    case let (.argument, .functionCall(call)):
+      try arguments.requireLabels([.labeled], for: name)
+      let label = try arguments.string(at: 0)
+      do {
+        return .model(.callArgument(try call.argument(labeled: label)))
+      } catch {
+        throw RuntimeError(wrapping: error, at: arguments.location)
+      }
     case let (.contains, .compilationBranch(branch)):
       try arguments.requireLabels([nil], for: name)
       guard case let .model(.check(.location(location))) = try arguments
@@ -96,14 +116,39 @@ extension RuntimeEvaluator {
       try arguments.requireLabels([nil], for: name)
       return .boolean(value.references(try arguments.string(at: 0)))
     case (.hasAttribute, _):
-      try arguments.requireLabels([nil], for: name)
       let wanted = try arguments.string(at: 0)
-      return .boolean(value.attributes?.contains { $0.name == wanted } == true)
+      let plain = wanted.hasPrefix("@") ? String(wanted.dropFirst()) : wanted
+      if arguments.values.count == 2 {
+        try arguments.requireLabels([nil, .argument], for: name)
+        let callable = try arguments.value(at: 1)
+        let canThrow = switch callable {
+        case let .function(function): function.definition.isThrowing
+        case let .closure(closure): closure.definition.usesTry
+        default: false
+        }
+        try requireEffects(
+          of: nil, canThrow: canThrow,
+          at: arguments.location, state: state
+        )
+        for attribute in value.attributes ?? [] where attribute.name == plain {
+          guard let expression = attribute.argument else { continue }
+          if try await predicate(
+            callable,
+            value: .model(.sourceExpression(expression)),
+            allowsThrowing: true,
+            state: &state
+          ) { return .boolean(true) }
+        }
+        return .boolean(false)
+      }
+      try arguments.requireLabels([nil], for: name)
+      return .boolean(value.attributes?.contains { $0.name == plain } == true)
     case (.attribute, _):
       try arguments.requireLabels([.named], for: name)
       let wanted = try arguments.string(at: 0)
+      let plain = wanted.hasPrefix("@") ? String(wanted.dropFirst()) : wanted
       return .optional(
-        value.attributes?.first { $0.name == wanted }
+        value.attributes?.first { $0.name == plain }
           .map { .model(.attribute($0)) }
       )
     case (.inherits, _), (.directlyInherits, _), (.conforms, _),
@@ -179,7 +224,8 @@ extension RuntimeModelValue {
   }
 
   var attributes: [Attribute]? {
-    (declaration as? any Attributed)?.attributes
+    if case let .sourceNode(value) = self { return value.attributes }
+    return (declaration as? any Attributed)?.attributes
   }
 
   var inheritedTypes: [String]? {

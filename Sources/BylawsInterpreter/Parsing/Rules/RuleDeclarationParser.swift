@@ -49,24 +49,19 @@ struct RuleDeclarationParser {
     }
 
     guard let closure = call.trailingClosure,
-          closure.signature == nil,
-          closure.statements.count == 1,
-          let statement = closure.statements.first,
-          case let .expr(bodyExpression) = statement.item
+          closure.signature == nil
     else {
       parsed.diagnostics.append(
         .error(
-          "a rule's body must be one query expression",
+          "\(keyword.rawValue) takes one body closure without parameters",
           at: ruleLocation,
-          hint: "several statements or a closure parameter belong in a "
-            + "test target"
+          hint: "use a trailing closure with no parameters"
         )
       )
       return
     }
 
-    guard let body = RuleBodyParser(syntax: syntax)
-      .parse(bodyExpression, diagnostics: &parsed.diagnostics)
+    guard let body = parseBody(closure, diagnostics: &parsed.diagnostics)
     else { return }
     parsed.rules.append(
       ParsedRule(
@@ -80,6 +75,27 @@ struct RuleDeclarationParser {
         body: body
       )
     )
+  }
+
+  private func parseBody(
+    _ closure: ClosureExprSyntax,
+    diagnostics: inout [Diagnostic]
+  ) -> BodyExpression? {
+    if closure.statements.count == 1,
+       let statement = closure.statements.first,
+       case let .expr(expression) = statement.item
+    {
+      var legacyDiagnostics: [Diagnostic] = []
+      if let body = RuleBodyParser(syntax: syntax).parse(
+        expression, diagnostics: &legacyDiagnostics
+      ) {
+        diagnostics.append(contentsOf: legacyDiagnostics)
+        return body
+      }
+    }
+    return RuntimeExpressionParser(syntax: syntax)
+      .parseClosure(closure, diagnostics: &diagnostics)
+      .map(BodyExpression.runtime)
   }
 
   private struct Arguments {

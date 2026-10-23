@@ -26,7 +26,8 @@ extension RuntimeEvaluator {
       offenders: selection.elements.filter { value in
         value.offender.map { !matcher($0) } == true
       },
-      checkedCount: selection.elements.count
+      checkedCount: selection.elements.count,
+      codebase: selection.codebase
     ))
   }
 }

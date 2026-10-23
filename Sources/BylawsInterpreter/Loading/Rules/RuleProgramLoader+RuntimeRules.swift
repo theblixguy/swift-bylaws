@@ -36,6 +36,7 @@ extension RuleProgramLoader {
               value,
               in: parsed,
               indexProvider: indexProvider,
+              runtimeContext: runtimeContext,
               excludingSubtrees: excludedSubtrees
             )
           }
@@ -82,9 +83,11 @@ extension RuleProgramLoader {
       rule: id,
       in: overriddenSubtrees
     )
+    var rule = compile(exclusions)
+    rule.origin = .init(filePath: file.path, ruleID: id)
     compilation.loadedRules.append(
       .init(
-        rule: compile(exclusions),
+        rule: rule,
         scope: RuleScope(
           id: id,
           directory: file.relativeDirectory,

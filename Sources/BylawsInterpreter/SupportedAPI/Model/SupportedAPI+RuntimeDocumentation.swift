@@ -31,9 +31,14 @@ extension SupportedAPI {
 extension SupportedAPI.RuntimeReceiver {
   fileprivate var documentationName: String {
     switch self {
+    case .layoutGroup: "Group"
+    case .sourceSlice: "SourceSlice"
+    case .sourceSpacing: "SourceSpacing"
+    case .fixContext: "FixContext"
     case .url: "URL"
     case .dictionary: "Dictionary"
     case .array: "Array"
+    case .arraySlice: "ArraySlice"
     case .manifestList: "ManifestList"
     case .set: "Set"
     case .string: "String"

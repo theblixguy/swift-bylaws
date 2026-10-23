@@ -2,6 +2,15 @@ import BylawsSemantics
 
 struct RuntimeConstructorResolution {
   let constructors: [DeclarationLocation: SupportedAPI.Constructor]
+  let automaticLayoutClosures: Set<DeclarationLocation>
+
+  init(
+    constructors: [DeclarationLocation: SupportedAPI.Constructor],
+    automaticLayoutClosures: Set<DeclarationLocation> = []
+  ) {
+    self.constructors = constructors
+    self.automaticLayoutClosures = automaticLayoutClosures
+  }
 
   func resolve(_ expression: RuntimeExpression) -> RuntimeExpression {
     let kind: RuntimeExpression.Kind = switch expression.kind {
@@ -43,7 +52,7 @@ struct RuntimeConstructorResolution {
       })
     case .boolean, .constructor, .double, .integer, .keyPath, .nilLiteral,
          .reference,
-         .staticMember, .string: expression.kind
+         .staticMember, .string, .regex: expression.kind
     }
     return RuntimeExpression(kind: kind, location: expression.location)
   }
@@ -80,18 +89,21 @@ struct RuntimeConstructorResolution {
     })
   }
 
-  private func resolve(_ closure: RuntimeClosureDefinition)
+  func resolve(_ closure: RuntimeClosureDefinition)
     -> RuntimeClosureDefinition
   {
     RuntimeClosureDefinition(
       parameters: closure.parameters, body: resolve(closure.body),
       location: closure.location, usesAwait: closure.usesAwait,
-      usesTry: closure.usesTry
+      usesTry: closure.usesTry, resultType: closure.resultType,
+      isAutomaticLayout: closure.isAutomaticLayout || automaticLayoutClosures
+        .contains(closure.location)
     )
   }
 
   private func resolve(_ condition: RuntimeCondition) -> RuntimeCondition {
     switch condition {
+    case let .all(conditions): .all(conditions.map(resolve))
     case let .boolean(value): .boolean(resolve(value))
     case let .optionalBinding(name, value): .optionalBinding(
         name: name,

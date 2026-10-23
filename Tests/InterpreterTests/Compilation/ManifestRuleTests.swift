@@ -113,7 +113,7 @@ struct ManifestRuleTests {
     #expect(
       program.errors.contains {
         $0.message.contains(
-          "'checkDependencyStability' takes one string array after 'ignoring:'"
+          "argument 1 must be [String], not String"
         )
       }
     )

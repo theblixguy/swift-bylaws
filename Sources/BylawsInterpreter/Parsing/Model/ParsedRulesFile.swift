@@ -40,12 +40,13 @@ struct ParsedRule {
   let declaredHint: String?
 
   let location: DeclarationLocation
-  let body: BodyExpression
+  var body: BodyExpression
 
   var isOverride: Bool { overrideReason != nil }
 }
 
 enum BodyExpression {
+  case runtime(RuntimeClosureDefinition)
   case query(QueryExpression)
   case layeringCheck(codebase: String, layering: String)
   case folderLayout(codebase: String, pattern: String, folders: [String])

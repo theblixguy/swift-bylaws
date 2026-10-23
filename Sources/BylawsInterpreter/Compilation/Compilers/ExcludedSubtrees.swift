@@ -2,7 +2,7 @@ import BylawsCore
 import BylawsPaths
 import BylawsSemantics
 
-struct ExcludedSubtrees {
+struct ExcludedSubtrees: Sendable {
   private let directories: [LexicalFilePath]
 
   init(subtrees: [String], under roots: [String]) {
@@ -17,19 +17,15 @@ struct ExcludedSubtrees {
     guard !isEmpty else { return findings }
     return Rule.Findings(
       checks: findings.checks.map { check in
-        Violations(
-          rule: check.rule,
-          offenders: check.offenders.filter { offender in
-            !contains(offender.affectedPath ?? offender.location.filePath)
-          },
-          checkedCount: check.checkedCount
-        )
+        check.filteringOffenders { offender in
+          !contains(offender.affectedPath ?? offender.location.filePath)
+        }
       },
       warnings: findings.warnings
     )
   }
 
-  private func contains(_ filePath: String) -> Bool {
+  func contains(_ filePath: String) -> Bool {
     let path = LexicalFilePath(filePath)
     return directories.contains { $0.contains(path) }
   }

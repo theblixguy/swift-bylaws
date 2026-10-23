@@ -37,7 +37,7 @@ extension RuntimeEvaluator {
     )
   }
 
-  private func applyBinary(
+  func applyBinary(
     _ operatorName: String,
     left: RuntimeValue,
     right: RuntimeValue,
@@ -158,6 +158,8 @@ extension RuntimeEvaluator {
     case let (.integer(lhs), .double(rhs)): Double(lhs) == rhs
     case let (.double(lhs), .integer(rhs)): lhs == Double(rhs)
     case let (.integerRange(lhs), .integerRange(rhs)): lhs == rhs
+    case let (.sourceSlice(lhs), .sourceSlice(rhs)): lhs == rhs
+    case let (.sourceEdit(lhs), .sourceEdit(rhs)): lhs == rhs
     case let (.double(lhs), .double(rhs)): lhs == rhs
     case let (.string(lhs), .string(rhs)): lhs == rhs
     case let (.member(lhs), .member(rhs)): lhs == rhs
@@ -176,6 +178,12 @@ extension RuntimeEvaluator {
         && zip(lhs, rhs).allSatisfy { pair in
           equals(pair.0, pair.1)
         }
+    case let (.arraySlice(lhs), .arraySlice(rhs)):
+      lhs.elementsEqual(rhs, by: equals)
+    case let (.arraySlice(lhs), .array(rhs)):
+      lhs.elementsEqual(rhs, by: equals)
+    case let (.array(lhs), .arraySlice(rhs)):
+      lhs.elementsEqual(rhs, by: equals)
     case let (.set(lhs), .set(rhs)):
       lhs.count == rhs.count
         && lhs.allSatisfy { value in
@@ -220,10 +228,27 @@ extension RuntimeEvaluator {
        case let .integer(rhs) = right
     {
       switch operatorName {
+      case "..<":
+        guard lhs <= rhs else {
+          throw RuntimeError(
+            message: "a range must end at or after its start",
+            location: location
+          )
+        }
+        return .integerRange(lhs..<rhs)
       case "<": return .boolean(lhs < rhs)
       case "<=": return .boolean(lhs <= rhs)
       case ">": return .boolean(lhs > rhs)
       case ">=": return .boolean(lhs >= rhs)
+      case "-":
+        let subtraction = lhs.subtractingReportingOverflow(rhs)
+        guard !subtraction.overflow else {
+          throw RuntimeError(
+            message: "integer subtraction exceeds the supported range",
+            location: location
+          )
+        }
+        return .integer(subtraction.partialValue)
       case "+":
         let addition = lhs.addingReportingOverflow(rhs)
         guard !addition.overflow else {
@@ -243,6 +268,7 @@ extension RuntimeEvaluator {
     case ">": .boolean(lhs > rhs)
     case ">=": .boolean(lhs >= rhs)
     case "+": .double(lhs + rhs)
+    case "-": .double(lhs - rhs)
     default: nil
     }
   }

@@ -142,24 +142,20 @@ extension Violations<Offender> {
     for ruleID: Rule.ID,
     under rootPath: String
   ) -> Violations<Offender> {
-    Violations(
-      rule: rule,
-      offenders: offenders.filter { offender in
-        !baselines.contains { baseline in
-          baseline.applies(
-            to: offender.affectedPath ?? offender.location.filePath,
-            underRoot: rootPath
-          )
-            && baseline.entries.contains(
-              Baseline.Entry(
-                offender: offender,
-                for: ruleID,
-                relativeTo: rootPath
-              )
+    filteringOffenders { offender in
+      !baselines.contains { baseline in
+        baseline.applies(
+          to: offender.affectedPath ?? offender.location.filePath,
+          underRoot: rootPath
+        )
+          && baseline.entries.contains(
+            Baseline.Entry(
+              offender: offender,
+              for: ruleID,
+              relativeTo: rootPath
             )
-        }
-      },
-      checkedCount: checkedCount
-    )
+          )
+      }
+    }
   }
 }

@@ -9,6 +9,13 @@ struct RuntimeTypeResolver {
   var constructors: [DeclarationLocation: SupportedAPI.Constructor] = [:]
   let reportsDiagnostics: Bool
   var synchronousClosureDepth = 0
+  var allowsThrowing = true
+  var allowsSuspension = true
+  var observedSuspension = false
+  var observedThrowing = false
+  var layoutElementType: RuntimeType?
+  var layoutUsesAutomaticOperations = false
+  var automaticLayoutClosures: Set<DeclarationLocation> = []
 
   init(
     environment: [String: RuntimeType],
@@ -24,7 +31,10 @@ struct RuntimeTypeResolver {
       functionEnvironment[parameter.localName] = parameter.type
     }
     let expected = function.returnType
-    let resolution = withEnvironment(functionEnvironment) { resolver in
+    let resolution = withEnvironment(
+      functionEnvironment, allowsThrowing: function.isThrowing,
+      allowsSuspension: function.isAsync
+    ) { resolver in
       resolver.resolveBody(function.body, expected: expected)
     }
     if let result = resolution.resultTypes.first(where: {
@@ -38,60 +48,6 @@ struct RuntimeTypeResolver {
   }
 
   mutating func resolve(
-    _ closure: RuntimeClosureDefinition,
-    parameters: [RuntimeType],
-    expectedResult: RuntimeType?,
-    requiresSynchronousBody: Bool,
-    builder: RuntimeBuilder? = nil
-  ) -> SupportedAPI.RuntimeClosureType {
-    if requiresSynchronousBody, closure.usesAwait || closure.usesTry {
-      diagnose(
-        "this closure must be synchronous and nonthrowing",
-        at: closure.location
-      )
-    }
-    let names = closure.parameters.isEmpty
-      ? parameters.indices.map { "$\($0)" }
-      : closure.parameters
-    if !parameters.isEmpty, names.count != parameters.count {
-      diagnose(
-        "the closure takes \(argumentCountDescription(names.count)), not \(parameters.count)",
-        at: closure.location
-      )
-    }
-    var closureEnvironment = environment
-    for (name, type) in zip(names, parameters) {
-      closureEnvironment[name] = type
-    }
-    let resolution = withEnvironment(
-      closureEnvironment,
-      synchronousClosure: requiresSynchronousBody
-    ) { resolver in
-      resolver.resolveBody(
-        closure.body, expected: expectedResult,
-        builder: closure.body.containsReturn ? nil : builder
-      )
-    }
-    let result = commonType(in: resolution.resultTypes)
-    if let expectedResult {
-      for result in resolution.resultTypes {
-        require(
-          result,
-          toMatch: expectedResult,
-          subject: "the closure",
-          at: closure.location
-        )
-      }
-    }
-    return SupportedAPI.RuntimeClosureType(
-      parameters: parameters,
-      result: result,
-      isAsync: closure.usesAwait,
-      isThrowing: closure.usesTry
-    )
-  }
-
-  mutating func resolve(
     _ body: RuntimeBody,
     expected: RuntimeType? = nil
   ) -> RuntimeType {
@@ -101,16 +57,24 @@ struct RuntimeTypeResolver {
   mutating func withEnvironment<Result>(
     _ environment: [String: RuntimeType],
     synchronousClosure: Bool? = nil,
+    allowsThrowing: Bool? = nil,
+    allowsSuspension: Bool? = nil,
     operation: (inout Self) -> Result
   ) -> Result {
     let outerEnvironment = self.environment
     let outerSynchronousClosureDepth = synchronousClosureDepth
+    let outerAllowsThrowing = self.allowsThrowing
+    let outerAllowsSuspension = self.allowsSuspension
     self.environment = environment
     if let synchronousClosure {
       synchronousClosureDepth = synchronousClosure ? synchronousClosureDepth +
         1 : 0
     }
+    if let allowsThrowing { self.allowsThrowing = allowsThrowing }
+    if let allowsSuspension { self.allowsSuspension = allowsSuspension }
     defer {
+      self.allowsThrowing = outerAllowsThrowing
+      self.allowsSuspension = outerAllowsSuspension
       self.environment = outerEnvironment
       synchronousClosureDepth = outerSynchronousClosureDepth
     }
@@ -119,8 +83,20 @@ struct RuntimeTypeResolver {
 
   mutating func resolve(
     _ condition: RuntimeCondition
-  ) -> (name: String, type: RuntimeType)? {
+  ) -> [(name: String, type: RuntimeType)] {
+    let outer = environment
+    defer { environment = outer }
     switch condition {
+    case let .all(conditions):
+      var bindings: [(name: String, type: RuntimeType)] = []
+      for condition in conditions {
+        let resolved = resolve(condition)
+        for binding in resolved {
+          environment[binding.name] = binding.type
+        }
+        bindings.append(contentsOf: resolved)
+      }
+      return bindings
     case let .boolean(expression):
       require(
         resolve(expression),
@@ -128,7 +104,7 @@ struct RuntimeTypeResolver {
         subject: "the condition",
         at: expression.location
       )
-      return nil
+      return []
     case let .optionalBinding(name, expression):
       let type = resolve(expression)
       guard case let .optional(wrapped) = type else {
@@ -136,9 +112,9 @@ struct RuntimeTypeResolver {
           "an optional binding takes an Optional value, not \(type.writtenName)",
           at: expression.location
         )
-        return nil
+        return []
       }
-      return (name, wrapped)
+      return [(name, wrapped)]
     }
   }
 
@@ -164,12 +140,21 @@ struct RuntimeTypeResolver {
       )
       return wrapped
     }
-    let rightExpectation: RuntimeType? = if operatorName == "+",
-                                            case .array = leftType
+    let rightExpectation: RuntimeType? = if ["==", "!="].contains(operatorName),
+                                            case .arraySlice = leftType
+    {
+      leftType
+    } else if operatorName == "+",
+              case .array = leftType
     {
       leftType
     } else { leftType == .double ? .double : nil }
     var rightType = resolve(right, expected: rightExpectation)
+    if ["==", "!="].contains(operatorName), case .array = left.kind,
+       case .arraySlice = rightType
+    {
+      leftType = resolve(left, expected: rightType)
+    }
     switch (leftType, rightType) {
     case (.integer, .double) where left.isContextualIntegerLiteral:
       leftType = .double
@@ -225,6 +210,20 @@ struct RuntimeTypeResolver {
         at: right.location
       )
       return .boolean
+    case "..<":
+      require(
+        leftType,
+        toMatch: .integer,
+        subject: "the range start",
+        at: left.location
+      )
+      require(
+        rightType,
+        toMatch: .integer,
+        subject: "the range end",
+        at: right.location
+      )
+      return .integerRange
     case "<", "<=", ">", ">=":
       guard leftType.isComparable, leftType == rightType else {
         diagnose(
@@ -234,6 +233,14 @@ struct RuntimeTypeResolver {
         return .boolean
       }
       return .boolean
+    case "-":
+      guard leftType == rightType,
+            leftType == .integer || leftType == .double
+      else {
+        diagnose("'-' does not apply to these values", at: location)
+        return .unknown
+      }
+      return leftType
     case "+":
       if case .array = leftType, case .array = rightType,
          leftType.isAssignable(to: rightType) || rightType

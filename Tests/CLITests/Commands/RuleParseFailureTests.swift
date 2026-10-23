@@ -15,13 +15,13 @@ struct RuleParseFailureTests {
     Rule("layers") { app.checkLayering(layers) }
     """,
     """
-    func checkClasses(_ codebase: Codebase) async -> Violations<Class> {
+    func checkClasses(_ codebase: Codebase) async throws -> Violations<Class> {
       try await codebase.classes.violations(of: .isFinal)
     }
     let rules: [Rule] = [Rule("classes") { try await checkClasses(app) }]
     """,
     """
-    func checkLayers(_ codebase: Codebase) async -> LayeringCheck {
+    func checkLayers(_ codebase: Codebase) async throws -> LayeringCheck {
       try await codebase.checkLayering(layers)
     }
     let rules: [Rule] = [Rule("layers") { try await checkLayers(app) }]

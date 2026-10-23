@@ -41,6 +41,9 @@ extension RuntimeEvaluator {
         state: &state
       )
     case let .closure(closure):
+      let outerAllowsThrowing = state.synchronousClosureAllowsThrowing
+      state.synchronousClosureAllowsThrowing = false
+      defer { state.synchronousClosureAllowsThrowing = outerAllowsThrowing }
       state.synchronousClosureDepth += 1
       defer { state.synchronousClosureDepth -= 1 }
       let result = try await invoke(
