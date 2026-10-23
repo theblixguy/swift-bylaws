@@ -29,7 +29,7 @@
   ///
   /// Record with a full test run. A check run fails when a completed rule no
   /// longer produces one of its recorded entries. Skipped rules and
-  /// individually run cases of a parameterised native rule keep their entries
+  /// individually run cases of a parameterised Swift Testing rule keep their entries
   /// unchecked.
   public struct BaselineTrait: TestTrait, SuiteTrait, TestScoping, Sendable {
     /// Baselines include every test and nested suite.
@@ -44,14 +44,59 @@
       testCase: Test.Case?,
       performing function: @concurrent @Sendable () async throws -> Void
     ) async throws {
-      if let completedRuleObserver = TraitScope.completedRuleObserver {
+      guard SwiftTestingRuleSession.isCollecting else {
+        try await provideBaselineScope(
+          for: test, testCase: testCase, performing: function
+        )
+        return
+      }
+      guard mode == .check else {
+        throw SwiftTestingRuleSessionError.baselineRecording
+      }
+      let inherited = TraitScope.acceptsReportedViolation
+      let known = Set(baseline.entries)
+      let root = projectRoot(for: baseline)
+      try await TraitScope.$acceptsReportedViolation
+        .withValue({ rule, offender in
+          let entry = Self.baselineEntry(
+            for: rule, offender: offender, under: root
+          )
+          return known.contains(entry) || inherited?(rule, offender) == true
+        }) {
+          try await provideBaselineScope(
+            for: test, testCase: testCase, performing: function
+          )
+        }
+    }
+
+    private func provideBaselineScope(
+      for test: Test,
+      testCase: Test.Case?,
+      performing function: @concurrent @Sendable () async throws -> Void
+    ) async throws {
+      let scope = ObjectIdentifier(recorder)
+      let activeScopes = TraitScope.baselineScopes
+      if activeScopes.contains(scope) {
         try await function()
-        if let ruleID = Self.completedNativeRule(for: test) {
-          completedRuleObserver(ruleID)
+        if let ruleID = Self.completedTestRule(for: test) {
+          TraitScope.completedRuleObserver?(ruleID)
         }
         return
       }
+      try await TraitScope.$baselineScopes
+        .withValue(activeScopes.union([scope])) {
+          try await observeBaselineScope(
+            for: test, testCase: testCase, performing: function
+          )
+        }
+    }
 
+    private func observeBaselineScope(
+      for test: Test,
+      testCase: Test.Case?,
+      performing function: @concurrent @Sendable () async throws -> Void
+    ) async throws {
+      let inheritedObserver = TraitScope.completedRuleObserver
       // Testing calls issue handlers synchronously.
       let (stream, continuation) = AsyncStream<BaselineObservation>.makeStream()
       let (ruleStream, ruleContinuation) = AsyncStream<Rule.ID>.makeStream()
@@ -81,6 +126,7 @@
       do {
         try await TraitScope.$completedRuleObserver.withValue({ ruleID in
           ruleContinuation.yield(ruleID)
+          inheritedObserver?(ruleID)
         }) {
           #if compiler(>=6.3)
             try await handling.provideScope(for: test, testCase: testCase) {
@@ -111,9 +157,10 @@
         completedRules.insert(ruleID)
       }
       if deferredTestError == nil,
-         let ruleID = Self.completedNativeRule(for: test)
+         let ruleID = Self.completedTestRule(for: test)
       {
         completedRules.insert(ruleID)
+        inheritedObserver?(ruleID)
       }
 
       switch mode {
@@ -139,16 +186,8 @@
       projectRoot: String?
     ) -> BaselineObservation? {
       if let violation = TraitScope.reportedViolation {
-        let reported = baselineLocation(
-          of: violation.offender.affectedPath ?? violation.offender.location
-            .filePath,
-          under: projectRoot
-        )
-        let entry = Baseline.Entry(
-          offender: violation.offender,
-          for: violation.rule,
-          at: reported.filePath,
-          relativeTo: reported.root
+        let entry = baselineEntry(
+          for: violation.rule, offender: violation.offender, under: projectRoot
         )
         return BaselineObservation(entry: entry, known: known.contains(entry))
       }
@@ -175,6 +214,21 @@
         )
       )
       return BaselineObservation(entry: entry, known: known.contains(entry))
+    }
+
+    private static func baselineEntry(
+      for rule: Rule.ID,
+      offender: Offender,
+      under projectRoot: String?
+    ) -> Baseline.Entry {
+      let location = baselineLocation(
+        of: offender.affectedPath ?? offender.location.filePath,
+        under: projectRoot
+      )
+      return Baseline.Entry(
+        offender: offender, for: rule,
+        at: location.filePath, relativeTo: location.root
+      )
     }
 
     private static func baselineLocation(
@@ -234,7 +288,7 @@
       }
     }
 
-    private static func completedNativeRule(for test: Test) -> Rule.ID? {
+    private static func completedTestRule(for test: Test) -> Rule.ID? {
       guard !test.isSuite, !test.isParameterized else { return nil }
       return Rule.ID(test.displayName ?? test.name)
     }

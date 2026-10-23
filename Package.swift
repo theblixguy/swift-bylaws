@@ -401,6 +401,10 @@ let package = Package(
       exact: "1.7.5"
     ),
     .package(
+      url: "https://github.com/swiftlang/swift-subprocess.git",
+      exact: "1.0.0"
+    ),
+    .package(
       url: "https://github.com/apple/swift-argument-parser.git",
       exact: "1.8.2"
     ),
@@ -487,7 +491,10 @@ let package = Package(
     ),
     .target(
       name: "BylawsTestSupport",
-      dependencies: ["Bylaws", "BylawsPaths"],
+      dependencies: [
+        "Bylaws", "BylawsCore", "BylawsPaths",
+        .product(name: "Subprocess", package: "swift-subprocess"),
+      ],
       swiftSettings: swiftSettings
     ),
     .target(
@@ -499,7 +506,6 @@ let package = Package(
         "BylawsSemantics",
         "BylawsIndex",
         "BylawsIndexStore",
-        .product(name: "SystemPackage", package: "swift-system"),
       ],
       swiftSettings: swiftSettings
     ),
@@ -572,6 +578,8 @@ let package = Package(
       dependencies: [
         "BylawsIndex", "BylawsIndexStore", "BylawsCore", "BylawsPaths",
         "BylawsSemantics", "BylawsTestSupport",
+        .product(name: "Subprocess", package: "swift-subprocess"),
+        .product(name: "SystemPackage", package: "swift-system"),
       ],
       swiftSettings: swiftSettings
     ),
@@ -601,7 +609,6 @@ let package = Package(
         "BylawsInterpreter",
         "BylawsSemantics",
         "BylawsTestSupport",
-        .product(name: "SystemPackage", package: "swift-system"),
         .product(
           name: "ArgumentParser",
           package: "swift-argument-parser",

@@ -131,6 +131,9 @@ jobs:
         uses: ./.github/actions/swift-cache
         with:
           scope: macos-tests
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm/artifacts
           skip-cache: ${{ inputs.skip_cache }}
       - name: Build tests
         run: swift build --build-tests
@@ -138,7 +141,9 @@ jobs:
         if: steps.cache.outputs.save-needed == 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: .build
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm/artifacts
           key: ${{ steps.cache.outputs.primary-key }}
       - name: Run tests
         env:

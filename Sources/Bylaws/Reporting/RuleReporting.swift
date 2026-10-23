@@ -18,32 +18,16 @@
     ) async throws(RuleError) {
       let findings = try await findings()
       let enforcement = enforcement ?? self.enforcement
-      for offender in findings.violations.offenders {
-        let context = TraitScope.ReportedViolation(
-          rule: id,
-          offender: offender
-        )
-        TraitScope.$reportedViolation.withValue(context) {
-          let comment = Comment(
-            rawValue: "\(offender.description) violates '\(offender.requirement ?? name)'"
-              + (hint.map { " (\($0))" } ?? "")
-          )
-          if enforcement == .advisory {
-            Issue.recordWarning(
-              comment,
-              sourceLocation: offender.testingLocation
-            )
-          } else {
-            Issue.record(comment, sourceLocation: offender.testingLocation)
-          }
-        }
-      }
-      for warning in findings.warnings {
-        Issue.recordWarning(
-          Comment(rawValue: warning.message),
-          sourceLocation: sourceLocation
-        )
-      }
+      FindingsReporting.report(
+        findings,
+        ruleID: id,
+        name: name,
+        enforcement: enforcement,
+        hint: hint,
+        location: location,
+        origin: origin,
+        sourceLocation: sourceLocation
+      )
       TraitScope.completedRuleObserver?(id)
     }
   }

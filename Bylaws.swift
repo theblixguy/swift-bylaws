@@ -48,7 +48,7 @@ let architecture = Layering(
   ),
   Layer(
     "BylawsTestSupport", files: ["Sources/BylawsTestSupport/**"],
-    mayImport: ["Bylaws", "BylawsPaths"]
+    mayImport: ["Bylaws", "BylawsCore", "BylawsPaths"]
   ),
   Layer(
     "BylawsRunner", files: ["Sources/BylawsRunner/**"],
@@ -79,10 +79,14 @@ let rules: [Rule] = [
     try await sourcesAndBenchmarks.checkLayering(architecture)
   },
 
-  Rule("testing-imports", "Only testing frontends import Testing") {
+  Rule(
+    "testing-imports",
+    "Only testing frontends and test support import Testing"
+  ) {
     try await sourcesAndBenchmarks.files.outside(
       "Sources/Bylaws",
-      "Sources/BylawsIndex"
+      "Sources/BylawsIndex",
+      "Sources/BylawsTestSupport"
     )
     .violations(matching: .imports("Testing"))
   },
