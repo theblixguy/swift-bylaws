@@ -133,7 +133,7 @@ private func testRule(with executable: URL) throws {
 
   let result = try run(
     executable,
-    arguments: ["lint", "--root", root.path],
+    arguments: ["lint", "--skip-tests", "--root", root.path],
     in: root
   )
   try requireSuccess(result, command: "bylaws lint")

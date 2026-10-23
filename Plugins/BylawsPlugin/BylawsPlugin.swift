@@ -16,6 +16,7 @@ struct BylawsPlugin: CommandPlugin {
     process.executableURL = try context.tool(named: "bylaws-cli").url
     process.arguments = [
       CommandName.lint.rawValue,
+      OptionName.skipTests.rawValue,
       OptionName.swiftPackageModules.rawValue,
       indexURL.path,
     ] + arguments
@@ -39,6 +40,7 @@ private enum CommandName: String {
 }
 
 private enum OptionName: String {
+  case skipTests = "--skip-tests"
   case swiftPackageModules = "--swift-package-modules"
 }
 

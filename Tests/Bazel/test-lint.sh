@@ -74,10 +74,30 @@ changed_source() {
     cp "$repository/Tests/Bazel/$1" "$1"
 }
 
-"$tool" lint --root . --rules Cases/Rules/Final.swift \
+cat > Package.swift <<'SWIFT'
+// swift-tools-version: 6.2
+import PackageDescription
+
+let package = Package(
+    name: "ManifestData",
+    targets: [.target(name: "App", path: "Sources")]
+)
+SWIFT
+cat >> BUILD.bazel <<'STARLARK'
+
+bylaws_lint(
+    name = "manifest_data",
+    srcs = ["Sources/Model.swift", ":generated_directory", ":generated_file"],
+    data = ["MODULE.bazel", "Package.swift"],
+    rules = ["Bylaws.swift"],
+)
+STARLARK
+
+"$tool" lint --skip-tests --root . --rules Cases/Rules/Final.swift \
     --record-baseline Cases/Baseline.swift > "$work/baseline.log"
 
 passes //:architecture
+passes //:manifest_data
 jq -se 'any(.[]; .mnemonic == "BylawsLint" and (.commandArgs | index("--selection-cache-size") == null))' \
     "$work/actions.json" > /dev/null
 

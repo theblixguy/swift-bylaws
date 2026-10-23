@@ -17,7 +17,8 @@ package enum RuleSelector {
     let available = Set(rules.map(\.id))
     let requested = Set((only + skip).map { Rule.ID($0) })
     let unknown = requested.subtracting(available)
-    let availableIDs = rules.map { "'\($0.id)'" }.joined(separator: ", ")
+    let availableIDs = available.sorted { $0.rawValue < $1.rawValue }
+      .map { "'\($0)'" }.joined(separator: ", ")
     let diagnostics = unknown.sorted { $0.rawValue < $1.rawValue }.map { id in
       Diagnostic(
         severity: .error,

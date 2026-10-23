@@ -13,7 +13,7 @@ extension SwiftPMTestRunner {
       withIntermediateDirectories: true
     )
     let scratch = directory.appendingPathComponent("build", isDirectory: true)
-    let environment = subprocessEnvironment()
+    var environment = subprocessEnvironment()
     let index = try await prepareIndexBuild(
       freshIndex: true, scratch: scratch, rootPath: rootPath,
       directory: directory, swiftPMArguments: swiftPMArguments,
@@ -31,6 +31,7 @@ extension SwiftPMTestRunner {
       sessionID: nil
     )
 
+    environment["BYLAWS_CORRECTION_ACTIVE"] = "1"
     let result = try await SwiftPMCommand.run(
       arguments: ["build"] + swiftPMArguments + index.arguments
         + ["--package-path", rootPath],

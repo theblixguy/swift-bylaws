@@ -111,7 +111,7 @@ def _bylaws_lint_impl(ctx):
     )
 
     args = ctx.actions.args()
-    args.add_all(["lint", "--source-only", "--format", "json"])
+    args.add_all(["lint", "--source-only", "--skip-tests", "--format", "json"])
     args.add("--root", project.path)
     args.add("--output", report)
     args.add("--parsed-sources")

@@ -229,7 +229,7 @@ jobs:
         run: swift test --skip-build --no-parallel --filter 'CLITests|ProcessTests'
       - name: Check Bylaws' own rules
         if: matrix.swift == '6.2'
-        run: swift run --skip-build bylaws lint --format github
+        run: swift run --skip-build bylaws lint --skip-tests --format github
 
   benchmarks:
     name: Build benchmarks
@@ -377,6 +377,9 @@ jobs:
                 BylawsPluginTool.artifactbundle \
                 "bylaws-cli::bylaws::linux::.build/release/bylaws::x86_64-unknown-linux-gnu"
           - name: Smoke-test the release binary
+            env:
+              SWIFT_BACKTRACE: enable=yes,interactive=no
+              SWIFT_ROOT: /usr
             run: |
               Scripts/test-release.swift \
                 .build/release/bylaws \
@@ -426,6 +429,17 @@ jobs:
               cat .build/baseline.log
               grep -i stale .build/baseline.log
               rm Sources/Other/Added.swift Bylaws.baseline.swift
+              swift build --disable-build-manifest-caching --target App
+              cp Rules/CorrectionRules.swift Bylaws.swift
+              printf 'class Added {}\n' > Sources/Other/Added.swift
+              if swift build --disable-build-manifest-caching --target App > .build/correction.log 2>&1; then
+                cat .build/correction.log
+                exit 1
+              fi
+              cat .build/correction.log
+              grep -F "Added violates 'Classes are final'" .build/correction.log
+              ../../../.build/release/bylaws lint --root . --source-only --autocorrect --skip-tests
+              grep -Fx 'final class Added {}' Sources/Other/Added.swift
               swift build --disable-build-manifest-caching --target App
               ! find .build -path '*bylaws_cli*.build/*.swift.o' -print -quit | grep -q .
               ! find .build -path '*SwiftSyntax.build/*.swift.o' -print -quit | grep -q .

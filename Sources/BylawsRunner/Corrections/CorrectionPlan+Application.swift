@@ -1,4 +1,5 @@
 package import BylawsCore
+import BylawsPaths
 import Foundation
 
 #if canImport(Darwin)
@@ -71,8 +72,8 @@ extension CorrectionPlan {
         )
         guard attributes[.type] as? FileAttributeType == .typeRegular,
               (attributes[.referenceCount] as? NSNumber)?.intValue == 1,
-              destination.resolvingSymlinksInPath().path == item.change
-                .resolvedPath,
+              LexicalFilePath(item.change.path).resolvingSymbolicLinks()?.string
+              == item.change.resolvedPath,
               try Data(contentsOf: destination) == item.change.original
         else {
           throw CaptureError(

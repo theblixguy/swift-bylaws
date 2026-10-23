@@ -20,6 +20,7 @@ let package = Package(
       name: "ArchitectureTests",
       dependencies: [
         .product(name: "Bylaws", package: "swift-bylaws"),
+        .product(name: "BylawsInterpreter", package: "swift-bylaws"),
         .product(name: "CompanyRules", package: "CompanyRules"),
       ],
       path: "Rules"

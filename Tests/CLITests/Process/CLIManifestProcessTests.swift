@@ -136,7 +136,7 @@ struct CLIManifestProcessTests {
       extraFiles: ["Package.swift": Self.completeManifest]
     )
 
-    let result = try project.run()
+    let result = try project.run("--skip-tests")
 
     #expect(result.status == 0)
     #expect(result.standardOutput.contains("Checked 1 rule: 0 violations."))
@@ -181,7 +181,7 @@ struct CLIManifestProcessTests {
       ]
     )
 
-    let result = try project.run()
+    let result = try project.run("--skip-tests")
 
     #expect(result.status == 0)
     #expect(result.standardOutput.contains("Checked 1 rule: 0 violations."))
