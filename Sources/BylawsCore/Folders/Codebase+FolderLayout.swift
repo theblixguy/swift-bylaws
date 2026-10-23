@@ -29,8 +29,17 @@ extension Codebase {
         matching: glob,
         rootPath: rootPath
       )
+      if SourceCapture.isEnabled {
+        try await SourceCapture.record(
+          [], for: self, rootPath: rootPath,
+          directories: .folderLayout(
+            pattern: glob.pattern,
+            paths: Self.layoutDirectoryInput(directories, matching: glob)
+          )
+        )
+      }
     } catch {
-      throw .unreadableCodebase(error)
+      throw .unreadableCodebase(await SourceCapture.failed(error, for: self))
     }
     let matched = directories.filter(glob.matches).sorted()
     let required = Set(folders)
@@ -101,23 +110,43 @@ extension Codebase {
         )
         return directories
       }
-      let failures = await DirectoryWalker.walk(rootPath) { path, entry in
-        guard entry == .directory else { return .skipDescendants }
-        directories.insert(path)
-        return glob.matches(path) || glob
-          .canMatchDescendant(of: Glob.Path(path))
-          ? .descend : .skipDescendants
-      }
-      guard failures.isEmpty else {
-        throw .unreadable(failures: failures.map { failure in
-          .init(
-            path: LexicalFilePath(rootPath).appending(failure.relativePath)
-              .string,
-            reason: failure.reason
-          )
-        }.sorted { $0.path < $1.path })
-      }
+      return try await Self.readLayoutDirectories(
+        matching: glob, rootPath: rootPath
+      )
     }
     return directories
+  }
+
+  static func readLayoutDirectories(
+    matching glob: Glob, rootPath: String
+  ) async throws(CodebaseError) -> Set<String> {
+    var directories: Set = [""]
+    let failures = await DirectoryWalker.walk(rootPath) { path, entry in
+      guard entry == .directory else { return .skipDescendants }
+      directories.insert(path)
+      return glob.matches(path) || glob
+        .canMatchDescendant(of: Glob.Path(path))
+        ? .descend : .skipDescendants
+    }
+    guard failures.isEmpty else {
+      throw .unreadable(failures: failures.map { failure in
+        .init(
+          path: LexicalFilePath(rootPath).appending(failure.relativePath)
+            .string,
+          reason: failure.reason
+        )
+      }.sorted { $0.path < $1.path })
+    }
+    return directories
+  }
+
+  static func layoutDirectoryInput(
+    _ directories: Set<String>, matching glob: Glob
+  ) -> [String] {
+    directories.filter { path in
+      glob.matches(path) || (!path.isEmpty && glob.matches(
+        LexicalFilePath(path).removingLastComponent().string
+      ))
+    }.sorted()
   }
 }

@@ -27,7 +27,9 @@ extension Rule {
             )
           }
         },
-        checkedCount: checks.reduce(0) { $0 + $1.checkedCount }
+        checkedCount: checks.reduce(0) { $0 + $1.checkedCount },
+        witnesses: checks.flatMap(\.witnesses),
+        fixes: checks.flatMap(\.fixes)
       )
     }
 

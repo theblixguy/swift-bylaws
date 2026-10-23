@@ -8,27 +8,39 @@ package actor CodebaseCache {
   package func parsedCodebase(
     for codebase: Codebase
   ) async throws(CodebaseError) -> ParsedCodebase {
-    let codebase = codebase.usingParseCache(
-      codebase.parseCachePolicy.resolved()
-    )
-    let key = try key(for: codebase)
-    let reusable = entries[key]?.reusableFiles
-    let built = try await MemoisedTask.value(
-      name: "bylaws: parse codebase",
-      lookup: { entries[key]?.parsedCodebase },
-      insert: { entries[key]?.parsedCodebase = $0 },
-      remove: { entries[key]?.parsedCodebase = nil },
-      storeValue: { built in
-        entries[key]?.reusableFiles = CodebaseBuilder.ReusableFiles(
-          overlay: codebase.overlay,
-          filesByPath: built.rawFilesByPath
-        )
+    do {
+      let capture = try await SourceCapture.begin(codebase)
+      let codebase = codebase.usingParseCache(
+        SourceCapture.isEnabled ? .disabled : codebase.parseCachePolicy
+          .resolved()
+      )
+      let key = try key(for: codebase, rootPath: capture?.scope.rootPath)
+      let reusable = entries[key]?.reusableFiles
+      let built = try await MemoisedTask.value(
+        name: "bylaws: parse codebase",
+        lookup: { entries[key]?.parsedCodebase },
+        insert: { entries[key]?.parsedCodebase = $0 },
+        remove: { entries[key]?.parsedCodebase = nil },
+        storeValue: { built in
+          entries[key]?.reusableFiles = CodebaseBuilder.ReusableFiles(
+            overlay: codebase.overlay,
+            filesByPath: built.rawFilesByPath
+          )
+        }
+      ) { () async throws(CodebaseError) in
+        try await CodebaseBuilder.build(codebase, reusing: reusable)
       }
-    ) { () async throws(CodebaseError) in
-      try await CodebaseBuilder.build(codebase, reusing: reusable)
+      await codebase.recordSourceDependencies(rootPath: key.directoryRoot)
+      try await SourceCapture.finish(
+        capture, files: built.parsed.filesAsWritten,
+        rootPath: built.parsed.rootPath,
+        consumedInputs: built.languageInputs,
+        xcodeProjects: built.xcodeProjects
+      )
+      return built.parsed
+    } catch {
+      throw await SourceCapture.failed(error, for: codebase)
     }
-    await codebase.recordSourceDependencies(rootPath: key.directoryRoot)
-    return built.parsed
   }
 
   package func removeEntries(under directory: String) {
@@ -41,26 +53,43 @@ package actor CodebaseCache {
   func packageAnalysis(
     for codebase: Codebase
   ) async throws(CodebaseError) -> PackageAnalysis {
-    let codebase = codebase.usingParseCache(
-      codebase.parseCachePolicy.resolved()
-    )
-    let key = try key(for: codebase)
-    let analysis = try await MemoisedTask.value(
-      name: "bylaws: analyse package",
-      lookup: { entries[key]?.packageAnalysis },
-      insert: { entries[key]?.packageAnalysis = $0 },
-      remove: { entries[key]?.packageAnalysis = nil }
-    ) { [self] () async throws(CodebaseError) in
-      let parsedCodebase = try await parsedCodebase(for: codebase)
-      return try CodebaseBuilder.packageAnalysis(
-        of: parsedCodebase,
-        from: codebase.overlay
+    do {
+      let codebase = codebase.usingParseCache(
+        SourceCapture.isEnabled ? .disabled : codebase.parseCachePolicy
+          .resolved()
       )
+      let capturedCodebase: ParsedCodebase? = if SourceCapture.isEnabled {
+        try await parsedCodebase(for: codebase)
+      } else {
+        nil
+      }
+      let key = try key(for: codebase, rootPath: capturedCodebase?.rootPath)
+      let analysis = try await MemoisedTask.value(
+        name: "bylaws: analyse package",
+        lookup: { entries[key]?.packageAnalysis },
+        insert: { entries[key]?.packageAnalysis = $0 },
+        remove: { entries[key]?.packageAnalysis = nil }
+      ) { [self] () async throws(CodebaseError) in
+        let parsedCodebase = if let capturedCodebase { capturedCodebase }
+        else { try await parsedCodebase(for: codebase) }
+        return try CodebaseBuilder.packageAnalysis(
+          of: parsedCodebase,
+          from: codebase.overlay
+        )
+      }
+      await codebase.recordSwiftPackageAnalysisDependencies(
+        rootPath: key.directoryRoot
+      )
+      if let capturedCodebase {
+        try await SourceCapture.record(
+          [analysis.manifestInput], for: codebase,
+          rootPath: capturedCodebase.rootPath
+        )
+      }
+      return analysis
+    } catch {
+      throw await SourceCapture.failed(error, for: codebase)
     }
-    await codebase.recordSwiftPackageAnalysisDependencies(
-      rootPath: key.directoryRoot
-    )
-    return analysis
   }
 
   private struct Key: Sendable, Hashable {
@@ -81,10 +110,12 @@ package actor CodebaseCache {
       return path
     }
 
-    init(_ codebase: Codebase) throws(CodebaseError) {
+    init(_ codebase: Codebase, rootPath: String? = nil) throws(CodebaseError) {
       switch codebase.root.strategy {
       case .automatic, .directory:
-        root = .directory(try codebase.resolvedRootPath())
+        let path = if let rootPath { rootPath }
+        else { try codebase.resolvedRootPath() }
+        root = .directory(path)
       case .sources:
         root = .sources(codebase.root.cacheIdentity)
       }
@@ -145,15 +176,18 @@ package actor CodebaseCache {
 
   var cachedConfigurationCount: Int { canonicalKeys.count }
 
-  private func key(for codebase: Codebase) throws(CodebaseError) -> Key {
+  private func key(
+    for codebase: Codebase, rootPath: String? = nil
+  ) throws(CodebaseError) -> Key {
     let lookup = LookupKey(codebase)
-    let key: Key
-    if let canonical = canonicalKeys[lookup] {
-      key = canonical
+    let key = if SourceCapture.isEnabled {
+      try Key(codebase, rootPath: rootPath)
+    } else if let canonical = canonicalKeys[lookup] {
+      canonical
     } else {
-      key = try Key(codebase)
-      canonicalKeys[lookup] = key
+      try Key(codebase)
     }
+    canonicalKeys[lookup] = key
     if entries[key]?.overlay != codebase.overlay {
       entries[key] = Entry(
         overlay: codebase.overlay,

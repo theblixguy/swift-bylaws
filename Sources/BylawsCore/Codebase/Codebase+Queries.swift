@@ -246,7 +246,8 @@ extension Codebase {
     return Selection(
       storage: storage,
       queryDescription: description,
-      rootPath: parsedCodebase.rootPath
+      rootPath: parsedCodebase.rootPath,
+      codebase: self
     )
   }
 
@@ -270,7 +271,8 @@ extension Codebase {
     return Selection(
       storage: storage,
       queryDescription: description,
-      rootPath: parsedCodebase.rootPath
+      rootPath: parsedCodebase.rootPath,
+      codebase: self
     )
   }
 }

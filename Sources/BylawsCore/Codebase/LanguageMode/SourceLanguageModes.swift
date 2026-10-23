@@ -10,6 +10,8 @@ struct SourceLanguageModes {
   private var packages: [LexicalFilePath: PackageLanguageMode] = [:]
   private var searched: Set<LexicalFilePath> = []
   private var xcodeMode: SwiftLanguageMode?
+  private(set) var inputs: [SourceCapture.Input] = []
+  private(set) var xcodeProjects: [String]?
 
   init(
     root: String,
@@ -64,6 +66,10 @@ struct SourceLanguageModes {
         } else {
           source = nil
         }
+        inputs.append(.init(
+          path: path,
+          digest: source.map { SourceCapture.digest(Data($0.utf8)) }
+        ))
         if let source {
           let manifest = PackageManifest(source: source)
           let mode = SwiftLanguageMode(toolsVersion: manifest.toolsVersion)
@@ -113,6 +119,7 @@ struct SourceLanguageModes {
       )])
     }
     let projects = names.filter { $0.hasSuffix(".xcodeproj") }.sorted()
+    xcodeProjects = projects
     var modes: Set<SwiftLanguageMode> = []
     for project in projects {
       let path = root.appending(project).appending("project.pbxproj").string
@@ -126,6 +133,9 @@ struct SourceLanguageModes {
           reason: error.description
         )])
       }
+      inputs.append(.init(
+        path: path, digest: SourceCapture.digest(Data(source.utf8))
+      ))
       modes.insert(try XcodeLanguageMode.read(source: source, path: path))
     }
     guard modes.count <= 1

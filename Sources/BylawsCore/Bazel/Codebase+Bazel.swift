@@ -19,7 +19,12 @@ extension Codebase {
   public func bazelGraph(from path: String) async throws(CodebaseError)
     -> BazelGraph
   {
-    let rootPath = try resolvedRootPath()
+    let rootPath: String
+    do {
+      rootPath = try resolvedRootPath()
+    } catch {
+      throw await SourceCapture.failed(error, for: self)
+    }
     let file = LexicalFilePath(path, relativeTo: LexicalFilePath(rootPath))
     await recordFileDependency(file.string, projectRoot: rootPath)
     do {
@@ -32,15 +37,27 @@ extension Codebase {
       } else {
         data = try Data(contentsOf: URL(fileURLWithPath: file.string))
       }
+      if SourceCapture.isEnabled {
+        try await SourceCapture.record(
+          [.init(path: file.string, digest: SourceCapture.digest(data))],
+          for: self, rootPath: rootPath
+        )
+      }
       let result = try JSONDecoder().decode(BazelQueryResult.self, from: data)
       return try result.graph(rootPath: rootPath, exportPath: file.string)
     } catch is DecodingError {
-      throw .bazelGraph(
-        path: file.string,
-        reason: "The file must contain a configured cquery JSON result."
+      throw await SourceCapture.failed(
+        .bazelGraph(
+          path: file.string,
+          reason: "The file must contain a configured cquery JSON result."
+        ),
+        for: self
       )
     } catch {
-      throw .bazelGraph(path: file.string, reason: error.reportableDescription)
+      throw await SourceCapture.failed(
+        .bazelGraph(path: file.string, reason: error.reportableDescription),
+        for: self
+      )
     }
   }
 }
