@@ -84,3 +84,19 @@ extension SourceExpression {
 }
 
 extension SourceExpression.Argument: SourceProviding {}
+
+extension SourceExpression.DictionaryElement: SourceProviding {
+  /// The complete key-value pair, excluding its comma and outer whitespace.
+  public var source: SourceSlice {
+    get throws {
+      let key = try key.source
+      let value = try value.source
+      guard key.snapshot == value.snapshot
+      else { throw SourceError.syntaxMismatch }
+      return try SourceSlice(
+        snapshot: key.snapshot,
+        range: key.range.lowerBound..<value.range.upperBound
+      )
+    }
+  }
+}

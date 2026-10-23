@@ -21,3 +21,17 @@ extension Attributed {
     return attributes.first { $0.name == plain }
   }
 }
+
+extension Attributed {
+  /// Whether an attribute with one unlabelled argument matches the predicate.
+  public func hasAttribute(
+    _ name: String, argument predicate: (SourceExpression) throws -> Bool
+  ) rethrows -> Bool {
+    let plain = name.hasPrefix("@") ? String(name.dropFirst()) : name
+    for attribute in attributes where attribute.name == plain {
+      guard let argument = attribute.argument else { continue }
+      if try predicate(argument) { return true }
+    }
+    return false
+  }
+}

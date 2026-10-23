@@ -69,13 +69,17 @@ struct ModifierReader {
     self.ownership = ownership
   }
 
-  static func attributes(_ attributes: AttributeListSyntax) -> [Attribute] {
+  static func attributes(
+    _ attributes: AttributeListSyntax, reader: SyntaxReader
+  ) -> [Attribute] {
     attributes.compactMap { element in
       guard case let .attribute(attribute) = element else { return nil }
-      return Attribute(
+      var result = Attribute(
         name: attribute.attributeName.trimmedDescription,
         arguments: attribute.arguments?.trimmedDescription
       )
+      result.capturedSource = try? reader.sourceSlice(of: attribute)
+      return result
     }
   }
 }

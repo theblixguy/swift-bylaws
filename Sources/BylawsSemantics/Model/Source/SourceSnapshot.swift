@@ -9,6 +9,16 @@ public struct SourceSnapshot: Sendable, Codable, Hashable {
   /// The language mode used to parse the source.
   public let swiftLanguageMode: SwiftLanguageMode
 
+  package var lineEnding: String {
+    if text.contains("\r\n") {
+      "\r\n"
+    } else if text.contains("\r"), !text.contains("\n") {
+      "\r"
+    } else {
+      "\n"
+    }
+  }
+
   package init(
     filePath: String, text: String, swiftLanguageMode: SwiftLanguageMode
   ) {

@@ -84,11 +84,13 @@ extension Ownership: CacheCodable {}
 extension Attribute: CacheCodable {
   package init(from decoder: CacheDecoder) throws(CacheDecoder.Malformed) {
     self.init(name: try decoder.decode(), arguments: try decoder.decode())
+    capturedSource = try decoder.decode()
   }
 
   package func encode(to encoder: CacheEncoder) {
     encoder.encode(name)
     encoder.encode(arguments)
+    encoder.encode(capturedSource)
   }
 }
 

@@ -17,8 +17,18 @@ extension SourceFile {
       buffer: sourceBuffer,
       swiftLanguageMode: swiftLanguageMode
     )
+    let declarations = properties + protocols.flatMap(\.requiredProperties)
+    let propertiesByOffset = declarations
+      .reduce(into: [Int: Property]()) { result, property in
+        if let offset = property.location.utf8Offset {
+          result[offset] = property
+        }
+      }
     let collector = SourceNodeCollector(
-      context: SourceContext(source: source, origin: .start(of: path)),
+      context: SourceContext(
+        source: source, origin: .start(of: path),
+        propertiesByOffset: propertiesByOffset
+      ),
       kinds: kinds
     )
     collector.walk(swiftLanguageMode.parse(sourceText))

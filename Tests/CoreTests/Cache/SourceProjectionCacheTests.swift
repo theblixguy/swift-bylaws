@@ -74,6 +74,24 @@ struct SourceProjectionCacheTests {
     }
   }
 
+  @Test("Cached attributes retain layout source at the current path")
+  func attributeLayouts() throws {
+    let original = try FileCollector.collect(
+      source: "@MainActor\n@Observable class Screen {}",
+      path: "/before/Screen.swift"
+    )
+    let moved = try roundTrip(original, at: "/after/Screen.swift")
+    let attributes = try #require(moved.classes.first).attributes
+    let edit = try attributes.replacement {
+      Line { attributes.sorted { $0.name > $1.name } }
+    }
+
+    #expect(edit.source.filePath == "/after/Screen.swift")
+    #expect(edit.source.text == "@MainActor\n@Observable ")
+    #expect(edit.replacement == "@Observable @MainActor\n")
+    #expect(try #require(attributes.first).source.file == moved.source)
+  }
+
   @Test("Public decoding retains model identity without source authority")
   func publicDecoding() throws {
     let original = try FileCollector.collect(

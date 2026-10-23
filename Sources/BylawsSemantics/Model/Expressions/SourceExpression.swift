@@ -89,6 +89,9 @@ public struct SourceExpression: Declaration {
   /// Whether the expression is the `nil` literal.
   public var isNilLiteral: Bool { syntax.is(NilLiteralExprSyntax.self) }
 
+  /// Whether the expression is a key-path literal.
+  public var isKeyPath: Bool { syntax.is(KeyPathExprSyntax.self) }
+
   /// The identifier or member name, without a receiver or argument labels.
   public var referenceName: String? {
     referenceToken?.text

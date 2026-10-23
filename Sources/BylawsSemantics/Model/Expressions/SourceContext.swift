@@ -5,16 +5,19 @@ struct SourceContext: Sendable {
   let origin: DeclarationLocation
   let inheritedDeclarations: [EnclosingDeclaration]
   let inheritedBranches: [CompilationBranch]
+  let propertiesByOffset: [Int: Property]
 
   init(
     source: SourceText, origin: DeclarationLocation,
     inheritedDeclarations: [EnclosingDeclaration] = [],
-    inheritedBranches: [CompilationBranch] = []
+    inheritedBranches: [CompilationBranch] = [],
+    propertiesByOffset: [Int: Property] = [:]
   ) {
     self.source = source
     self.origin = origin
     self.inheritedDeclarations = inheritedDeclarations
     self.inheritedBranches = inheritedBranches
+    self.propertiesByOffset = propertiesByOffset
   }
 
   func sourceSlice(of node: some SyntaxProtocol) throws -> SourceSlice {

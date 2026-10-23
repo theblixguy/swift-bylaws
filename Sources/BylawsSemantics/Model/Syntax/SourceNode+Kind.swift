@@ -11,6 +11,17 @@ extension SourceNode {
     case actorDeclaration
     /// A class declaration.
     case classDeclaration
+    /// A declaration without a more specific represented kind.
+    case declaration
+    /// An enum case declaration.
+    case enumCaseDeclaration
+    /// One element of an enum case declaration.
+    case enumCaseElement
+    /// A declaration modifier.
+    case declarationModifier
+    /// A function, initialiser or subscript parameter.
+    case functionParameter
+
     /// A deinitializer declaration.
     case deinitializerDeclaration
     /// An enum declaration.
@@ -73,6 +84,9 @@ extension SourceNode {
     /// A tuple expression.
     case tupleExpression
 
+    /// A statement without a more specific represented kind.
+    case statement
+
     /// A break statement.
     case breakStatement
     /// A continue statement.
@@ -115,6 +129,10 @@ extension SourceNode.Kind {
     case .sourceFile: .sourceFile
     case .actorDecl: .actorDeclaration
     case .classDecl: .classDeclaration
+    case .enumCaseDecl: .enumCaseDeclaration
+    case .enumCaseElement: .enumCaseElement
+    case .declModifier: .declarationModifier
+    case .functionParameter: .functionParameter
     case .deinitializerDecl: .deinitializerDeclaration
     case .enumDecl: .enumDeclaration
     case .extensionDecl: .extensionDeclaration
@@ -161,7 +179,10 @@ extension SourceNode.Kind {
     case .yieldStmt: .yieldStatement
     case .attribute: .attribute
     case .codeBlock: .codeBlock
-    default: nil
+    default:
+      if syntax.is(DeclSyntax.self) { .declaration }
+      else if syntax.is(StmtSyntax.self) { .statement }
+      else { nil }
     }
     guard let kind else { return nil }
     self = kind
