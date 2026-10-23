@@ -15,6 +15,12 @@ public enum SourceError: Error, Sendable, Equatable, CustomStringConvertible {
   /// A source match query found a count other than one.
   case matchCount(Int)
 
+  /// The edits come from different captured source snapshots.
+  case differentSnapshots
+
+  /// The edits overlap or insert at the same position.
+  case overlappingEdits
+
   /// A description of the source error and how to resolve it.
   public var description: String {
     switch self {
@@ -28,6 +34,10 @@ public enum SourceError: Error, Sendable, Equatable, CustomStringConvertible {
       "Source range must fit the source and UTF-8 boundaries. Select a source slice."
     case let .matchCount(count):
       "Source matches must contain one match, found \(count). Refine the source query."
+    case .differentSnapshots:
+      "SourceSlice must apply edits from one snapshot. Select edits from the same captured file."
+    case .overlappingEdits:
+      "SourceSlice must apply edits to separate ranges. Combine edits to the same source."
     }
   }
 }
