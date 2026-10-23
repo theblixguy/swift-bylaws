@@ -6,6 +6,7 @@ Check source-based architectural rules before SwiftPM compiles a target.
 
 You can use `BylawsBuildToolPlugin` to fail a SwiftPM build when source code
 breaks an enforced rule, without installing `bylaws` separately.
+The plugin runs portable rules and skips tests.
 
 > Important: Use `swift build --disable-build-manifest-caching` locally and in
 > CI. Without that flag, SwiftPM can reuse the build plan and skip the check
@@ -37,7 +38,7 @@ swift build --disable-build-manifest-caching
 
 The plugin checks the source selected by each rule, including source in other
 targets, so attaching it once per package avoids repeated checks. Its rules run
-whenever the build includes that target and uses the flag above.
+when the build includes that target and uses the flag above.
 
 Use the plugin with SwiftPM command-line builds. It cannot attach directly to
 an Xcode project target.

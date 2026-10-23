@@ -47,10 +47,11 @@ check where files and types belong, compare a `Package.swift` manifest with the
 imports in its source, find dependency cycles or restrict references between
 files, folders or modules.
 
-Most rules only need access to the source code and project files, so the CLI can
-run them without a build and Swift Testing compiles the test target as part of
-the usual test run. If a rule needs compiler resolved references then it can
-read the compiler index from the latest build.
+Most rules only need access to the source code and project files. You can run
+portable source rules before a build with `bylaws lint --skip-tests`, while
+Swift Testing compiles its rules as part of the usual test run. If a rule needs
+compiler resolved references then it can read the compiler index from the
+latest build.
 
 ## Try Bylaws
 
@@ -350,6 +351,15 @@ The [CLI setup guide] covers installation on macOS and Linux. Put
 bylaws lint
 ```
 
+The CLI also builds and runs tests when the project root contains a SwiftPM
+package with test targets.
+
+If you want to run only portable rules, use `bylaws lint --skip-tests`.
+
+Rules can also propose source corrections. Use `bylaws lint --autocorrect
+--dry-run` to review them, then `bylaws lint --autocorrect` to apply them and
+rerun the rules. The [source correction guide] covers both rule forms.
+
 If you want to start with warning-only rules instead, run `bylaws init` in a
 project that has no `Bylaws.swift` file. You can also record a baseline to
 permit existing violations while rejecting new ones.
@@ -402,10 +412,11 @@ swift test
 Rule violations fail the test and report the affected file and line. If you mark
 a rule as `.advisory`, its violations appear as warnings instead.
 
-To run the same rules from the CLI, pass the rules file to `bylaws lint`:
+To run the same rules as portable rules from the CLI, pass the rules file and
+skip tests:
 
 ```sh
-bylaws lint --rules Tests/AppTests/Bylaws.swift
+bylaws lint --skip-tests --rules Tests/AppTests/Bylaws.swift
 ```
 
 You can also create one test case per matching declaration, as shown in the
@@ -418,10 +429,12 @@ files use CLI syntax that cannot compile unchanged in a test target.
 
 ### Use the SwiftPM plugins
 
-You can use either plugin without installing `bylaws` separately, and your rules
-file can import shared rules from other package dependencies.
-Use the plugins for those imports, as the standalone CLI does not resolve the
-package dependencies.
+You can use either plugin without installing `bylaws` separately, and your
+portable rules file can import shared rules from other package dependencies.
+The standalone CLI reads self-contained portable rules files.
+
+Both plugins run portable rules and skip tests. You can run Swift Testing
+rules with `swift test` or the standalone `bylaws lint` command.
 
 | Plugin                                 | Use it when                                                                                          | How it runs                                                 |
 | -------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
@@ -441,10 +454,12 @@ root. The command plugin is available without attaching it to a target:
 swift package --allow-writing-to-package-directory bylaws
 ```
 
-The permission flag lets the plugin write a baseline when you request one. You
-can pass lint options after `bylaws`, such as `--only feature-boundaries`. If
-any of your rules use the compiler index, build the project before you run the
-plugin.
+The permission flag lets the plugin write baselines and apply source
+corrections when you request them. You can pass lint options after `bylaws`,
+such as `--only feature-boundaries`. For a normal lint run with compiler-index
+rules, build the project before you run the plugin. See the
+[correction guide] for the command to apply compiler-index corrections on
+macOS.
 
 #### Run the build plugin
 
@@ -538,7 +553,7 @@ enforce your project's architecture rules.
 | Warning-only rules         | Advisory rules in tests and the CLI                                                  | Severity metadata with test failures by default                      | Configurable warning and error levels                                                 |
 | Changed-file checks        | Pass changed paths to skip unaffected rules and reuse cached results                 | None                                                                 | Pass changed files or use the per-file cache                                          |
 | Report results             | Test failures, Xcode, GitHub, JSON and SARIF with rule locations                     | Test failures and JSON                                               | Xcode, GitHub, JSON, SARIF and other formats                                          |
-| Automatic fixes            | None                                                                                 | None                                                                 | `--fix` for supported rules                                                           |
+| Automatic fixes            | Custom rules with `--autocorrect`                                                     | None                                                                 | `--fix` for supported rules                                                           |
 
 ### What rules can check
 
@@ -637,6 +652,7 @@ projects. The times below are in seconds and exclude compilation.
 
 - [Getting started]
 - [Rule cookbook]
+- [Correcting source][source correction guide]
 - [Combine checks and match declaration members]
 - [Running rules from the CLI]
 - [Inspect a rule's selections]
@@ -683,6 +699,10 @@ Bylaws is available under the MIT licence. See [LICENSE].
   https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesfromthecli
 [Running rules from the CLI]:
   https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesfromthecli
+[correction guide]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/correctingsource#Use-compiler-index-queries
+[source correction guide]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/correctingsource
 [test discovery]:
   https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesfromthecli#Run-a-rules-file-as-tests
 [Build-tool plugin setup]:

@@ -5,9 +5,9 @@ Run architectural rules from the command line or in CI.
 ## Overview
 
 You can use the `bylaws` command to check rules from a `Bylaws.swift` file
-without adding a test target. You can run these checks locally or in CI without
-building your project first. Rules that use the compiler index need data from
-a build.
+without adding a test target. Portable source rules can run locally or in CI
+without a build when you pass `--skip-tests`. Rules that use the compiler index
+need data from a build, and Swift Testing rules need a test target.
 
 ## Install the CLI
 
@@ -64,6 +64,10 @@ Run the rules from the project root:
 bylaws lint
 ```
 
+The command also builds and runs tests when the project root is a SwiftPM
+package with test targets. If you want to run portable rules before a build,
+use `bylaws lint --skip-tests`.
+
 If you want to start with warning-only rules instead of the example above,
 run `bylaws init` in a project that has no `Bylaws.swift` file. It creates
 advisory rules, which report violations without failing the run. The generated
@@ -89,6 +93,11 @@ bylaws lint --format json --output report.json
 The report replaces the file's contents, and diagnostics go to standard error.
 If the file cannot be written, the command exits with status code 2. Use
 `--record-baseline` in a separate run.
+
+You can attach source corrections to a rule and apply them with
+`bylaws lint --autocorrect`. The CLI can collect corrections from Swift
+Testing rules in the same run. See <doc:CorrectingSource> for the APIs, dry-run
+patches and correction limits.
 
 To check a project from another directory, use `--root`. Relative `--rules`,
 `--baseline`, `--report-path` and `--changed-path` values refer to that project
@@ -136,6 +145,31 @@ file can reveal a violation in another. Bylaws runs every rule when no result
 cache exists and always reruns a rule when it cannot track all of its inputs.
 Rules that use compiler-index data also run every time because the index can
 change independently of source files.
+
+## Run Swift Testing rules
+
+The CLI collects checks passed to `report()` in a Swift Testing test, including
+their source corrections. See <doc:CorrectingSource#Write-a-Swift-Testing-rule>
+for an example. A build failure or an unrelated test failure stops the run.
+
+By default, the CLI uses the package at the lint root. You can choose another
+test package and filter its tests with regular expressions:
+
+```sh
+bylaws lint --test-package RuleTests --test-filter ArchitectureRules
+```
+
+The test package path is relative to the lint root and can be separate from
+the files that the rules check. Repeated filters select tests that match any
+of the expressions. If none of the filters match a test function, the CLI
+reports an error.
+
+`--only` and `--skip` select rule IDs after the tests run. If you want to
+restrict which tests run, use `--test-filter`.
+
+If you want to run only portable rules, use `--skip-tests`.
+
+This option cannot be combined with `--test-package` or `--test-filter`.
 
 ## Discovery and overrides
 
@@ -234,15 +268,20 @@ nonisolated let rules = companyRules(for: app)
 ```
 
 Run the package command without installing `bylaws` separately. The
-`--allow-writing-to-package-directory` flag lets it save a baseline when you
-request one:
+`--allow-writing-to-package-directory` flag lets it save baselines and apply
+source corrections when you request them:
 
 ```sh
 swift package --allow-writing-to-package-directory bylaws
 ```
 
-Rules that import a shared package need the SwiftPM command. The standalone
-`bylaws lint` command supports self-contained rules files only.
+The command plugin runs portable rules and skips tests. A portable rules file
+that imports a shared package needs this command. The standalone CLI can read
+self-contained portable rules files and run Swift Testing rules in a test
+package.
+
+See <doc:CorrectingSource#Use-compiler-index-queries> for the command to apply
+compiler-index corrections on macOS.
 
 If your rules file is outside a discovery location, pass its path through the
 plugin:
@@ -271,8 +310,8 @@ When the rules import a Swift package, use the plugin in CI:
     --format github
 ```
 
-The CLI runs rules without compiling them, so include the rule target in a CI
-build or test job to check for compiler errors too.
+The CLI runs portable rules without compiling them, so include the rule target
+in a CI build or test job to check for compiler errors too.
 
 ### Annotations on a pull request
 
@@ -541,11 +580,21 @@ usual, and inspection continues to show each filter step.
 
 The portable language includes top-level and local `let` bindings, named
 functions with explicit parameter and result types, closures, `return`, `if`,
-`for` and single-condition `guard let`. It supports optional chaining and `??`,
-string interpolation, key paths, comparisons, Boolean operators and array
-concatenation. Collection calls include `filter`, `map`, `compactMap`,
+`for` and `guard`. Conditions in `if` and `guard` can combine Boolean
+expressions and optional bindings with commas. It supports optional chaining,
+`??`, string interpolation, key paths, comparisons, Boolean operators and
+array concatenation. Integer expressions support addition and subtraction.
+Collection calls include `filter`, `map`, `compactMap`,
 `flatMap`, `contains`, `allSatisfy` and `isSubset(of:)`. Matcher and collection
 predicates are synchronous and nonthrowing.
+
+You can order collections with `sorted(by:)` and `reversed()`. A comparison is
+synchronous and can throw, as can a `hasAttribute(_:argument:)` predicate.
+Layout conditions in `Group`, `BlankLine` and `Newline` can also throw.
+`prefix(_:)`, `prefix(while:)` and `dropFirst(_:)` select
+consecutive elements. A slice retains its original indices, so use its
+`indices` or `startIndex` when accessing its elements.
+<doc:FormattingSource> shows how to use these operations in a source layout.
 
 For rules that compare folders, you can use `URL(fileURLWithPath:)` with
 `deletingLastPathComponent()`, `path`, `lastPathComponent` and `pathExtension`.
@@ -582,6 +631,7 @@ The CLI supports the members listed below. Use a compiled test target for
 other APIs.
 
 <!-- runtime-capabilities:start -->
+
 | Receiver | Properties | Methods |
 | --- | --- | --- |
 | `Actor` | `allInheritedTypes`, `attributes`, `bodySource`, `documentation`, `enclosingTypeName`, `extensionInheritedTypes`, `functions`, `genericParameters`, `inheritedTypes`, `initializers`, `isDocumented`, `isNonisolated`, `location`, `name`, `nameSource`, `properties`, `qualifiedName`, `source`, `sourceRange`, `sourceText`, `spacing`, `tokens`, `trivia`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
@@ -683,6 +733,7 @@ other APIs.
 | `URL` | `lastPathComponent`, `path`, `pathExtension` | `deletingLastPathComponent` |
 | `VariableBinding` | `compilationBranches`, `enclosingDeclarations`, `initialValue`, `isMutable`, `location`, `name`, `nameSource`, `source`, `spacing`, `tokens`, `trivia` | None |
 | `Violations` | `checkedCount`, `count`, `isEmpty`, `offenders`, `rule` | `findings`, `withFix` |
+
 <!-- runtime-capabilities:end -->
 
 Portable files may import `Bylaws`, `Testing`, `Foundation`, `BylawsIndex`,
