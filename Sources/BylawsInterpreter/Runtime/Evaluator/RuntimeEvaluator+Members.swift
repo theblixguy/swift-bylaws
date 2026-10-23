@@ -56,6 +56,12 @@ extension RuntimeEvaluator {
         catch { throw RuntimeError(wrapping: error, at: location) }
       }
       switch name {
+      case .tokens:
+        do { return .array(try value.tokens.map { .model(.sourceToken($0)) }) }
+        catch { throw RuntimeError(wrapping: error, at: location) }
+      case .trivia:
+        do { return .array(try value.trivia.map { .model(.sourceTrivia($0)) }) }
+        catch { throw RuntimeError(wrapping: error, at: location) }
       case .text: return .string(value.text)
       case .file: return .sourceSlice(value.file)
       case .filePath: return .string(value.filePath)

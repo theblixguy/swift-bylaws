@@ -6,6 +6,8 @@ extension SupportedAPI {
   package enum MemberLiteral: Hashable, Sendable {
     case matcher(Matcher.ID)
     case constant(Constant)
+    case sourceTokenKind(SourceToken.Kind)
+    case sourceTriviaKind(SourceTrivia.Kind)
     case sourceNodeKind(SourceNode.Kind)
 
     package enum Constant: String, CaseIterable, Hashable, Sendable {
@@ -160,6 +162,10 @@ extension SupportedAPI.MemberLiteral: RawRepresentable, CaseIterable {
       self = .matcher(matcher)
     } else if let kind = SourceNode.Kind(rawValue: rawValue) {
       self = .sourceNodeKind(kind)
+    } else if let kind = SourceToken.Kind(rawValue: rawValue) {
+      self = .sourceTokenKind(kind)
+    } else if let kind = SourceTrivia.Kind(rawValue: rawValue) {
+      self = .sourceTriviaKind(kind)
     } else {
       return nil
     }
@@ -169,14 +175,23 @@ extension SupportedAPI.MemberLiteral: RawRepresentable, CaseIterable {
     switch self {
     case let .matcher(id): id.rawValue
     case let .constant(constant): constant.rawValue
+    case let .sourceTokenKind(kind): kind.rawValue
+    case let .sourceTriviaKind(kind): kind.rawValue
     case let .sourceNodeKind(kind): kind.rawValue
     }
   }
 
   package static var allCases: [Self] {
-    SupportedAPI.Matcher.ID.allCases.map(matcher)
+    let candidates = SupportedAPI.Matcher.ID.allCases.map(matcher)
       + Constant.allCases.map(constant)
       + SourceNode.Kind.allCases.map(sourceNodeKind)
+      + SourceToken.Kind.allCases.map(sourceTokenKind)
+      + SourceTrivia.Kind.allCases.map(sourceTriviaKind)
+    var names: Set<String> = []
+    return candidates.compactMap { literal in
+      guard names.insert(literal.rawValue).inserted else { return nil }
+      return Self(rawValue: literal.rawValue)
+    }
   }
 }
 
@@ -191,6 +206,7 @@ extension SupportedAPI.MemberLiteral {
     case ownership
     case importKind
     case indexSymbolKind
+    case sourceTokenKind, sourceTriviaKind
     case sourceNodeKind
     case symbolRole
     case matcher
@@ -235,6 +251,8 @@ extension SupportedAPI {
     case sourceWhitespace = "SourceWhitespace"
     case importKind = "ImportKind"
     case indexSymbolKind = "IndexSymbol.Kind"
+    case sourceTokenKind = "SourceToken.Kind"
+    case sourceTriviaKind = "SourceTrivia.Kind"
     case sourceNodeKind = "SourceNode.Kind"
     case ownership = "Ownership"
     case symbolRole = "SymbolRole"
@@ -245,6 +263,8 @@ extension SupportedAPI {
       case .sourceWhitespace: .sourceWhitespace
       case .importKind: .importKind
       case .indexSymbolKind: .indexSymbolKind
+      case .sourceTokenKind: .sourceTokenKind
+      case .sourceTriviaKind: .sourceTriviaKind
       case .sourceNodeKind: .sourceNodeKind
       case .ownership: .ownership
       case .symbolRole: .symbolRole
@@ -289,6 +309,8 @@ extension SupportedAPI.MemberLiteral.Owner {
     case .ownership: Source(Ownership.self)
     case .importKind: Source(ImportKind.self)
     case .indexSymbolKind: Source(RuntimeIndexSymbol.Kind.self)
+    case .sourceTokenKind: Source(SourceToken.Kind.self)
+    case .sourceTriviaKind: Source(SourceTrivia.Kind.self)
     case .sourceNodeKind: Source(SourceNode.Kind.self)
     case .symbolRole: Source(RuntimeSymbolRole.self)
     case .matcher: Source(SupportedAPI.Matcher.ID.self)
@@ -374,6 +396,8 @@ extension SupportedAPI.ModelType {
   var nestedStaticMemberType: SupportedAPI.StaticMemberType? {
     switch self {
     case .indexSymbol: .indexSymbolKind
+    case .sourceToken: .sourceTokenKind
+    case .sourceTrivia: .sourceTriviaKind
     case .sourceNode: .sourceNodeKind
     default: nil
     }

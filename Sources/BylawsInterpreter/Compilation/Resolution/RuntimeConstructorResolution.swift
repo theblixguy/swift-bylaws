@@ -92,6 +92,7 @@ struct RuntimeConstructorResolution {
 
   private func resolve(_ condition: RuntimeCondition) -> RuntimeCondition {
     switch condition {
+    case let .all(conditions): .all(conditions.map(resolve))
     case let .boolean(value): .boolean(resolve(value))
     case let .optionalBinding(name, value): .optionalBinding(
         name: name,

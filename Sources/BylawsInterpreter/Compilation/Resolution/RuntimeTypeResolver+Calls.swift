@@ -56,13 +56,10 @@ extension RuntimeTypeResolver {
       if call.method == .withFix {
         return resolveFix(receiver: receiver, values: values, at: location)
       }
-      if call.method == .only, case .array = receiver {
-        require(
-          receiver,
-          toMatch: .array(.sourceSlice),
-          subject: "only",
-          at: location
-        )
+      if call.method == .only, receiver.receiver != .selection,
+         !receiver.collectionElement.providesSource
+      {
+        diagnose("only must select captured source values", at: location)
       }
       let resolved = resolveArguments(
         values,
@@ -70,6 +67,11 @@ extension RuntimeTypeResolver {
         receiver: receiver,
         at: location
       )
+      if call.method == .replacement, receiver == .sourceSlice,
+         values.map(\.0).equal([.applying])
+      {
+        requireEffects(canSuspend: false, canThrow: true, at: location)
+      }
       if call.method == .replacement, receiver == .sourceSlice,
          case let .staticMember(owners) = resolved.first,
          owners.contains(.sourceWhitespace)

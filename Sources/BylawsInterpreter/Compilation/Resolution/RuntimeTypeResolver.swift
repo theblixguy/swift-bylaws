@@ -80,8 +80,20 @@ struct RuntimeTypeResolver {
 
   mutating func resolve(
     _ condition: RuntimeCondition
-  ) -> (name: String, type: RuntimeType)? {
+  ) -> [(name: String, type: RuntimeType)] {
+    let outer = environment
+    defer { environment = outer }
     switch condition {
+    case let .all(conditions):
+      var bindings: [(name: String, type: RuntimeType)] = []
+      for condition in conditions {
+        let resolved = resolve(condition)
+        for binding in resolved {
+          environment[binding.name] = binding.type
+        }
+        bindings.append(contentsOf: resolved)
+      }
+      return bindings
     case let .boolean(expression):
       require(
         resolve(expression),
@@ -89,7 +101,7 @@ struct RuntimeTypeResolver {
         subject: "the condition",
         at: expression.location
       )
-      return nil
+      return []
     case let .optionalBinding(name, expression):
       let type = resolve(expression)
       guard case let .optional(wrapped) = type else {
@@ -97,9 +109,9 @@ struct RuntimeTypeResolver {
           "an optional binding takes an Optional value, not \(type.writtenName)",
           at: expression.location
         )
-        return nil
+        return []
       }
-      return (name, wrapped)
+      return [(name, wrapped)]
     }
   }
 

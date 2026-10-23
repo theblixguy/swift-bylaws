@@ -59,16 +59,14 @@ struct RuntimeStatementParser {
         return parse(conditional, diagnostics: &diagnostics)
       }
       if let guarded = statement.as(GuardStmtSyntax.self) {
-        guard guarded.conditions.count == 1,
-              let element = guarded.conditions.first,
-              let condition = parse(
-                element.condition,
-                diagnostics: &diagnostics
-              ),
-              let failure = parse(
-                guarded.body.statements,
-                diagnostics: &diagnostics
-              )
+        guard let condition = parse(
+          guarded.conditions,
+          diagnostics: &diagnostics
+        ),
+          let failure = parse(
+            guarded.body.statements,
+            diagnostics: &diagnostics
+          )
         else {
           diagnostics.append(unsupported(item))
           return nil
@@ -138,19 +136,13 @@ struct RuntimeStatementParser {
     _ conditional: IfExprSyntax,
     diagnostics: inout [Diagnostic]
   ) -> RuntimeStatement? {
-    guard conditional.conditions.count == 1,
-          let element = conditional.conditions.first
-    else {
-      diagnostics.append(unsupported(conditional))
-      return nil
-    }
     guard let condition = parse(
-      element.condition,
+      conditional.conditions,
       diagnostics: &diagnostics
     )
     else {
       if diagnostics.isEmpty {
-        diagnostics.append(unsupported(element))
+        diagnostics.append(unsupported(conditional))
       }
       return nil
     }
@@ -186,6 +178,26 @@ struct RuntimeStatementParser {
       ),
       location: syntax.location(of: conditional)
     )
+  }
+
+  private func parse(
+    _ conditions: ConditionElementListSyntax,
+    diagnostics: inout [Diagnostic]
+  ) -> RuntimeCondition? {
+    guard !conditions.isEmpty else { return nil }
+    var parsed: [RuntimeCondition] = []
+    for element in conditions {
+      let diagnosticCount = diagnostics.count
+      guard let condition = parse(element.condition, diagnostics: &diagnostics)
+      else {
+        if diagnostics.count == diagnosticCount {
+          diagnostics.append(unsupported(element))
+        }
+        return nil
+      }
+      parsed.append(condition)
+    }
+    return .all(parsed)
   }
 
   private func parse(

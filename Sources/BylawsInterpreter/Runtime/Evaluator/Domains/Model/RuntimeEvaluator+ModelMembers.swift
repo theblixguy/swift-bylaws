@@ -32,6 +32,8 @@ extension RuntimeEvaluator {
     case let .importDeclaration(value): importMember(name, value)
     case let .typealiasDeclaration(value): typealiasMember(name, value)
     case let .functionCall(value): callMember(name, value)
+    case let .sourceToken(value): sourceTokenMember(name, value)
+    case let .sourceTrivia(value): sourceTriviaMember(name, value)
     case let .sourceNode(value): sourceNodeMember(name, value)
     case let .sourceExpression(value): expressionMember(name, value)
     case let .sourceAssignment(value): assignmentMember(name, value)
@@ -78,6 +80,7 @@ extension RuntimeEvaluator {
     _ value: SourceNode
   ) -> RuntimeValue? {
     switch name {
+    case .elements: modelArray(value.elements, RuntimeModelValue.sourceNode)
     case .members: modelArray(value.members, RuntimeModelValue.sourceNode)
     case .statements: modelArray(value.statements, RuntimeModelValue.sourceNode)
     case .property: optionalModel(value.property, RuntimeModelValue.property)

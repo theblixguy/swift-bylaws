@@ -23,6 +23,8 @@ extension RuntimeModelValue {
       case let .importDeclaration(value): value
       case let .typealiasDeclaration(value): value
       case let .functionCall(value): value
+      case let .sourceToken(value): value
+      case let .sourceTrivia(value): value
       case let .sourceNode(value): value
       case let .sourceExpression(value): value
       case let .sourceAssignment(value): value

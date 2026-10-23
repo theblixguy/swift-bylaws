@@ -10,6 +10,14 @@ extension RuntimeEvaluator {
       if name == .source { return .sourceSlice(try value.source) }
       if name ==
         .spacing { return .sourceSpacing(try value.sourceProvider.spacing) }
+      if name == .tokens {
+        return .array(try value.sourceProvider.tokens
+          .map { .model(.sourceToken($0)) })
+      }
+      if name == .trivia {
+        return .array(try value.sourceProvider.trivia
+          .map { .model(.sourceTrivia($0)) })
+      }
       switch (name, value) {
       case let (.nameSource, .classDeclaration(value)):
         return .sourceSlice(try value.nameSource)

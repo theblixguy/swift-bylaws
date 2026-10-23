@@ -1,5 +1,6 @@
 extension SupportedAPI {
   package enum Member: String, CaseIterable, Hashable, Sendable {
+    case elements, trivia, previous, next
     case modifiers
     case spacing, before, after
     case indices, startIndex, endIndex, dropFirst, prefix
@@ -456,6 +457,8 @@ extension SupportedAPI {
     case property = "Property"
     case protocolDeclaration = "ProtocolDeclaration"
     case ruleWarning = "Rule.Warning"
+    case sourceToken = "SourceToken"
+    case sourceTrivia = "SourceTrivia"
     case sourceFile = "SourceFile"
     case structDeclaration = "Struct"
     case syntaxClass = "ClassDeclSyntax"

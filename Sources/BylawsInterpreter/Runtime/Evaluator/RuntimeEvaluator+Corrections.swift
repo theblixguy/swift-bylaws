@@ -10,6 +10,25 @@ extension RuntimeEvaluator {
     do {
       switch name {
       case .replacement:
+        if arguments.hasLabels([.applying]) {
+          guard case let .array(values) = try arguments.value(at: 0) else {
+            throw RuntimeError(
+              message: "replacement takes an array of source edits",
+              location: arguments.location
+            )
+          }
+          let edits = try values
+            .map { value throws(RuntimeError) -> SourceFix.Edit in
+              guard case let .sourceEdit(edit) = value else {
+                throw RuntimeError(
+                  message: "replacement takes an array of source edits",
+                  location: arguments.location
+                )
+              }
+              return edit
+            }
+          return .sourceEdit(try value.replacement(applying: edits))
+        }
         try arguments.requireLabels([.with], for: name)
         if case let .member(literal) = try arguments.value(at: 0),
            literal.owners.contains(.sourceWhitespace),

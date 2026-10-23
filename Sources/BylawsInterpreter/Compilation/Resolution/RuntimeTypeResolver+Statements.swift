@@ -53,9 +53,7 @@ extension RuntimeTypeResolver {
         statementAlwaysReturns = true
       case let .guardStatement(condition, failure):
         let outer = environment
-        let binding = withEnvironment(outer) { resolver in
-          resolver.resolve(condition)
-        }
+        let bindings = resolve(condition)
         let failureResolution = withEnvironment(outer) { resolver in
           resolver.resolveBody(failure, expected: expected)
         }
@@ -65,14 +63,14 @@ extension RuntimeTypeResolver {
             at: statement.location
           )
         }
-        if let binding {
+        for binding in bindings {
           environment[binding.name] = binding.type
         }
         returned.append(contentsOf: failureResolution.returnedTypes)
         results = [.void]
       case let .ifStatement(condition, success, failure):
         var successEnvironment = environment
-        if let binding = resolve(condition) {
+        for binding in resolve(condition) {
           successEnvironment[binding.name] = binding.type
         }
         let outer = environment

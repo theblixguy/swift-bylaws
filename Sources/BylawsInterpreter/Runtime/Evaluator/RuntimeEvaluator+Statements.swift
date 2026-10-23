@@ -93,8 +93,8 @@ extension RuntimeEvaluator {
         last = .void
       case let .guardStatement(condition, failure):
         switch try await evaluate(condition, in: environment, state: &state) {
-        case let .satisfied(binding):
-          if let binding {
+        case let .satisfied(bindings):
+          for binding in bindings {
             environment.bind(binding.value, to: binding.name)
           }
         case .notSatisfied:
@@ -118,9 +118,9 @@ extension RuntimeEvaluator {
         let selected: RuntimeBody?
         var branchEnvironment = environment
         switch evaluated {
-        case let .satisfied(binding):
+        case let .satisfied(bindings):
           selected = success
-          if let binding {
+          for binding in bindings {
             branchEnvironment.bind(binding.value, to: binding.name)
           }
         case .notSatisfied:
@@ -167,6 +167,21 @@ extension RuntimeEvaluator {
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> RuntimeConditionResult {
     switch condition {
+    case let .all(conditions):
+      var local = environment
+      var bindings: [RuntimeConditionBinding] = []
+      for condition in conditions {
+        switch try await evaluate(condition, in: local, state: &state) {
+        case .notSatisfied:
+          return .notSatisfied
+        case let .satisfied(resolved):
+          for binding in resolved {
+            local.bind(binding.value, to: binding.name)
+          }
+          bindings.append(contentsOf: resolved)
+        }
+      }
+      return .satisfied(bindings: bindings)
     case let .boolean(expression):
       guard case let .boolean(value) = try await evaluate(
         expression,
@@ -179,7 +194,7 @@ extension RuntimeEvaluator {
           location: expression.location
         )
       }
-      return value ? .satisfied(binding: nil) : .notSatisfied
+      return value ? .satisfied(bindings: []) : .notSatisfied
     case let .optionalBinding(name, expression):
       let value = try await evaluate(
         expression,
@@ -194,7 +209,7 @@ extension RuntimeEvaluator {
       }
       guard let wrapped else { return .notSatisfied }
       return .satisfied(
-        binding: RuntimeConditionBinding(name: name, value: wrapped)
+        bindings: [RuntimeConditionBinding(name: name, value: wrapped)]
       )
     }
   }
@@ -212,5 +227,5 @@ private struct RuntimeConditionBinding {
 
 private enum RuntimeConditionResult {
   case notSatisfied
-  case satisfied(binding: RuntimeConditionBinding?)
+  case satisfied(bindings: [RuntimeConditionBinding])
 }

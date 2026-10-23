@@ -55,6 +55,14 @@ extension RuntimeEvaluator {
           of: api, canThrow: true, at: arguments.location, state: state
         )
       }
+      if name == .replacement, arguments.hasLabels([.applying]) {
+        try requireEffects(
+          of: api,
+          canThrow: true,
+          at: arguments.location,
+          state: state
+        )
+      }
       return try sourceMethod(name, value: value, arguments: arguments)
     case let .violations(value) where name == .withFix:
       return try await attachingFixes(

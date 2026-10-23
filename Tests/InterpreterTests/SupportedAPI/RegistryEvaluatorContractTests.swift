@@ -49,7 +49,10 @@ struct RegistryEvaluatorContractTests {
             provesType = true
           }
         }
-        if !provesType {
+        let isEmptyLexicalProjection = (modelType == .sourceToken && api
+          .name == .trivia)
+          || (modelType == .sourceTrivia && api.name == .tokens)
+        if !provesType, !isEmptyLexicalProjection {
           problems.append(
             "\(member): sample values do not prove \(expected.writtenName)"
           )
@@ -184,12 +187,14 @@ extension ModelSamples {
         let enabled = false
       #endif
         log("text", "\(user, privacy: .public)", false, 0, 1.5, nil,
-            Store.save(value: value), ["key": value], [value])
+            Store.save(value: /* Keep */ value), ["key": value], [value])
       }
       """#,
       path: "/virtual/Expressions.swift"
     )
     let arguments = file.calls.flatMap(\.arguments)
+    add(try file.tokens, as: RuntimeModelValue.sourceToken)
+    add(try file.trivia, as: RuntimeModelValue.sourceTrivia)
     add(.sourceFile(file))
     add(file.assignments, as: RuntimeModelValue.sourceAssignment)
     add(file.compilationBranches, as: RuntimeModelValue.compilationBranch)
@@ -200,6 +205,11 @@ extension ModelSamples {
       as: RuntimeModelValue.enclosingDeclaration
     )
     add(arguments, as: RuntimeModelValue.callArgument)
+    let calls = file.syntaxNodes(of: .functionCall).compactMap(\.expression)
+    add(
+      calls.flatMap { $0.arguments ?? [] },
+      as: RuntimeModelValue.expressionArgument
+    )
     var expressions = arguments.compactMap(\.expression)
     while let expression = expressions.popLast() {
       add(.sourceExpression(expression))
@@ -249,7 +259,8 @@ extension ModelSamples {
         .classDeclaration,
         .variableDeclaration,
         .enumDeclaration,
-        .enumCaseDeclaration
+        .enumCaseDeclaration,
+        .genericParameterList
       ),
       as: RuntimeModelValue.sourceNode
     )

@@ -26,10 +26,10 @@ extension SupportedAPI {
     method(
       .replacement,
       on: [.sourceSlice],
-      arguments: .exact([.init(
-        .with,
-        .oneOf([.string, .staticMember([.sourceWhitespace])])
-      )]),
+      arguments: .alternatives([
+        [.init(.with, .oneOf([.string, .staticMember([.sourceWhitespace])]))],
+        [.init(.applying, .exact(.array(.sourceEdit)))],
+      ]),
       result: .fixed(.sourceEdit)
     ),
     method(
@@ -46,9 +46,9 @@ extension SupportedAPI {
     ),
     method(
       .only,
-      on: [.array],
+      on: [.array, .arraySlice, .set],
       arguments: .exact([]),
-      result: .fixed(.sourceSlice), canThrow: true
+      result: .collectionElement, canThrow: true
     ),
     method(
       .withFix,

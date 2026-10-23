@@ -67,7 +67,8 @@ extension SupportedAPI {
   ]
 
   static let sourceProvidingModels: Set<ModelType> = [
-    .sourceFile, .sourceNode, .sourceExpression, .sourceAssignment,
+    .sourceToken, .sourceTrivia, .sourceFile, .sourceNode, .sourceExpression,
+    .sourceAssignment,
     .variableBinding, .classDeclaration, .actor, .structDeclaration,
     .enumDeclaration, .nominalType, .protocolDeclaration,
     .extensionDeclaration, .function, .property, .initializer,

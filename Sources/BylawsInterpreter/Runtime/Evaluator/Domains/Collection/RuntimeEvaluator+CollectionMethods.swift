@@ -68,19 +68,24 @@ extension RuntimeEvaluator {
       return .array(Array(values.reversed()))
     case .only:
       try arguments.requireLabels([], for: name)
-      let slices = try values.map { value throws(RuntimeError) in
-        guard case let .sourceSlice(source) = value else {
-          throw RuntimeError(
-            message: "only takes source slices", location: arguments.location
-          )
+      guard values.count == 1, let value = values.first else {
+        throw RuntimeError(
+          wrapping: SourceError.matchCount(values.count),
+          at: arguments.location
+        )
+      }
+      guard case .sourceSlice = value else {
+        if case let .model(model) = value,
+           SupportedAPI.sourceProvidingModels.contains(model.modelType)
+        {
+          return value
         }
-        return source
+        throw RuntimeError(
+          message: "only takes captured source values",
+          location: arguments.location
+        )
       }
-      do {
-        return .sourceSlice(try slices.only())
-      } catch {
-        throw RuntimeError(wrapping: error, at: arguments.location)
-      }
+      return value
     case .filter:
       try arguments.requireLabels([nil], for: name)
       var result: [RuntimeValue] = []

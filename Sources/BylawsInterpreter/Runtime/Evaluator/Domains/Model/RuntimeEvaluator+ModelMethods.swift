@@ -14,6 +14,18 @@ extension RuntimeEvaluator {
       return try manifestMethod(name, manifest: manifest, arguments: arguments)
     }
     switch (name, value) {
+    case let (.contains, .sourceNode(node)):
+      try arguments.requireLabels([nil], for: name)
+      guard case let .member(literal) = try arguments.value(at: 0),
+            literal.owners.contains(.sourceNodeKind),
+            let kind = SourceNode.Kind(rawValue: literal.rawValue)
+      else {
+        throw RuntimeError(
+          message: "contains takes one SourceNode.Kind",
+          location: arguments.location
+        )
+      }
+      return .boolean(node.contains(kind))
     case let (.argument, .functionCall(call)):
       try arguments.requireLabels([.labeled], for: name)
       let label = try arguments.string(at: 0)

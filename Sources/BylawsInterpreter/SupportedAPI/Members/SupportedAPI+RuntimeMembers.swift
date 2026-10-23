@@ -1,6 +1,7 @@
 extension SupportedAPI {
   package static let runtimeMembers =
-    correctionRuntimeMembers
+    lexicalRuntimeMembers
+      + correctionRuntimeMembers
       + layoutRuntimeMembers
       + collectionRuntimeMembers
       + pathRuntimeMembers
