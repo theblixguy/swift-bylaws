@@ -9,6 +9,10 @@ selection's `violations` closure to propose the desired source. Bylaws reports
 a violation when a proposal changes the original bytes and attaches the edit
 as its correction. A normal run keeps the files unchanged.
 
+<doc:FormattingCookbook> has complete recipes for custom ordering, property
+groups, statement spacing, wrapping and nested layouts in both execution
+surfaces.
+
 ## Arrange attributes
 
 This portable rule sorts attributes alphabetically and puts them together on
@@ -74,11 +78,12 @@ list retains commas, while attributes use spaces. `Wrap` uses these break
 positions without an explicit `Break` between each element. A single element
 can exceed the width when it has no permitted internal break.
 
-Wrapping defaults to 100 characters. Indentation comes from the source, with
-two spaces used when no indentation can be inferred. Line endings retain the
-source's LF, CRLF or CR spelling. Width counts characters and expands tabs to
-eight-column stops. Use `SourceLayout { ... }` to construct a layout value
-that another builder can emit.
+Wrapping defaults to 100 characters. Space indentation comes from source
+outside the replaced list, with two spaces used when none can be inferred.
+Tabs use one tab per level. Line endings retain the source's LF, CRLF or CR
+spelling. Width counts characters and expands tabs to eight-column stops.
+Use `SourceLayout { ... }` to construct a layout value that another builder
+can emit.
 
 ## Wrap call arguments
 
@@ -127,6 +132,27 @@ parameters, enum case elements and array or dictionary elements. Use a
 complete list for attributes, modifiers and comma-separated elements. Member
 and statement lists can be consecutive regions within a larger list. A
 collection of properties or functions from several files is not one editable list.
+
+You can select other syntax lists with `file.syntaxNodes(of:)` and use each
+node's `elements` projection. For example,
+`file.syntaxNodes(of: .genericRequirementList)` selects the lists in `where`
+clauses. The supported kinds are:
+
+| List | Syntax kind |
+| --- | --- |
+| Conditions | `.conditionList` |
+| Generic clauses | `.genericParameterList`, `.genericArgumentList`, `.genericRequirementList` |
+| Inheritance and primary associated types | `.inheritedTypeList`, `.primaryAssociatedTypeList` |
+| Expressions and tuples | `.expressionList`, `.tupleTypeElementList`, `.tuplePatternElementList` |
+| Closure signatures | `.closureParameterList`, `.closureShorthandParameterList`, `.closureCaptureList` |
+| Enum associated values | `.enumCaseParameterList` |
+| Accessors | `.accessorList` |
+| Switch cases and patterns | `.switchCaseList`, `.switchCaseItemList` |
+
+An expression list includes call arguments and tuple expressions. Each
+element retains its source and trailing comma, when present. Use a token or
+content slice for a nested edit that changes an element, because the layout
+owns its separators.
 
 `SourceNode.members` and `SourceNode.statements` expose direct children in
 source order. A member's `property` projection returns a `Property` when the

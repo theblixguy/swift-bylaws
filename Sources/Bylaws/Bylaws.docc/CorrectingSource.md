@@ -12,6 +12,10 @@ the source files unchanged.
 The CLI applies corrections when you run `bylaws lint --autocorrect`, then runs
 the rules again and reports the result.
 
+<doc:CorrectingSourceCookbook> has complete recipes for text, token and comment
+edits, changes across files and correction tests. <doc:FormattingCookbook>
+covers ordering, spacing and nested layouts.
+
 ## Define a correction
 
 You can use this portable rule to change lowercase hexadecimal digits to
