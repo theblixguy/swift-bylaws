@@ -35,12 +35,12 @@ public enum SourceLayoutBuilder {
   }
 
   /// Emits a blank line between non-empty output.
-  public static func buildExpression(_: BlankLine) -> SourceLayout {
+  public static func buildExpression(_: BlankLine<Never>) -> SourceLayout {
     SourceLayout(node: .blankLine)
   }
 
   /// Emits a required line break.
-  public static func buildExpression(_: Newline) -> SourceLayout {
+  public static func buildExpression(_: Newline<Never>) -> SourceLayout {
     SourceLayout(node: .newline)
   }
 

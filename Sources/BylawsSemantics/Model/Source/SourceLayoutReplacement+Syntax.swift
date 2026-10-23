@@ -133,7 +133,12 @@ extension SourceLayoutReplacement {
     let nextContentStart: Int?
     let closesOwner: Bool
 
-    init(items: [Item], snapshot: SourceSnapshot) throws {
+    init(
+      items: [Item],
+      snapshot: SourceSnapshot,
+      allowsPartialList: Bool = false,
+      sourceBytes: [UInt8]? = nil
+    ) throws {
       let ordered = items.sorted { $0.node.position < $1.node.position }
       let first = ordered[0]
       let last = ordered[ordered.count - 1]
@@ -142,10 +147,12 @@ extension SourceLayoutReplacement {
       else {
         throw SourceLayoutReplacementError.noncontiguousElements
       }
-      let siblings = Array(list.children(viewMode: .sourceAccurate))
-      guard let start = siblings.firstIndex(where: { $0.id == first.node.id }),
-            let end = siblings.firstIndex(where: { $0.id == last.node.id }),
-            siblings[start...end].map(\.id) == ordered.map(\.node.id)
+      let siblings = list.children(viewMode: .sourceAccurate)
+      guard let start = siblings.index(of: first.node),
+            let end = siblings.index(of: last.node),
+            siblings[start...end].elementsEqual(
+              ordered, by: { $0.id == $1.node.id }
+            )
       else {
         throw SourceLayoutReplacementError.noncontiguousElements
       }
@@ -177,7 +184,7 @@ extension SourceLayoutReplacement {
         || list.is(EnumCaseParameterListSyntax.self)
         || list.is(PrimaryAssociatedTypeListSyntax.self)
       hasTrailingComma = trailingComma(of: last.node) != nil
-      if hasCommas || hasDeclarationBoundary {
+      if !allowsPartialList, hasCommas || hasDeclarationBoundary {
         guard items.count == siblings.count else {
           throw SourceLayoutReplacementError.noncontiguousElements
         }
@@ -206,7 +213,7 @@ extension SourceLayoutReplacement {
            .previousToken(viewMode: .sourceAccurate),
          !previous.trailingTrivia.allSatisfy(\.isLayoutWhitespace)
       { throw SourceLayoutReplacementError.ambiguousTrivia }
-      let bytes = Array(snapshot.text.utf8)
+      let bytes = sourceBytes ?? Array(snapshot.text.utf8)
       var lower = leadingContentStart
       while lower > 0, Self.isWhitespace(bytes[lower - 1]) { lower -= 1 }
       var upper = trailingContentEnd

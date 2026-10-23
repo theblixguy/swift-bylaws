@@ -10,18 +10,6 @@ public struct Line: Sendable {
   }
 }
 
-/// An empty line between non-empty sections of source.
-public struct BlankLine: Sendable {
-  /// Creates a blank-line request.
-  public init() {}
-}
-
-/// A required line break between source elements or at a list boundary.
-public struct Newline: Sendable {
-  /// Creates a required line-break request.
-  public init() {}
-}
-
 /// Source with one extra indentation level after a line break.
 public struct Indent: Sendable {
   package let layout: SourceLayout

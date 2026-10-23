@@ -33,25 +33,47 @@ package enum SourceLayoutReplacement {
   package static func make(
     elements: [any SourceProviding], layout: SourceLayout
   ) throws -> SourceFix.Edit {
+    try make(elements: elements, layout: layout, parsedTree: nil)
+  }
+
+  static func make(
+    elements: [any SourceProviding], layout: SourceLayout,
+    parsedTree: SourceFileSyntax?, allowsPartialList: Bool = false,
+    sourceContext: Context? = nil, baseIndentation: String? = nil
+  ) throws -> SourceFix.Edit {
     let slices = try elements.map { try $0.source }
     guard let first = slices.first
     else { throw SourceLayoutReplacementError.emptyCollection }
     guard slices.allSatisfy({ $0.snapshot == first.snapshot }) else {
       throw SourceLayoutReplacementError.differentSnapshots
     }
-    let tree = first.snapshot.swiftLanguageMode.parse(first.snapshot.text)
+    let tree = parsedTree ?? first.snapshot.swiftLanguageMode
+      .parse(first.snapshot.text)
+    let bytes = sourceContext?.bytes ?? Array(first.snapshot.text.utf8)
     let items = try slices.map { try Item(source: $0, tree: tree) }
-    let sourceList = try List(items: items, snapshot: first.snapshot)
+    let sourceList = try List(
+      items: items,
+      snapshot: first.snapshot,
+      allowsPartialList: allowsPartialList,
+      sourceBytes: bytes
+    )
+    let sourceContext = sourceContext ?? Context(
+      snapshot: first.snapshot, bytes: bytes, excluding: sourceList.range
+    )
+    var itemsByRange: [Range<Int>: Item] = [:]
+    itemsByRange.reserveCapacity(items.count)
+    for item in items {
+      if itemsByRange.updateValue(item, forKey: item.source.range) != nil {
+        throw SourceLayoutReplacementError.repeatedElement
+      }
+    }
     let edits = layout.edits
     let output = try layout.sources.map { provider -> Item in
       let slice = try provider.source
       guard slice.snapshot == first.snapshot else {
         throw SourceLayoutReplacementError.differentSnapshots
       }
-      if let item =
-        items
-          .first(where: { $0.source.range == slice.range })
-      {
+      if let item = itemsByRange[slice.range] {
         return item
       }
       if edits.contains(where: { $0.source == slice }),
@@ -70,7 +92,7 @@ package enum SourceLayoutReplacement {
     guard Set(identifiers) == Set(items.map(\.node.id)) else {
       throw SourceLayoutReplacementError.missingElement
     }
-    let ending = first.snapshot.lineEnding
+    let ending = sourceContext.lineEnding
     let leadingWhitespace = try SourceSlice(
       snapshot: first.snapshot,
       range: sourceList.range.lowerBound..<sourceList.leadingContentStart
@@ -79,18 +101,14 @@ package enum SourceLayoutReplacement {
       snapshot: first.snapshot,
       range: sourceList.trailingContentEnd..<sourceList.range.upperBound
     ).text
-    let originalIndent = indentation(
-      in: first.snapshot.text,
+    let originalIndent = sourceContext.indentation(
       before: sourceList.leadingContentStart
     )
-    let ownerIndent = indentation(
-      in: first.snapshot.text,
+    let ownerIndent = sourceContext.indentation(
       before: sourceList.ownerStart ?? sourceList.range.lowerBound
     )
-    let unit = indentationUnit(
-      in: first.snapshot.text, excluding: sourceList.range
-    )
-    let contentIndent = switch sourceList.indentationBase {
+    let unit = sourceContext.indentationUnit
+    let inferredIndent = switch sourceList.indentationBase {
     case .owner: ownerIndent
     case .contents: ownerIndent + unit
     case nil:
@@ -100,21 +118,20 @@ package enum SourceLayoutReplacement {
         originalIndent
       }
     }
+    let contentIndent = baseIndentation ?? inferredIndent
     let closingIndent =
       if sourceList.closesOwner {
         ownerIndent
       } else if let next = sourceList.nextContentStart,
                 trailingWhitespace.contains(where: \.isPhysicalLayoutLineEnding)
       {
-        indentation(in: first.snapshot.text, before: next)
+        sourceContext.indentation(before: next)
       } else {
         contentIndent
       }
     let context = SourceLayoutRenderer.Context(
-      initialColumn: column(
-        in: first.snapshot.text,
-        before: sourceList.leadingContentStart
-      ),
+      initialColumn: sourceContext
+        .column(before: sourceList.leadingContentStart),
       baseIndentation: contentIndent,
       indentationUnit: unit,
       lineEnding: ending,
@@ -153,9 +170,7 @@ package enum SourceLayoutReplacement {
       context: context,
       resolve: { provider in
         let slice = try provider.source
-        guard let item =
-          items
-            .first(where: { $0.source.range == slice.range })
+        guard let item = itemsByRange[slice.range]
         else {
           throw SourceLayoutReplacementError.foreignElement
         }
@@ -176,54 +191,6 @@ package enum SourceLayoutReplacement {
       range: sourceList.range
     )
     return source.replacement(with: replacement)
-  }
-
-  private static func column(in text: String, before offset: Int) -> Int {
-    let prefix = String(decoding: text.utf8.prefix(offset), as: UTF8.self)
-    let line =
-      prefix.split(
-        omittingEmptySubsequences: false,
-        whereSeparator: \.isPhysicalLayoutLineEnding
-      ).last ?? ""
-    return line.reduce(0) { column, character in
-      character == "\t" ? column + 8 - column % 8 : column + 1
-    }
-  }
-
-  private static func indentation(
-    in text: String,
-    before offset: Int
-  ) -> String {
-    let prefix = String(decoding: text.utf8.prefix(offset), as: UTF8.self)
-    let line =
-      prefix.split(
-        omittingEmptySubsequences: false,
-        whereSeparator: \.isPhysicalLayoutLineEnding
-      ).last ?? ""
-    return String(line.prefix { $0 == " " || $0 == "\t" })
-  }
-
-  private static func indentationUnit(
-    in text: String, excluding range: Range<Int>
-  ) -> String {
-    let indents = text.split(whereSeparator: \.isPhysicalLayoutLineEnding).map {
-      String($0.prefix { $0 == " " || $0 == "\t" })
-    }.filter { !$0.isEmpty }
-    if indents.contains(where: { $0.hasPrefix("\t") }) { return "\t" }
-    // The edited list can change the inferred unit on the next run.
-    let bytes = text.utf8
-    let surrounding = String(
-      decoding: bytes.prefix(range.lowerBound),
-      as: UTF8.self
-    )
-      + "\n" + String(
-        decoding: bytes.dropFirst(range.upperBound),
-        as: UTF8.self
-      )
-    return surrounding.split(whereSeparator: \.isPhysicalLayoutLineEnding)
-      .map { String($0.prefix { $0 == " " }) }
-      .filter { !$0.isEmpty }
-      .min(by: { $0.count < $1.count }) ?? "  "
   }
 }
 

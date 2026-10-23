@@ -31,3 +31,10 @@ extension Selection {
     )
   }
 }
+
+extension ArrayBuilder where Element == SourceFix.Edit {
+  /// Includes all edits from a proposed correction.
+  public static func buildExpression(_ fix: SourceFix) -> [SourceFix.Edit] {
+    fix.edits
+  }
+}
