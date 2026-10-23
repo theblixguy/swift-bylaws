@@ -506,6 +506,8 @@ let package = Package(
         "BylawsSemantics",
         "BylawsIndex",
         "BylawsIndexStore",
+        .product(name: "Subprocess", package: "swift-subprocess"),
+        .product(name: "SystemPackage", package: "swift-system"),
       ],
       swiftSettings: swiftSettings
     ),
@@ -609,6 +611,8 @@ let package = Package(
         "BylawsInterpreter",
         "BylawsSemantics",
         "BylawsTestSupport",
+        .product(name: "Subprocess", package: "swift-subprocess"),
+        .product(name: "SystemPackage", package: "swift-system"),
         .product(
           name: "ArgumentParser",
           package: "swift-argument-parser",

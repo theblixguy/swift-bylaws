@@ -4,7 +4,14 @@ import BylawsIndexStore
 import BylawsSemantics
 import BylawsTestSupport
 import Foundation
+import Subprocess
 import Testing
+
+#if canImport(System)
+  import System
+#else
+  import SystemPackage
+#endif
 
 @Suite(
   "Correction index cache",
@@ -19,10 +26,10 @@ struct CorrectionIndexCacheTests {
   @Test("Different stores under one root keep separate cached indexes")
   func separateStores() async throws {
     let project = try TemporaryProject(files: ["Package.swift": ""])
-    let firstStore = try compile(
+    let firstStore = try await compile(
       "struct OriginalOnly {}", in: project, build: "first"
     )
-    let secondStore = try compile(
+    let secondStore = try await compile(
       "struct ReplacementOnly {}", in: project, build: "second"
     )
     let codebase = Codebase(
@@ -61,35 +68,28 @@ struct CorrectionIndexCacheTests {
 
   private func compile(
     _ source: String, in project: TemporaryProject, build: String
-  ) throws -> String {
+  ) async throws -> String {
     try project.write(source, to: "Sources/App.swift")
     let buildDirectory = project.fileURL(for: "builds/\(build)")
     let store = buildDirectory.appendingPathComponent("index/store")
     try FileManager.default.createDirectory(
       at: store, withIntermediateDirectories: true
     )
-    let process = Process()
-    process.executableURL = URL(
-      fileURLWithPath: try #require(ToolchainPaths.activeCompilerPath())
+    let compiler = try #require(ToolchainPaths.activeCompilerPath())
+    let result = try await Subprocess.run(
+      .path(.init(compiler)),
+      arguments: [
+        "-c", "-module-name", "CorrectionApp",
+        "-index-store-path", store.path,
+        "-module-cache-path", project.fileURL(for: "module-cache").path,
+        "-o", buildDirectory.appendingPathComponent("App.o").path,
+        project.fileURL(for: "Sources/App.swift").path,
+      ],
+      workingDirectory: .init(project.rootURL.path),
+      output: .discarded,
+      error: .string(limit: .max)
     )
-    process.arguments = [
-      "-c", "-module-name", "CorrectionApp",
-      "-index-store-path", store.path,
-      "-module-cache-path", project.fileURL(for: "module-cache").path,
-      "-o", buildDirectory.appendingPathComponent("App.o").path,
-      project.fileURL(for: "Sources/App.swift").path,
-    ]
-    process.currentDirectoryURL = project.rootURL
-    let errors = Pipe()
-    process.standardError = errors
-    process.standardOutput = FileHandle.nullDevice
-    try process.run()
-    let output = errors.fileHandleForReading.readDataToEndOfFile()
-    process.waitUntilExit()
-    try #require(
-      process.terminationStatus == 0,
-      "\(String(decoding: output, as: UTF8.self))"
-    )
+    try #require(result.terminationStatus.isSuccess, "\(result.standardError)")
     return store.path
   }
 }
