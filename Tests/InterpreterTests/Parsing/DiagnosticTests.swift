@@ -199,7 +199,7 @@ struct StructuralDiagnosticCase: Sendable, CustomTestStringConvertible {
         app.classes.violations(of: .isFinal) { arbitraryWork() }
       }
       """,
-      message: "'violations' takes arguments (of:) or (matching:) or (outsidePaths:)"
+      message: "'violations' takes arguments (_, _) or (_, changes:) or (of:) or (matching:) or (outsidePaths:)"
     ),
     StructuralDiagnosticCase(
       source:

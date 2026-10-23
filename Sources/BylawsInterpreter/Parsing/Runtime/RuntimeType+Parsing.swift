@@ -20,6 +20,15 @@ extension SupportedAPI.RuntimeType {
       case "Double": .double
       case "String": .string
       case "SourceSlice": .sourceSlice
+      case "SourceLayout": .sourceLayout
+      case "Line": .layoutOperation(.line)
+      case "Newline": .layoutOperation(.newline)
+      case "BlankLine": .layoutOperation(.blankLine)
+      case "Indent": .layoutOperation(.indent)
+      case "Wrap": .layoutOperation(.wrap)
+      case "Break": .layoutOperation(.softBreak)
+      case "Align": .layoutOperation(.align)
+      case "SourceSpacing": .sourceSpacing
       case "Regex": .regex
       case "URL": .url
       case "Dictionary":
@@ -34,6 +43,12 @@ extension SupportedAPI.RuntimeType {
       case "Array":
         if let argument = Self.singleGenericArgument(of: reference) {
           .array(Self(writtenType: argument.text))
+        } else {
+          .unknown
+        }
+      case "ArraySlice":
+        if let argument = Self.singleGenericArgument(of: reference) {
+          .arraySlice(Self(writtenType: argument.text))
         } else {
           .unknown
         }
@@ -118,7 +133,8 @@ extension SupportedAPI.RuntimeType {
       key.containsUnknown || value.containsUnknown
     case .unknown:
       true
-    case let .array(element), let .manifestList(element), let .set(element),
+    case let .array(element), let .arraySlice(element),
+         let .manifestList(element), let .set(element),
          let .optional(element):
       element.containsUnknown
     case let .constructor(_, arguments):
@@ -137,10 +153,12 @@ extension SupportedAPI.RuntimeType {
   var receiver: SupportedAPI.RuntimeReceiver? {
     switch self {
     case .sourceSlice: .sourceSlice
+    case .sourceSpacing: .sourceSpacing
     case .fixContext: .fixContext
     case .url: .url
     case .dictionary: .dictionary
     case .array: .array
+    case .arraySlice: .arraySlice
     case .manifestList: .manifestList
     case .set: .set
     case .string: .string
@@ -165,6 +183,7 @@ extension SupportedAPI.RuntimeType {
     switch self {
     case .dictionary: "Dictionary"
     case .array: "Array"
+    case .arraySlice: "ArraySlice"
     case .manifestList: "ManifestList"
     case .set: "Set"
     case let .selection(family):
@@ -176,7 +195,7 @@ extension SupportedAPI.RuntimeType {
 
   var collectionElement: Self {
     switch self {
-    case let .array(element): element
+    case let .array(element), let .arraySlice(element): element
     case let .manifestList(element): element
     case let .set(element): element
     case let .selection(family):
@@ -188,7 +207,9 @@ extension SupportedAPI.RuntimeType {
 
   var sequenceElement: Self? {
     switch self {
-    case let .array(element), let .set(element): element
+    case .integerRange: .integer
+    case let .array(element), let .arraySlice(element),
+         let .set(element): element
     case .selection: collectionElement
     default: nil
     }
@@ -231,6 +252,8 @@ extension SupportedAPI.RuntimeType {
       actualKey.isAssignable(to: wantedKey) && actualValue
         .isAssignable(to: wantedValue)
     case let (.array(actual), .array(wanted)):
+      actual.isAssignable(to: wanted)
+    case let (.arraySlice(actual), .arraySlice(wanted)):
       actual.isAssignable(to: wanted)
     case let (.manifestList(actual), .manifestList(wanted)):
       actual.isAssignable(to: wanted)

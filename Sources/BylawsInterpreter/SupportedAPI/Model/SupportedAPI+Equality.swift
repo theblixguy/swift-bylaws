@@ -4,7 +4,10 @@ extension SupportedAPI.RuntimeType {
     case .model(.syntaxTriviaPiece), .violations(.syntaxTriviaPiece):
       false
     case let .dictionary(_, value): value.supportsHashing
-    case let .array(element), let .set(element), let .optional(element),
+    case let .array(element), let .arraySlice(element), let .set(element),
+         let .optional(
+           element
+         ),
          let .manifestList(element):
       element.supportsHashing
     default:
@@ -21,7 +24,10 @@ extension SupportedAPI.RuntimeType {
          .staticMember, .symbolRoles, .model, .codebase, .layering, .violations,
          .dependencyGroup:
       true
-    case let .array(element), let .set(element), let .optional(element),
+    case let .array(element), let .arraySlice(element), let .set(element),
+         let .optional(
+           element
+         ),
          let .manifestList(element):
       element.supportsEquality
     default:

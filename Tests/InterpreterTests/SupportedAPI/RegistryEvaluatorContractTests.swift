@@ -245,7 +245,11 @@ extension ModelSamples {
       try await codebase.syntaxNodes(
         of: .functionCall,
         .functionDeclaration,
-        .codeBlock
+        .codeBlock,
+        .classDeclaration,
+        .variableDeclaration,
+        .enumDeclaration,
+        .enumCaseDeclaration
       ),
       as: RuntimeModelValue.sourceNode
     )

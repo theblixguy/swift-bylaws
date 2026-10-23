@@ -47,7 +47,14 @@ extension RuntimeEvaluator {
     }
     try requireEffects(of: api, at: location, state: state)
     switch receiver {
+    case let .sourceSpacing(value):
+      if name == .before { return .sourceSlice(value.before) }
+      if name == .after { return .sourceSlice(value.after) }
     case let .sourceSlice(value):
+      if name == .spacing {
+        do { return .sourceSpacing(try value.spacing) }
+        catch { throw RuntimeError(wrapping: error, at: location) }
+      }
       switch name {
       case .text: return .string(value.text)
       case .file: return .sourceSlice(value.file)
@@ -78,8 +85,21 @@ extension RuntimeEvaluator {
       }
     case let .array(values) where name == .first:
       return .optional(values.first)
+    case let .arraySlice(values):
+      switch name {
+      case .indices: return .integerRange(values.indices)
+      case .startIndex: return .integer(values.startIndex)
+      case .endIndex: return .integer(values.endIndex)
+      case .count: return .integer(values.count)
+      case .isEmpty: return .boolean(values.isEmpty)
+      case .first: return .optional(values.first)
+      default: break
+      }
     case let .array(values), let .set(values):
       switch name {
+      case .indices: return .integerRange(values.indices)
+      case .startIndex: return .integer(values.startIndex)
+      case .endIndex: return .integer(values.endIndex)
       case .count: return .integer(values.count)
       case .isEmpty: return .boolean(values.isEmpty)
       default: break
@@ -137,6 +157,9 @@ extension RuntimeEvaluator {
       )
     case let .selection(selection):
       switch name {
+      case .indices: return .integerRange(selection.elements.indices)
+      case .startIndex: return .integer(selection.elements.startIndex)
+      case .endIndex: return .integer(selection.elements.endIndex)
       case .count: return .integer(selection.elements.count)
       case .isEmpty: return .boolean(selection.elements.isEmpty)
       case .first:
@@ -227,10 +250,12 @@ extension RuntimeValue {
   var runtimeReceiver: SupportedAPI.RuntimeReceiver? {
     switch self {
     case .sourceSlice: .sourceSlice
+    case .sourceSpacing: .sourceSpacing
     case .fixContext: .fixContext
     case .url: .url
     case .dictionary: .dictionary
     case .array: .array
+    case .arraySlice: .arraySlice
     case .set: .set
     case .string: .string
     case .codebase: .codebase

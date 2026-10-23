@@ -1,5 +1,10 @@
 extension SupportedAPI {
   package enum Member: String, CaseIterable, Hashable, Sendable {
+    case modifiers
+    case spacing, before, after
+    case indices, startIndex, endIndex, dropFirst, prefix
+    case statements, property, isKeyPath
+    case sorted, reversed
     case source, nameSource, bodySource, calledExpressionSource,
          memberNameSource
     case expressionSource, labelSource, offender, codebase, range
@@ -300,6 +305,8 @@ extension SupportedAPI {
   }
 
   package enum Method: String, CaseIterable, Sendable {
+    case dropFirst, prefix
+    case sorted, reversed
     case matches, replacement, only, argument, withFix, slice
     case uppercased
     case lowercased
@@ -362,6 +369,14 @@ extension SupportedAPI {
   }
 
   package enum Constructor: String, CaseIterable, Sendable {
+    case newline = "Newline"
+    case sourceLayout = "SourceLayout"
+    case line = "Line"
+    case blankLine = "BlankLine"
+    case indent = "Indent"
+    case wrap = "Wrap"
+    case softBreak = "Break"
+    case align = "Align"
     case url = "URL"
     case dictionary = "Dictionary"
     case dependencyGroup = "DependencyGroup"

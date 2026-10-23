@@ -11,8 +11,9 @@ extension RuntimeEvaluator {
   ) async throws(RuntimeError) -> RuntimeValue {
     if name == .findings, let result = receiver.ruleResult {
       try arguments.requireLabels([.reportedAt], for: name)
-      guard case let .model(.check(.location(location))) = try arguments
-        .value(at: 0)
+      guard case let .model(.check(.location(location))) =
+        try arguments
+          .value(at: 0)
       else {
         throw RuntimeError(
           message: "findings takes one DeclarationLocation",
@@ -28,8 +29,32 @@ extension RuntimeEvaluator {
       }
     }
     try requireEffects(of: api, at: arguments.location, state: state)
+    if name == .replacement, let elements = receiver.sequenceElements {
+      return try await layoutReplacement(
+        elements: elements,
+        arguments: arguments,
+        state: &state
+      )
+    }
+    if name == .violations, case let .selection(selection) = receiver,
+       arguments.hasLabels([nil, nil]) || arguments.hasLabels([nil, .changes])
+    {
+      return try await correctionCheck(
+        selection: selection,
+        arguments: arguments,
+        state: &state
+      )
+    }
     switch receiver {
     case let .sourceSlice(value):
+      if name == .replacement,
+         case let .member(literal)? = arguments.values.first?.value,
+         literal.owners.contains(.sourceWhitespace)
+      {
+        try requireEffects(
+          of: api, canThrow: true, at: arguments.location, state: state
+        )
+      }
       return try sourceMethod(name, value: value, arguments: arguments)
     case let .violations(value) where name == .withFix:
       return try await attachingFixes(
@@ -48,15 +73,20 @@ extension RuntimeEvaluator {
     case let .array(values):
       return try await collectionMethod(
         name,
-        values: values,
+        values: values[...],
         preservesSet: false,
         arguments: arguments,
         state: &state
       )
+    case let .arraySlice(values):
+      return try await collectionMethod(
+        name, values: values, preservesSet: false,
+        arguments: arguments, state: &state
+      )
     case let .set(values):
       return try await collectionMethod(
         name,
-        values: values,
+        values: values[...],
         preservesSet: true,
         arguments: arguments,
         state: &state
@@ -125,15 +155,21 @@ extension RuntimeEvaluator {
   ) throws(RuntimeError) -> RuntimeValue {
     if name == .lowercased || name == .uppercased {
       try arguments.requireLabels([], for: name)
-      return .string(name == .lowercased ? value.lowercased() : value
-        .uppercased())
+      return .string(
+        name == .lowercased
+          ? value.lowercased()
+          : value
+          .uppercased()
+      )
     }
     try arguments.requireLabels([nil], for: name)
     if name == .contains,
        case let .regex(pattern) = try arguments.value(at: 0)
     {
-      return .boolean(value
-        .contains(try pattern.compiled(at: arguments.location)))
+      return .boolean(
+        value
+          .contains(try pattern.compiled(at: arguments.location))
+      )
     }
     let argument = try arguments.string(at: 0)
     return switch name {
@@ -151,11 +187,13 @@ extension RuntimeEvaluator {
   func predicate(
     _ callable: RuntimeValue,
     value: RuntimeValue,
+    allowsThrowing: Bool = false,
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> Bool {
     let transformed = try await transform(
       callable,
       value: value,
+      allowsThrowing: allowsThrowing,
       state: &state
     )
     guard case let .boolean(result) = transformed else {
@@ -170,23 +208,22 @@ extension RuntimeEvaluator {
   func transform(
     _ callable: RuntimeValue,
     value: RuntimeValue,
+    allowsThrowing: Bool = false,
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> RuntimeValue {
     if case let .function(function) = callable {
-      state.synchronousClosureDepth += 1
-      defer { state.synchronousClosureDepth -= 1 }
-      return try await invoke(
-        callable,
-        arguments: [(
-          function.definition.parameters.first?.externalName,
-          value
-        )],
-        trailingClosure: nil,
+      return try await invokeSynchronous(
+        function,
+        arguments: [value],
+        allowsThrowing: allowsThrowing,
         at: function.definition.location,
         state: &state
       )
     }
     if case let .keyPath(components, location) = callable {
+      let outerAllowsThrowing = state.synchronousClosureAllowsThrowing
+      state.synchronousClosureAllowsThrowing = false
+      defer { state.synchronousClosureAllowsThrowing = outerAllowsThrowing }
       state.synchronousClosureDepth += 1
       defer { state.synchronousClosureDepth -= 1 }
       var value = value
@@ -210,12 +247,14 @@ extension RuntimeEvaluator {
       closure,
       arguments: [value],
       kind: "collection",
+      allowsThrowing: allowsThrowing,
       state: &state
     )
   }
 
   func requireEffects(
     of api: SupportedAPI.RuntimeMemberAPI?,
+    canThrow: Bool = false,
     at location: DeclarationLocation,
     state: RuntimeEvaluationState
   ) throws(RuntimeError) {
@@ -225,29 +264,79 @@ extension RuntimeEvaluator {
         message: "a synchronous closure cannot suspend", location: location
       )
     }
-    if api?.canThrow == true {
+    if api?.canThrow == true || canThrow,
+       !state.synchronousClosureAllowsThrowing
+    {
       throw RuntimeError(
-        message: "a nonthrowing body cannot call a throwing API. Use a throwing function or fix closure.",
+        message:
+        "a nonthrowing body cannot call a throwing API. Use a throwing function or fix closure.",
         location: location
       )
     }
   }
 
   func invokeSynchronous(
+    _ function: RuntimeFunction,
+    arguments: [RuntimeValue],
+    allowsThrowing: Bool = false,
+    at location: DeclarationLocation,
+    state: inout RuntimeEvaluationState
+  ) async throws(RuntimeError) -> RuntimeValue {
+    let parameters = function.definition.parameters
+    guard parameters.count == arguments.count else {
+      throw RuntimeError(
+        message:
+        "'\(function.definition.name)' takes \(argumentCountDescription(parameters.count))",
+        location: location
+      )
+    }
+    let outerAllowsThrowing = state.synchronousClosureAllowsThrowing
+    state.synchronousClosureAllowsThrowing = allowsThrowing
+    state.synchronousClosureDepth += 1
+    defer {
+      state.synchronousClosureDepth -= 1
+      state.synchronousClosureAllowsThrowing = outerAllowsThrowing
+    }
+    return try await invoke(
+      .function(function),
+      arguments: zip(parameters, arguments).map { ($0.externalName, $1) },
+      trailingClosure: nil,
+      at: location,
+      state: &state
+    )
+  }
+
+  func invokeSynchronous(
     _ closure: RuntimeClosure,
     arguments: [RuntimeValue],
     kind: String,
+    allowsThrowing: Bool = false,
+    builder: RuntimeBuilder? = nil,
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> RuntimeValue {
-    guard !closure.definition.usesAwait, !closure.definition.usesTry else {
+    guard !closure.definition.usesAwait,
+          allowsThrowing || !closure.definition.usesTry
+    else {
       throw RuntimeError(
-        message: "a \(kind) closure must be synchronous and nonthrowing",
+        message: allowsThrowing
+          ? "a \(kind) closure must be synchronous"
+          : "a \(kind) closure must be synchronous and nonthrowing",
         location: closure.definition.location
       )
     }
+    let outerAllowsThrowing = state.synchronousClosureAllowsThrowing
+    state.synchronousClosureAllowsThrowing = allowsThrowing
     state.synchronousClosureDepth += 1
-    defer { state.synchronousClosureDepth -= 1 }
-    return try await invoke(closure, arguments: arguments, state: &state)
+    defer {
+      state.synchronousClosureDepth -= 1
+      state.synchronousClosureAllowsThrowing = outerAllowsThrowing
+    }
+    return try await invoke(
+      closure,
+      arguments: arguments,
+      builder: builder,
+      state: &state
+    )
   }
 
   func matcherValue(

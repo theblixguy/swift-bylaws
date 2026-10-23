@@ -8,6 +8,8 @@ extension RuntimeEvaluator {
   ) throws(RuntimeError) -> RuntimeValue? {
     do {
       if name == .source { return .sourceSlice(try value.source) }
+      if name ==
+        .spacing { return .sourceSpacing(try value.sourceProvider.spacing) }
       switch (name, value) {
       case let (.nameSource, .classDeclaration(value)):
         return .sourceSlice(try value.nameSource)

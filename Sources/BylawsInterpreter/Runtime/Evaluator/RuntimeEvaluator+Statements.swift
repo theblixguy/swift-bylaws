@@ -70,10 +70,9 @@ extension RuntimeEvaluator {
           in: environment,
           state: &state
         )
-        guard let values = sequence.sequenceElements else {
+        guard let values = sequence.sequenceValues else {
           throw RuntimeError(
-            message: "for takes a sequence",
-            location: statement.location
+            message: "for takes a sequence", location: statement.location
           )
         }
         for value in values {

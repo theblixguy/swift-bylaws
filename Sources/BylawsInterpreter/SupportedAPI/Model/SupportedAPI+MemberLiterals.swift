@@ -12,6 +12,7 @@ extension SupportedAPI {
       case any
       case advisory
       case enforced
+      case space, newline, blankLine
 
       case `private`
       case `fileprivate`
@@ -183,6 +184,7 @@ extension SupportedAPI.MemberLiteral {
   // A name may belong to more than one owner, so `.dynamic` is a symbol role
   // and a library linkage at once.
   package enum Owner: CaseIterable, Hashable, Sendable {
+    case sourceWhitespace
     case layerImportPolicy
     case enforcement
     case visibility
@@ -230,6 +232,7 @@ extension SupportedAPI.MemberLiteral {
 
 extension SupportedAPI {
   package enum StaticMemberType: String, CaseIterable, Hashable, Sendable {
+    case sourceWhitespace = "SourceWhitespace"
     case importKind = "ImportKind"
     case indexSymbolKind = "IndexSymbol.Kind"
     case sourceNodeKind = "SourceNode.Kind"
@@ -239,6 +242,7 @@ extension SupportedAPI {
 
     package var owner: MemberLiteral.Owner {
       switch self {
+      case .sourceWhitespace: .sourceWhitespace
       case .importKind: .importKind
       case .indexSymbolKind: .indexSymbolKind
       case .sourceNodeKind: .sourceNodeKind
@@ -278,6 +282,7 @@ extension SupportedAPI.MemberLiteral.Owner {
   // A source type that carries associated values is not CaseIterable.
   private var source: Source {
     switch self {
+    case .sourceWhitespace: Source(SourceWhitespace.self)
     case .enforcement: Source(Enforcement.self)
     case .layerImportPolicy: .constants([.any])
     case .visibility: Source(Visibility.self)

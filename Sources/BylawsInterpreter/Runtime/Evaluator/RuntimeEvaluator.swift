@@ -27,7 +27,7 @@ struct RuntimeEvaluator: Sendable {
       let receiver = try await evaluate(base, in: environment, state: &state)
       if case .optional(nil) = receiver { return .optional(nil) }
       let keyValue = try await evaluate(key, in: environment, state: &state)
-      return try dictionaryValue(
+      return try subscriptValue(
         receiver,
         key: keyValue,
         at: expression.location
@@ -196,7 +196,8 @@ struct RuntimeEvaluator: Sendable {
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> RuntimeValue {
     if state.synchronousClosureDepth > 0,
-       closure.definition.usesAwait || closure.definition.usesTry
+       closure.definition.usesAwait
+       || closure.definition.usesTry && !state.synchronousClosureAllowsThrowing
     {
       throw RuntimeError(
         message: "a callback closure must be synchronous and nonthrowing",

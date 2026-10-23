@@ -23,8 +23,35 @@ extension RuntimeTypeResolver {
         return call.result.resolve(receiver: receiver, closureResult: nil)
       }
       requireEffects(canSuspend: canSuspend, canThrow: canThrow, at: location)
+      if call.method == .sorted, values.isEmpty,
+         !receiver.collectionElement.isComparable
+      {
+        diagnose(
+          "sorted must compare Comparable elements. Use sorted(by:) for this element type.",
+          at: location
+        )
+      }
       if case let .constructor(.matcher, types) = receiver {
         return resolveMemberMatcher(types: types, values: values, at: location)
+      }
+      if call.method == .replacement, receiver.sequenceElement != nil {
+        return resolveLayoutReplacement(
+          receiver: receiver,
+          values: values,
+          at: location
+        )
+      }
+      if call.method == .violations,
+         values.map(\.0) == [nil, nil] || values.map(\.0).equal([
+           nil,
+           .changes,
+         ])
+      {
+        return resolveCorrectionCheck(
+          receiver: receiver,
+          values: values,
+          at: location
+        )
       }
       if call.method == .withFix {
         return resolveFix(receiver: receiver, values: values, at: location)
@@ -43,6 +70,12 @@ extension RuntimeTypeResolver {
         receiver: receiver,
         at: location
       )
+      if call.method == .replacement, receiver == .sourceSlice,
+         case let .staticMember(owners) = resolved.first,
+         owners.contains(.sourceWhitespace)
+      {
+        requireEffects(canSuspend: false, canThrow: true, at: location)
+      }
       return call.result.resolve(
         receiver: receiver,
         closureResult: resolved.last,
@@ -127,6 +160,34 @@ extension RuntimeTypeResolver {
     receiver: RuntimeType,
     at location: DeclarationLocation
   ) -> [RuntimeType] {
+    if call.method == .hasAttribute, values.map(\.0).equal([nil, .argument]) {
+      return resolveAttributePredicate(values, at: location)
+    }
+    if call.method == .prefix, values.count == 1, values[0].0 == nil {
+      let expression = values[0].1
+      switch expression.kind {
+      case .closure, .keyPath: break
+      default:
+        let actual = resolve(expression)
+        switch actual {
+        case .function, .closure:
+          return [resolveCallable(
+            expression,
+            input: receiver.collectionElement,
+            expectedResult: .boolean,
+            at: location
+          )]
+        default:
+          require(
+            actual,
+            toMatch: .integer,
+            subject: "the prefix count",
+            at: expression.location
+          )
+          return [actual]
+        }
+      }
+    }
     let parameters = call.arguments.parameters(
       for: values.map(\.0),
       expressions: values.map(\.1)
@@ -135,6 +196,8 @@ extension RuntimeTypeResolver {
     return zip(values, parameters).enumerated().map { offset, pair in
       let (argument, parameter) = pair
       switch parameter.type {
+      case .collectionComparator:
+        return resolveComparator(argument.1, element: element)
       case .dictionaryValueCallable:
         guard case let .dictionary(_, valueType) = receiver
         else { return .unknown }
@@ -230,16 +293,25 @@ extension RuntimeTypeResolver {
     _ expression: RuntimeExpression,
     input: RuntimeType,
     expectedResult: RuntimeType?,
+    allowsThrowing: Bool = false,
     at location: DeclarationLocation
   ) -> RuntimeType {
     switch expression.kind {
     case let .closure(definition):
-      return resolve(
+      let closure = resolve(
         definition,
         parameters: [input],
         expectedResult: expectedResult,
-        requiresSynchronousBody: true
-      ).result
+        requiresSynchronousBody: true,
+        allowsThrowingBody: allowsThrowing
+      )
+      if allowsThrowing {
+        requireEffects(
+          canSuspend: false, canThrow: closure.isThrowing,
+          at: expression.location
+        )
+      }
+      return closure.result
     case let .keyPath(members):
       return resolveKeyPath(
         members,
@@ -250,9 +322,16 @@ extension RuntimeTypeResolver {
     default:
       let type = resolve(expression)
       if case let .function(function) = type {
-        if function.isAsync || function.isThrowing {
+        if function.isAsync || function.isThrowing && !allowsThrowing {
           diagnose(
-            "the collection helper must be synchronous and nonthrowing",
+            allowsThrowing ? "the predicate must be synchronous" :
+              "the collection helper must be synchronous and nonthrowing",
+            at: expression.location
+          )
+        }
+        if allowsThrowing {
+          requireEffects(
+            canSuspend: false, canThrow: function.isThrowing,
             at: expression.location
           )
         }
@@ -286,9 +365,16 @@ extension RuntimeTypeResolver {
         )
         return .unknown
       }
-      if closure.isAsync || closure.isThrowing {
+      if closure.isAsync || closure.isThrowing && !allowsThrowing {
         diagnose(
-          "the collection closure must be synchronous and nonthrowing",
+          allowsThrowing ? "the predicate must be synchronous" :
+            "the collection closure must be synchronous and nonthrowing",
+          at: expression.location
+        )
+      }
+      if allowsThrowing {
+        requireEffects(
+          canSuspend: false, canThrow: closure.isThrowing,
           at: expression.location
         )
       }

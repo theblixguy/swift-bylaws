@@ -78,7 +78,15 @@ extension RuntimeEvaluator {
     _ value: SourceNode
   ) -> RuntimeValue? {
     switch name {
-    case .kind: .member(.sourceNodeKind(value.kind))
+    case .members: modelArray(value.members, RuntimeModelValue.sourceNode)
+    case .statements: modelArray(value.statements, RuntimeModelValue.sourceNode)
+    case .property: optionalModel(value.property, RuntimeModelValue.property)
+    case .name: optionalString(value.name)
+    case .attributes: modelArray(value.attributes, RuntimeModelValue.attribute)
+    case .kind: RuntimeValue.member(naming: value.kind)
+    case .modifiers: modelArray(value.modifiers, RuntimeModelValue.sourceNode)
+    case .parameters: modelArray(value.parameters, RuntimeModelValue.sourceNode)
+    case .cases: modelArray(value.cases, RuntimeModelValue.sourceNode)
     case .text, .description: .string(value.text)
     case .call: optionalModel(value.call, RuntimeModelValue.functionCall)
     case .expression:
@@ -416,6 +424,10 @@ extension RuntimeEvaluator {
   ) -> RuntimeValue? {
     switch name {
     case .name: .string(value.name)
+    case .argument: optionalModel(
+        value.argument,
+        RuntimeModelValue.sourceExpression
+      )
     case .arguments: optionalString(value.arguments)
     default: nil
     }

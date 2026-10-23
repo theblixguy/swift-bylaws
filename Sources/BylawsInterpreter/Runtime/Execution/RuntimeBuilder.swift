@@ -3,12 +3,14 @@ import BylawsSemantics
 
 enum RuntimeBuilder {
   case edits
+  case layout
   case checks
   case rules, layers
 
   var argumentRequirement: String {
     switch self {
     case .edits: "withFix takes SourceFix.Edit values or edit arrays"
+    case .layout: "SourceLayout takes source values, layouts or source collections"
     case .checks: "Rule takes check results"
     case .rules: "Array<Rule> takes Rule values or rule arrays"
     case .layers: "Layering takes Layer values or layer arrays"
@@ -18,6 +20,7 @@ enum RuntimeBuilder {
   var resultType: SupportedAPI.RuntimeType {
     switch self {
     case .edits: .array(.sourceEdit)
+    case .layout: .sourceLayout
     case .checks: .ruleResults
     case .rules: .array(.rule)
     case .layers: .layering
@@ -26,6 +29,7 @@ enum RuntimeBuilder {
 
   func accepts(_ type: SupportedAPI.RuntimeType) -> Bool {
     switch self {
+    case .layout: type.supportsLayout
     case .edits: type == .sourceEdit || type
       .isAssignable(to: .array(.sourceEdit))
     case .checks: type.isRuleResult
@@ -39,6 +43,12 @@ enum RuntimeBuilder {
     at location: DeclarationLocation
   ) throws(RuntimeError) -> RuntimeValue {
     switch self {
+    case .layout:
+      var nodes: [SourceLayout.Node] = []
+      for value in values {
+        nodes.append(try value.layoutNode(at: location))
+      }
+      return .sourceLayout(SourceLayout(node: .sequence(nodes)))
     case .rules, .layers, .edits:
       let elements = values.flatMap { value in
         if case let .array(elements) = value { elements } else { [value] }

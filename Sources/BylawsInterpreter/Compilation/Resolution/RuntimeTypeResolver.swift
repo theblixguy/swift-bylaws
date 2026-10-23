@@ -125,12 +125,21 @@ struct RuntimeTypeResolver {
       )
       return wrapped
     }
-    let rightExpectation: RuntimeType? = if operatorName == "+",
-                                            case .array = leftType
+    let rightExpectation: RuntimeType? = if ["==", "!="].contains(operatorName),
+                                            case .arraySlice = leftType
+    {
+      leftType
+    } else if operatorName == "+",
+              case .array = leftType
     {
       leftType
     } else { leftType == .double ? .double : nil }
     var rightType = resolve(right, expected: rightExpectation)
+    if ["==", "!="].contains(operatorName), case .array = left.kind,
+       case .arraySlice = rightType
+    {
+      leftType = resolve(left, expected: rightType)
+    }
     switch (leftType, rightType) {
     case (.integer, .double) where left.isContextualIntegerLiteral:
       leftType = .double
@@ -209,6 +218,14 @@ struct RuntimeTypeResolver {
         return .boolean
       }
       return .boolean
+    case "-":
+      guard leftType == rightType,
+            leftType == .integer || leftType == .double
+      else {
+        diagnose("'-' does not apply to these values", at: location)
+        return .unknown
+      }
+      return leftType
     case "+":
       if case .array = leftType, case .array = rightType,
          leftType.isAssignable(to: rightType) || rightType

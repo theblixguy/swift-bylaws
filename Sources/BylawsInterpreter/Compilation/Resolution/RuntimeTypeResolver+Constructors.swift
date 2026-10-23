@@ -8,6 +8,9 @@ extension RuntimeTypeResolver {
     at location: DeclarationLocation
   ) -> RuntimeType {
     switch constructor {
+    case .sourceLayout, .line, .newline, .blankLine, .indent, .wrap, .softBreak,
+         .align:
+      return resolveLayoutConstructor(constructor, values: values, at: location)
     case .dictionary:
       return resolveDictionary(
         typeArguments: typeArguments,

@@ -35,23 +35,4 @@ extension RuntimeEvaluator {
     }
     return .dictionary(result)
   }
-
-  func dictionaryValue(
-    _ receiver: RuntimeValue,
-    key: RuntimeValue,
-    at location: DeclarationLocation
-  ) throws(RuntimeError) -> RuntimeValue {
-    if case let .optional(wrapped) = receiver {
-      guard let wrapped else { return .optional(nil) }
-      return try dictionaryValue(wrapped, key: key, at: location)
-        .optionalChained
-    }
-    guard case let .dictionary(values) = receiver else {
-      throw RuntimeError(
-        message: "Subscript must have a Dictionary receiver",
-        location: location
-      )
-    }
-    return .optional(values[try RuntimeDictionaryKey(key, at: location)])
-  }
 }

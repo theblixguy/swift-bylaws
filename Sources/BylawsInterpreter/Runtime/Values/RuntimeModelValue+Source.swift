@@ -3,29 +3,35 @@ import BylawsSemantics
 
 extension RuntimeModelValue {
   var source: SourceSlice {
-    get throws {
+    get throws { try sourceProvider.source }
+  }
+
+  var sourceProvider: any SourceProviding {
+    get throws(RuntimeError) {
       switch self {
-      case let .sourceFile(value): try value.source
-      case let .classDeclaration(value): try value.source
-      case let .actor(value): try value.source
-      case let .structDeclaration(value): try value.source
-      case let .enumDeclaration(value): try value.source
-      case let .nominalType(value): try value.source
-      case let .protocolDeclaration(value): try value.source
-      case let .extensionDeclaration(value): try value.source
-      case let .function(value): try value.source
-      case let .property(value): try value.source
-      case let .initializer(value): try value.source
-      case let .importDeclaration(value): try value.source
-      case let .typealiasDeclaration(value): try value.source
-      case let .functionCall(value): try value.source
-      case let .sourceNode(value): try value.source
-      case let .sourceExpression(value): try value.source
-      case let .sourceAssignment(value): try value.source
-      case let .enumCase(value): try value.source
-      case let .callArgument(value): try value.source
-      case let .expressionArgument(value): try value.source
-      case let .variableBinding(value): try value.source
+      case let .sourceFile(value): value
+      case let .classDeclaration(value): value
+      case let .actor(value): value
+      case let .structDeclaration(value): value
+      case let .enumDeclaration(value): value
+      case let .nominalType(value): value
+      case let .protocolDeclaration(value): value
+      case let .extensionDeclaration(value): value
+      case let .function(value): value
+      case let .property(value): value
+      case let .initializer(value): value
+      case let .importDeclaration(value): value
+      case let .typealiasDeclaration(value): value
+      case let .functionCall(value): value
+      case let .sourceNode(value): value
+      case let .sourceExpression(value): value
+      case let .sourceAssignment(value): value
+      case let .enumCase(value): value
+      case let .callArgument(value): value
+      case let .expressionArgument(value): value
+      case let .variableBinding(value): value
+      case let .attribute(value): value
+      case let .dictionaryElement(value): value
       default:
         throw RuntimeError(
           message: "this value has no editable source. Select a parsed source value.",

@@ -6,11 +6,16 @@ extension RuntimeTypeResolver {
     parameters contextualParameters: [RuntimeType]?,
     expectedResult: RuntimeType?,
     requiresSynchronousBody: Bool,
+    allowsThrowingBody: Bool = false,
     builder: RuntimeBuilder? = nil
   ) -> SupportedAPI.RuntimeClosureType {
-    if requiresSynchronousBody, closure.usesAwait || closure.usesTry {
+    if requiresSynchronousBody,
+       closure.usesAwait || closure.usesTry && !allowsThrowingBody
+    {
       diagnose(
-        "this closure must be synchronous and nonthrowing",
+        allowsThrowingBody
+          ? "this closure must be synchronous"
+          : "this closure must be synchronous and nonthrowing",
         at: closure.location
       )
     }
@@ -61,7 +66,7 @@ extension RuntimeTypeResolver {
     let resolution = withEnvironment(
       closureEnvironment,
       synchronousClosure: requiresSynchronousBody,
-      allowsThrowing: !requiresSynchronousBody,
+      allowsThrowing: !requiresSynchronousBody || allowsThrowingBody,
       allowsSuspension: !requiresSynchronousBody
     ) { resolver in
       resolver.resolveBody(

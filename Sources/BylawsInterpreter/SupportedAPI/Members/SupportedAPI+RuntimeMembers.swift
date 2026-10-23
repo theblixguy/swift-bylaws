@@ -1,6 +1,7 @@
 extension SupportedAPI {
   package static let runtimeMembers =
     correctionRuntimeMembers
+      + layoutRuntimeMembers
       + collectionRuntimeMembers
       + pathRuntimeMembers
       + dictionaryRuntimeMembers
@@ -25,7 +26,7 @@ extension SupportedAPI {
       + bazelRuntimeMembers
 
   static let collectionReceivers: Set<RuntimeReceiver> = [
-    .array, .set, .selection,
+    .array, .arraySlice, .set, .selection,
   ]
 
   static let declarationReceivers: Set<RuntimeReceiver> = [

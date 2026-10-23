@@ -9,10 +9,14 @@ extension SupportedAPI {
     case regex
     case sourceSlice
     case sourceEdit
+    case sourceLayout
+    case layoutOperation(Constructor)
+    case sourceSpacing
     case fixContext(ModelType?)
     case url
     case dictionary(key: RuntimeType, value: RuntimeType)
     case array(RuntimeType)
+    case arraySlice(RuntimeType)
     case manifestList(RuntimeType)
     case set(RuntimeType)
     case optional(RuntimeType)
@@ -54,12 +58,16 @@ extension SupportedAPI {
       case .regex: "Regex"
       case .sourceSlice: "SourceSlice"
       case .sourceEdit: "SourceFix.Edit"
+      case .sourceLayout: "SourceLayout"
+      case let .layoutOperation(operation): operation.rawValue
+      case .sourceSpacing: "SourceSpacing"
       case let .fixContext(subject):
         subject.map { "FixContext<\($0.rawValue)>" } ?? "FixContext"
       case .url: "URL"
       case let .dictionary(key, value):
         "[\(key.writtenName): \(value.writtenName)]"
       case let .array(element): "[\(element.writtenName)]"
+      case let .arraySlice(element): "ArraySlice<\(element.writtenName)>"
       case let .manifestList(element): "ManifestList<\(element.writtenName)>"
       case let .set(element): "Set<\(element.writtenName)>"
       case let .optional(wrapped): "\(wrapped.writtenName)?"
@@ -113,7 +121,8 @@ extension SupportedAPI {
   }
 
   package enum RuntimeReceiver: Hashable, Sendable {
-    case sourceSlice, fixContext
+    case arraySlice
+    case sourceSlice, sourceSpacing, fixContext
     case url
     case dictionary
     case dependencyGroup
@@ -140,6 +149,8 @@ extension SupportedAPI {
     case fixed(RuntimeType)
     case receiver
     case collection
+    case orderedCollection
+    case slicedCollection
     case collectionElement
     case optionalCollectionElement
     case manifestListKnownValues
@@ -161,6 +172,7 @@ extension SupportedAPI {
     case exact(RuntimeType)
     case sequenceOfCollectionElement
     case collectionCallable(result: RuntimeType?)
+    case collectionComparator
     case collectionElement
     case callable(input: RuntimeType, result: RuntimeType?)
     case matcherForSelection

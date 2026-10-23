@@ -110,10 +110,11 @@ extension RuntimeEvaluator {
           codebase: selection.codebase
         )
       )
-    case .filter, .map, .compactMap, .flatMap, .contains, .allSatisfy:
+    case .filter, .map, .compactMap, .flatMap, .contains, .allSatisfy,
+         .sorted, .reversed, .dropFirst, .prefix:
       return try await collectionMethod(
         name,
-        values: selection.elements.map(RuntimeValue.model),
+        values: selection.elements.map(RuntimeValue.model)[...],
         preservesSet: false,
         arguments: arguments,
         state: &state

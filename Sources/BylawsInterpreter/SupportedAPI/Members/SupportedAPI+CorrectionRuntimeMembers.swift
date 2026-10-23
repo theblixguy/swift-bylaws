@@ -26,7 +26,10 @@ extension SupportedAPI {
     method(
       .replacement,
       on: [.sourceSlice],
-      arguments: .exact([.init(.with, .exact(.string))]),
+      arguments: .exact([.init(
+        .with,
+        .oneOf([.string, .staticMember([.sourceWhitespace])])
+      )]),
       result: .fixed(.sourceEdit)
     ),
     method(
@@ -114,6 +117,7 @@ extension SupportedAPI {
     .model(.callArgument), .model(.expressionArgument),
     .model(.sourceAssignment), .model(.variableBinding), .model(.enumCase),
     .model(.importDeclaration),
-    .model(.extensionDeclaration),
+    .model(.extensionDeclaration), .model(.attribute),
+    .model(.dictionaryElement),
   ])
 }

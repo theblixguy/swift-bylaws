@@ -21,16 +21,15 @@ extension RuntimeTypeResolver {
         at: expression.location
       )
     case let .array(elements):
-      let expectedElement: RuntimeType? = if case let .array(element) =
-        contextualType
-      {
-        element
-      } else {
-        nil
+      let expectedElement: RuntimeType? = switch contextualType {
+      case let .array(element), let .arraySlice(element): element
+      default: nil
       }
       let elementTypes = elements.map { resolve($0, expected: expectedElement) }
-      return .array(elementTypes
-        .isEmpty ? expectedElement ?? .unknown : commonType(in: elementTypes))
+      let element = elementTypes.isEmpty
+        ? expectedElement ?? .unknown : commonType(in: elementTypes)
+      return if case .arraySlice = contextualType { .arraySlice(element) }
+      else { .array(element) }
     case .boolean: return .boolean
     case .integer: return contextualType == .double ? .double : .integer
     case .double: return .double

@@ -24,16 +24,23 @@ extension SupportedAPI {
       arguments: [.init(nil, .exact(.string))],
       result: .fixed(.boolean)
     ),
-    modelMethod(
+    method(
       .hasAttribute,
-      on: attributedReceivers.compactMap(\.modelType),
-      arguments: [.init(nil, .exact(.string))],
+      on: attributedReceivers.union([.model(.sourceNode)]),
+      arguments: .alternatives([
+        [.init(nil, .exact(.string))],
+        [.init(nil, .exact(.string)),
+         .init(
+           .argument,
+           .callable(input: .model(.sourceExpression), result: .boolean)
+         )],
+      ]),
       result: .fixed(.boolean)
     ),
-    modelMethod(
+    method(
       .attribute,
-      on: attributedReceivers.compactMap(\.modelType),
-      arguments: [.init(.named, .exact(.string))],
+      on: attributedReceivers.union([.model(.sourceNode)]),
+      arguments: .exact([.init(.named, .exact(.string))]),
       result: .fixed(.optional(.model(.attribute)))
     ),
     inheritanceMethod(.inherits, on: inheritedTypeReceivers, label: .from),
@@ -100,12 +107,5 @@ extension SupportedAPI {
       arguments: .exact([.init(label, .exact(.string))]),
       result: .fixed(.boolean)
     )
-  }
-}
-
-extension SupportedAPI.RuntimeReceiver {
-  fileprivate var modelType: SupportedAPI.ModelType? {
-    guard case let .model(type) = self else { return nil }
-    return type
   }
 }

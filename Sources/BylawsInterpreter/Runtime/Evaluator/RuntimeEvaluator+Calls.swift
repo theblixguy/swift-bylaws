@@ -76,7 +76,8 @@ extension RuntimeEvaluator {
   ) async throws(RuntimeError) -> RuntimeValue {
     let definition = function.definition
     if state.synchronousClosureDepth > 0,
-       definition.isAsync || definition.isThrowing
+       definition.isAsync
+       || definition.isThrowing && !state.synchronousClosureAllowsThrowing
     {
       throw RuntimeError(
         message: "a synchronous closure cannot call an async or throwing helper",

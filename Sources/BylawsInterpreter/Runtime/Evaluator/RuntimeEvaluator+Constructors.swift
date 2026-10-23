@@ -23,6 +23,13 @@ extension RuntimeEvaluator {
       )
     }
     switch constructor {
+    case .sourceLayout, .line, .newline, .blankLine, .indent, .wrap, .softBreak,
+         .align:
+      return try await constructLayout(
+        constructor,
+        arguments: arguments,
+        state: &state
+      )
     case .url:
       return .url(URL(fileURLWithPath: try arguments.string(at: 0)))
     case .dictionary:

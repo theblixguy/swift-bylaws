@@ -582,9 +582,17 @@ The portable language includes top-level and local `let` bindings, named
 functions with explicit parameter and result types, closures, `return`, `if`,
 `for` and single-condition `guard let`. It supports optional chaining and `??`,
 string interpolation, key paths, comparisons, Boolean operators and array
-concatenation. Collection calls include `filter`, `map`, `compactMap`,
+concatenation. Integer expressions support addition and subtraction.
+Collection calls include `filter`, `map`, `compactMap`,
 `flatMap`, `contains`, `allSatisfy` and `isSubset(of:)`. Matcher and collection
 predicates are synchronous and nonthrowing.
+
+You can order collections with `sorted(by:)` and `reversed()`. A comparison is
+synchronous and can throw, as can a `hasAttribute(_:argument:)` predicate.
+`prefix(_:)`, `prefix(while:)` and `dropFirst(_:)` select
+consecutive elements. A slice retains its original indices, so use its
+`indices` or `startIndex` when accessing its elements.
+<doc:FormattingSource> shows how to use these operations in a source layout.
 
 For rules that compare folders, you can use `URL(fileURLWithPath:)` with
 `deletingLastPathComponent()`, `path`, `lastPathComponent` and `pathExtension`.
@@ -621,15 +629,17 @@ The CLI supports the members listed below. Use a compiled test target for
 other APIs.
 
 <!-- runtime-capabilities:start -->
+
 | Receiver | Properties | Methods |
 | --- | --- | --- |
-| `Actor` | `allInheritedTypes`, `attributes`, `bodySource`, `documentation`, `enclosingTypeName`, `extensionInheritedTypes`, `functions`, `genericParameters`, `inheritedTypes`, `initializers`, `isDocumented`, `isNonisolated`, `location`, `name`, `nameSource`, `properties`, `qualifiedName`, `source`, `sourceRange`, `sourceText`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
-| `Array` | `count`, `first`, `isEmpty` | `allSatisfy`, `compactMap`, `contains`, `filter`, `flatMap`, `map`, `only` |
-| `Attribute` | `arguments`, `name` | None |
+| `Actor` | `allInheritedTypes`, `attributes`, `bodySource`, `documentation`, `enclosingTypeName`, `extensionInheritedTypes`, `functions`, `genericParameters`, `inheritedTypes`, `initializers`, `isDocumented`, `isNonisolated`, `location`, `name`, `nameSource`, `properties`, `qualifiedName`, `source`, `sourceRange`, `sourceText`, `spacing`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
+| `Array` | `count`, `endIndex`, `first`, `indices`, `isEmpty`, `startIndex` | `allSatisfy`, `compactMap`, `contains`, `dropFirst`, `filter`, `flatMap`, `map`, `only`, `prefix`, `replacement`, `reversed`, `sorted` |
+| `ArraySlice` | `count`, `endIndex`, `first`, `indices`, `isEmpty`, `startIndex` | `allSatisfy`, `compactMap`, `contains`, `dropFirst`, `filter`, `flatMap`, `map`, `prefix`, `replacement`, `reversed`, `sorted` |
+| `Attribute` | `argument`, `arguments`, `name`, `source`, `spacing` | None |
 | `BazelGraph` | `targets` | `directTargetDependencies`, `transitiveTargetDependencies` |
 | `BazelGraph.Configuration` | `buildOptions`, `checksum`, `isTool` | None |
 | `BazelGraph.Target` | `configuration`, `description`, `label`, `location`, `ruleClass`, `tags` | None |
-| `Class` | `allInheritedTypes`, `attributes`, `bodySource`, `documentation`, `enclosingTypeName`, `extensionInheritedTypes`, `functions`, `genericParameters`, `inheritedTypes`, `initializers`, `isDocumented`, `isFinal`, `isNonisolated`, `location`, `name`, `nameSource`, `properties`, `qualifiedName`, `source`, `sourceRange`, `sourceText`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
+| `Class` | `allInheritedTypes`, `attributes`, `bodySource`, `documentation`, `enclosingTypeName`, `extensionInheritedTypes`, `functions`, `genericParameters`, `inheritedTypes`, `initializers`, `isDocumented`, `isFinal`, `isNonisolated`, `location`, `name`, `nameSource`, `properties`, `qualifiedName`, `source`, `sourceRange`, `sourceText`, `spacing`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
 | `ClassDeclSyntax` | `memberBlock` | None |
 | `Codebase` | `actors`, `assignments`, `calls`, `classes`, `compilationBranches`, `enums`, `expressions`, `extensions`, `files`, `functions`, `imports`, `initializers`, `packageManifest`, `properties`, `protocols`, `structs`, `typealiases`, `types`, `variableBindings` | `bazelGraph`, `checkDependencies`, `checkDependencyCycles`, `checkDependencyStability`, `checkFolderLayout`, `checkLayering`, `checkPackageDependencies`, `conformers`, `definitions`, `dependencyGroups`, `directConformers`, `importGraph`, `indexedFindings`, `occurrences`, `projectIndex`, `references`, `syntaxNodes` |
 | `CompilationBranch` | `condition`, `location`, `name`, `precedingConditions` | `contains` |
@@ -639,27 +649,27 @@ other APIs.
 | `DependencyStabilityCheck.UnstableDependency` | `importDeclaration`, `importedInstability`, `importedTarget`, `instability`, `target` | None |
 | `Dictionary` | `count`, `isEmpty` | `mapValues` |
 | `EnclosingDeclaration` | `location`, `name` | None |
-| `Enum` | `allInheritedTypes`, `attributes`, `bodySource`, `cases`, `documentation`, `enclosingTypeName`, `extensionInheritedTypes`, `functions`, `genericParameters`, `inheritedTypes`, `initializers`, `isDocumented`, `isIndirect`, `isNonisolated`, `location`, `name`, `nameSource`, `properties`, `qualifiedName`, `source`, `sourceRange`, `sourceText`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
-| `EnumCase` | `documentation`, `enclosingTypeName`, `isDocumented`, `isIndirect`, `location`, `name`, `nameSource`, `rawValue`, `source` | None |
-| `Extension` | `allInheritedTypes`, `attributes`, `bodySource`, `extendedTypeName`, `inheritedTypes`, `location`, `name`, `nameSource`, `simpleExtendedTypeName`, `source`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
+| `Enum` | `allInheritedTypes`, `attributes`, `bodySource`, `cases`, `documentation`, `enclosingTypeName`, `extensionInheritedTypes`, `functions`, `genericParameters`, `inheritedTypes`, `initializers`, `isDocumented`, `isIndirect`, `isNonisolated`, `location`, `name`, `nameSource`, `properties`, `qualifiedName`, `source`, `sourceRange`, `sourceText`, `spacing`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
+| `EnumCase` | `documentation`, `enclosingTypeName`, `isDocumented`, `isIndirect`, `location`, `name`, `nameSource`, `rawValue`, `source`, `spacing` | None |
+| `Extension` | `allInheritedTypes`, `attributes`, `bodySource`, `extendedTypeName`, `inheritedTypes`, `location`, `name`, `nameSource`, `simpleExtendedTypeName`, `source`, `spacing`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
 | `FixContext` | `codebase`, `file`, `offender`, `source` | None |
 | `FolderLayoutCheck` | `matchedFolders`, `missingFolders`, `unexpectedFolders` | `findings` |
-| `Function` | `attributes`, `awaitCount`, `bodyLineCount`, `bodySource`, `calls`, `cyclomaticComplexity`, `documentation`, `enclosingTypeName`, `genericParameters`, `isAsync`, `isDocumented`, `isDynamic`, `isMutating`, `isNonisolated`, `isOverride`, `isStatic`, `isThrowing`, `location`, `name`, `nameSource`, `parameters`, `returnType`, `returnTypeName`, `source`, `sourceRange`, `sourceText`, `visibility` | `attribute`, `calls`, `hasAttribute` |
-| `FunctionCall` | `argumentLabels`, `arguments`, `baseName`, `calledExpression`, `calledExpressionSource`, `location`, `memberName`, `memberNameSource`, `name`, `nameSource`, `source` | `argument`, `hasArgumentLabel`, `references` |
-| `FunctionCall.Argument` | `expression`, `expressionSource`, `label`, `labelSource`, `location`, `source`, `text` | None |
+| `Function` | `attributes`, `awaitCount`, `bodyLineCount`, `bodySource`, `calls`, `cyclomaticComplexity`, `documentation`, `enclosingTypeName`, `genericParameters`, `isAsync`, `isDocumented`, `isDynamic`, `isMutating`, `isNonisolated`, `isOverride`, `isStatic`, `isThrowing`, `location`, `name`, `nameSource`, `parameters`, `returnType`, `returnTypeName`, `source`, `sourceRange`, `sourceText`, `spacing`, `visibility` | `attribute`, `calls`, `hasAttribute` |
+| `FunctionCall` | `argumentLabels`, `arguments`, `baseName`, `calledExpression`, `calledExpressionSource`, `location`, `memberName`, `memberNameSource`, `name`, `nameSource`, `source`, `spacing` | `argument`, `hasArgumentLabel`, `references` |
+| `FunctionCall.Argument` | `expression`, `expressionSource`, `label`, `labelSource`, `location`, `source`, `spacing`, `text` | None |
 | `GenericParameter` | `constraintName`, `name` | None |
-| `Import` | `attributes`, `kind`, `location`, `moduleName`, `name`, `nameSource`, `source`, `visibility` | `attribute`, `hasAttribute` |
+| `Import` | `attributes`, `kind`, `location`, `moduleName`, `name`, `nameSource`, `source`, `spacing`, `visibility` | `attribute`, `hasAttribute` |
 | `ImportGraph` | `targets` | None |
 | `ImportGraph.Target` | `importedBy`, `imports`, `instability`, `name` | None |
 | `IndexReference` | `column`, `file`, `line`, `location`, `module`, `roles`, `symbol` | None |
 | `IndexSymbol` | `kind`, `name`, `usr` | None |
-| `Initializer` | `attributes`, `awaitCount`, `bodySource`, `calls`, `cyclomaticComplexity`, `documentation`, `isAsync`, `isConvenience`, `isDocumented`, `isFailable`, `isNonisolated`, `isThrowing`, `location`, `name`, `nameSource`, `parameters`, `source`, `visibility` | `attribute`, `hasAttribute` |
+| `Initializer` | `attributes`, `awaitCount`, `bodySource`, `calls`, `cyclomaticComplexity`, `documentation`, `isAsync`, `isConvenience`, `isDocumented`, `isFailable`, `isNonisolated`, `isThrowing`, `location`, `name`, `nameSource`, `parameters`, `source`, `spacing`, `visibility` | `attribute`, `hasAttribute` |
 | `LayeringCheck` | `emptyLayers`, `missingImports`, `violations` | `findings` |
 | `LayeringCheck.MissingImport` | `layer`, `requiredImport` | None |
 | `ManifestList` | `conditionalValues`, `isComplete`, `knownValues`, `possibleValues`, `unresolvedValues`, `values` | None |
 | `Matcher` | `requirementDescription` | None |
 | `MemberBlockSyntax` | `members` | None |
-| `NominalType` | `allInheritedTypes`, `attributes`, `bodySource`, `documentation`, `enclosingTypeName`, `extensionInheritedTypes`, `functions`, `genericParameters`, `inheritedTypes`, `initializers`, `isActor`, `isClass`, `isDocumented`, `isEnum`, `isNonisolated`, `isStruct`, `keyword`, `location`, `name`, `nameSource`, `properties`, `qualifiedName`, `source`, `sourceRange`, `sourceText`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
+| `NominalType` | `allInheritedTypes`, `attributes`, `bodySource`, `documentation`, `enclosingTypeName`, `extensionInheritedTypes`, `functions`, `genericParameters`, `inheritedTypes`, `initializers`, `isActor`, `isClass`, `isDocumented`, `isEnum`, `isNonisolated`, `isStruct`, `keyword`, `location`, `name`, `nameSource`, `properties`, `qualifiedName`, `source`, `sourceRange`, `sourceText`, `spacing`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
 | `Offender` | `affectedPath`, `description`, `line`, `location`, `name`, `path`, `requirement` | None |
 | `PackageDependencyCheck` | `checkedImportCount`, `emptyTargets`, `isComplete`, `undeclared`, `unresolvedManifestValues`, `unused`, `violations` | `findings` |
 | `PackageDependencyCheck.UndeclaredDependency` | `importDeclaration`, `module`, `target` | None |
@@ -691,32 +701,34 @@ other APIs.
 | `PackageManifest.Version` | `buildMetadataIdentifiers`, `description`, `major`, `minor`, `patch`, `prereleaseIdentifiers` | None |
 | `Parameter` | `label`, `name`, `type`, `typeName` | None |
 | `ProjectIndex` | None | `conformers`, `definitions`, `directConformers`, `occurrences`, `references` |
-| `Property` | `attributes`, `bodySource`, `calls`, `documentation`, `isConstant`, `isDocumented`, `isDynamic`, `isLazy`, `isNonisolated`, `isNonisolatedUnsafe`, `isStatic`, `isWeak`, `location`, `name`, `nameSource`, `ownership`, `source`, `type`, `typeName`, `visibility` | `attribute`, `calls`, `hasAttribute` |
-| `ProtocolDeclaration` | `allInheritedTypes`, `attributes`, `bodySource`, `documentation`, `extensionInheritedTypes`, `inheritedTypes`, `isDocumented`, `isNonisolated`, `location`, `name`, `nameSource`, `requiredFunctions`, `requiredProperties`, `source`, `sourceRange`, `sourceText`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
+| `Property` | `attributes`, `bodySource`, `calls`, `documentation`, `isConstant`, `isDocumented`, `isDynamic`, `isLazy`, `isNonisolated`, `isNonisolatedUnsafe`, `isStatic`, `isWeak`, `location`, `name`, `nameSource`, `ownership`, `source`, `spacing`, `type`, `typeName`, `visibility` | `attribute`, `calls`, `hasAttribute` |
+| `ProtocolDeclaration` | `allInheritedTypes`, `attributes`, `bodySource`, `documentation`, `extensionInheritedTypes`, `inheritedTypes`, `isDocumented`, `isNonisolated`, `location`, `name`, `nameSource`, `requiredFunctions`, `requiredProperties`, `source`, `sourceRange`, `sourceText`, `spacing`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
 | `Range<Int>` | `count`, `isEmpty`, `lowerBound`, `upperBound` | `contains` |
 | `Rule.Findings` | `checks`, `violations`, `warnings` | `findings` |
 | `Rule.Warning` | `location`, `message` | None |
 | `RuleResults` | None | `findings` |
-| `Selection` | `count`, `first`, `isEmpty`, `queryDescription` | `allSatisfy`, `compactMap`, `contains`, `excluding`, `filter`, `flatMap`, `map`, `nameMatching`, `named`, `only`, `outside`, `prefixed`, `suffixed`, `under`, `violations`, `where` |
-| `Set` | `count`, `isEmpty` | `allSatisfy`, `compactMap`, `contains`, `filter`, `flatMap`, `isSubset`, `map` |
+| `Selection` | `count`, `endIndex`, `first`, `indices`, `isEmpty`, `queryDescription`, `startIndex` | `allSatisfy`, `compactMap`, `contains`, `dropFirst`, `excluding`, `filter`, `flatMap`, `map`, `nameMatching`, `named`, `only`, `outside`, `prefix`, `prefixed`, `replacement`, `reversed`, `sorted`, `suffixed`, `under`, `violations`, `where` |
+| `Set` | `count`, `isEmpty` | `allSatisfy`, `compactMap`, `contains`, `filter`, `flatMap`, `isSubset`, `map`, `reversed`, `sorted` |
 | `Set<SymbolRole>` | None | `contains` |
-| `SourceAssignment` | `compilationBranches`, `enclosingDeclarations`, `location`, `name`, `operatorName`, `source`, `target`, `value` | None |
-| `SourceExpression` | `arguments`, `arrayElements`, `base`, `booleanValue`, `calledExpression`, `compilationBranches`, `dictionaryElements`, `enclosingDeclarations`, `floatingPointValue`, `integerValue`, `interpolations`, `isNilLiteral`, `location`, `name`, `referenceLocation`, `referenceName`, `source`, `stringValue`, `text` | None |
-| `SourceExpression.Argument` | `expression`, `expressionSource`, `label`, `labelSource`, `source` | None |
-| `SourceExpression.DictionaryElement` | `key`, `value` | None |
-| `SourceFile` | `actors`, `assignments`, `calls`, `classes`, `compilationBranches`, `enums`, `expressions`, `extensions`, `functions`, `imports`, `initializers`, `lineCount`, `location`, `name`, `path`, `properties`, `protocols`, `source`, `sourceText`, `structs`, `typealiases`, `types`, `variableBindings` | `calls`, `imports`, `withSyntax` |
+| `SourceAssignment` | `compilationBranches`, `enclosingDeclarations`, `location`, `name`, `operatorName`, `source`, `spacing`, `target`, `value` | None |
+| `SourceExpression` | `arguments`, `arrayElements`, `base`, `booleanValue`, `calledExpression`, `compilationBranches`, `dictionaryElements`, `enclosingDeclarations`, `floatingPointValue`, `integerValue`, `interpolations`, `isKeyPath`, `isNilLiteral`, `location`, `name`, `referenceLocation`, `referenceName`, `source`, `spacing`, `stringValue`, `text` | None |
+| `SourceExpression.Argument` | `expression`, `expressionSource`, `label`, `labelSource`, `source`, `spacing` | None |
+| `SourceExpression.DictionaryElement` | `key`, `source`, `spacing`, `value` | None |
+| `SourceFile` | `actors`, `assignments`, `calls`, `classes`, `compilationBranches`, `enums`, `expressions`, `extensions`, `functions`, `imports`, `initializers`, `lineCount`, `location`, `name`, `path`, `properties`, `protocols`, `source`, `sourceText`, `spacing`, `structs`, `typealiases`, `types`, `variableBindings` | `calls`, `imports`, `withSyntax` |
 | `SourceFileSyntax` | None | `tokens` |
-| `SourceNode` | `ancestors`, `call`, `children`, `descendants`, `description`, `expression`, `kind`, `location`, `parent`, `source`, `text` | None |
-| `SourceSlice` | `file`, `filePath`, `range`, `text` | `matches`, `replacement`, `slice` |
+| `SourceNode` | `ancestors`, `attributes`, `call`, `cases`, `children`, `descendants`, `description`, `expression`, `kind`, `location`, `members`, `modifiers`, `name`, `parameters`, `parent`, `property`, `source`, `spacing`, `statements`, `text` | `attribute`, `hasAttribute` |
+| `SourceSlice` | `file`, `filePath`, `range`, `spacing`, `text` | `matches`, `replacement`, `slice` |
+| `SourceSpacing` | `after`, `before` | None |
 | `String` | `count`, `description`, `first`, `isEmpty` | `contains`, `hasPrefix`, `hasSuffix`, `lowercased`, `uppercased` |
-| `Struct` | `allInheritedTypes`, `attributes`, `bodySource`, `documentation`, `enclosingTypeName`, `extensionInheritedTypes`, `functions`, `genericParameters`, `inheritedTypes`, `initializers`, `isDocumented`, `isNonisolated`, `location`, `name`, `nameSource`, `properties`, `qualifiedName`, `source`, `sourceRange`, `sourceText`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
+| `Struct` | `allInheritedTypes`, `attributes`, `bodySource`, `documentation`, `enclosingTypeName`, `extensionInheritedTypes`, `functions`, `genericParameters`, `inheritedTypes`, `initializers`, `isDocumented`, `isNonisolated`, `location`, `name`, `nameSource`, `properties`, `qualifiedName`, `source`, `sourceRange`, `sourceText`, `spacing`, `visibility` | `attribute`, `conforms`, `directlyConforms`, `directlyInherits`, `hasAttribute`, `inherits` |
 | `TokenSyntax` | `leadingTrivia`, `text`, `trailingTrivia` | None |
 | `TriviaPiece` | `description`, `isComment` | None |
 | `TypeReference` | `elementType`, `genericArguments`, `isArray`, `isDictionary`, `isExistential`, `isFunction`, `isOpaque`, `isOptional`, `isSet`, `isTuple`, `keyType`, `name`, `text`, `valueType` | `references` |
-| `Typealias` | `aliasedTypeName`, `attributes`, `documentation`, `isDocumented`, `location`, `name`, `nameSource`, `source`, `visibility` | `attribute`, `hasAttribute` |
+| `Typealias` | `aliasedTypeName`, `attributes`, `documentation`, `isDocumented`, `location`, `name`, `nameSource`, `source`, `spacing`, `visibility` | `attribute`, `hasAttribute` |
 | `URL` | `lastPathComponent`, `path`, `pathExtension` | `deletingLastPathComponent` |
-| `VariableBinding` | `compilationBranches`, `enclosingDeclarations`, `initialValue`, `isMutable`, `location`, `name`, `nameSource`, `source` | None |
+| `VariableBinding` | `compilationBranches`, `enclosingDeclarations`, `initialValue`, `isMutable`, `location`, `name`, `nameSource`, `source`, `spacing` | None |
 | `Violations` | `checkedCount`, `count`, `isEmpty`, `offenders`, `rule` | `findings`, `withFix` |
+
 <!-- runtime-capabilities:end -->
 
 Portable files may import `Bylaws`, `Testing`, `Foundation`, `BylawsIndex`,

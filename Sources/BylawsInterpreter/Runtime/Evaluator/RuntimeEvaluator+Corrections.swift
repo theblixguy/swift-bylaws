@@ -11,6 +11,12 @@ extension RuntimeEvaluator {
       switch name {
       case .replacement:
         try arguments.requireLabels([.with], for: name)
+        if case let .member(literal) = try arguments.value(at: 0),
+           literal.owners.contains(.sourceWhitespace),
+           let whitespace = SourceWhitespace(rawValue: literal.rawValue)
+        {
+          return .sourceEdit(try value.replacement(with: whitespace))
+        }
         return .sourceEdit(value.replacement(with: try arguments.string(at: 0)))
       case .matches:
         try arguments.requireLabels([.of], for: name)
@@ -42,6 +48,50 @@ extension RuntimeEvaluator {
     }
   }
 
+  func correctionCheck(
+    selection: RuntimeSelection,
+    arguments: RuntimeArguments,
+    state: inout RuntimeEvaluationState
+  ) async throws(RuntimeError) -> RuntimeValue {
+    guard arguments.hasLabels([nil, nil])
+      || arguments
+      .hasLabels([nil, .changes])
+    else {
+      throw RuntimeError(
+        message: "violations takes a requirement and one correction closure",
+        location: arguments.location
+      )
+    }
+    let requirement = try arguments.string(at: 0)
+    let body = try arguments.value(at: 1)
+    var offenders: [RuntimeModelValue] = []
+    var fixes: [SourceFix?] = []
+    for element in selection.elements {
+      try step(at: arguments.location, state: &state)
+      if let offender = element.offender,
+         excludedSubtrees?
+           .contains(offender.affectedPath ?? offender.location.filePath) == true
+      {
+        continue
+      }
+      let edits = try await correctionEdits(
+        body, input: .model(element), method: .violations,
+        at: arguments.location, state: &state
+      ).filter { !$0.source.text.utf8.elementsEqual($0.replacement.utf8) }
+      if !edits.isEmpty {
+        offenders.append(element)
+        fixes.append(SourceFix(edits: edits))
+      }
+    }
+    return .violations(
+      RuntimeViolations(
+        rule: requirement, offenders: offenders,
+        checkedCount: selection.elements.count,
+        fixes: fixes, codebase: selection.codebase
+      )
+    )
+  }
+
   func attachingFixes(
     to violations: RuntimeViolations,
     arguments: RuntimeArguments,
@@ -56,19 +106,20 @@ extension RuntimeEvaluator {
         location: arguments.location
       )
     }
-    let title: String? = if count == 1 {
-      nil
-    } else {
-      switch try arguments.value(at: 0) {
-      case let .string(value), let .optional(.string(value)): value
-      case .optional(nil): nil
-      default:
-        throw RuntimeError(
-          message: "the fix title must be String",
-          location: arguments.location
-        )
+    let title: String? =
+      if count == 1 {
+        nil
+      } else {
+        switch try arguments.value(at: 0) {
+        case let .string(value), let .optional(.string(value)): value
+        case .optional(nil): nil
+        default:
+          throw RuntimeError(
+            message: "the fix title must be String",
+            location: arguments.location
+          )
+        }
       }
-    }
     let callable = try arguments.value(at: count - 1)
     var fixes: [SourceFix?] = []
     for index in violations.offenders.indices {
@@ -83,57 +134,80 @@ extension RuntimeEvaluator {
         fixes.append(nil)
         continue
       }
-      let context = RuntimeValue.fixContext(RuntimeFixContext(
-        offender: offender,
+      let context = RuntimeValue.fixContext(
+        RuntimeFixContext(
+          offender: offender,
+          codebase: violations.codebase
+        )
+      )
+      let edits = try await correctionEdits(
+        callable, input: context, method: .withFix,
+        at: arguments.location, state: &state
+      )
+      fixes.append(edits.isEmpty ? nil : SourceFix(title, edits: edits))
+    }
+    return .violations(
+      RuntimeViolations(
+        rule: violations.rule,
+        offenders: violations.offenders,
+        checkedCount: violations.checkedCount,
+        witnesses: violations.witnesses,
+        fixes: fixes,
         codebase: violations.codebase
-      ))
-      let result: RuntimeValue = switch callable {
+      )
+    )
+  }
+
+  private func correctionEdits(
+    _ callable: RuntimeValue,
+    input: RuntimeValue,
+    method: SupportedAPI.Method,
+    at location: DeclarationLocation,
+    state: inout RuntimeEvaluationState
+  ) async throws(RuntimeError) -> [SourceFix.Edit] {
+    let result: RuntimeValue =
+      switch callable {
       case let .closure(closure):
         try await invoke(
-          closure, arguments: [context], builder: .edits, state: &state
+          closure, arguments: [input], builder: .edits, state: &state
         )
       case let .function(function):
         try await invoke(
           callable,
           arguments: [(
             function.definition.parameters.first?.externalName,
-            context
+            input
           )],
           trailingClosure: nil,
-          at: arguments.location,
+          at: location,
           state: &state
         )
       default:
         throw RuntimeError(
-          message: "withFix takes a fix closure or function",
-          location: arguments.location
+          message: method == .withFix
+            ? "withFix takes a fix closure or function"
+            : "Correction takes a closure or function",
+          location: location
         )
       }
-      guard case let .array(values) = result else {
-        throw RuntimeError(
-          message: "withFix must return an edit array",
-          location: arguments.location
-        )
-      }
-      let edits = try values
-        .map { value throws(RuntimeError) -> SourceFix.Edit in
-          guard case let .sourceEdit(edit) = value else {
-            throw RuntimeError(
-              message: "withFix takes SourceFix.Edit values or edit arrays",
-              location: arguments.location
-            )
-          }
-          return edit
-        }
-      fixes.append(edits.isEmpty ? nil : SourceFix(title, edits: edits))
+    guard case let .array(values) = result else {
+      throw RuntimeError(
+        message: method == .withFix
+          ? "withFix must return an edit array"
+          : RuntimeBuilder.edits.argumentRequirement,
+        location: location
+      )
     }
-    return .violations(RuntimeViolations(
-      rule: violations.rule,
-      offenders: violations.offenders,
-      checkedCount: violations.checkedCount,
-      witnesses: violations.witnesses,
-      fixes: fixes,
-      codebase: violations.codebase
-    ))
+    return try values.map { value throws(RuntimeError) -> SourceFix.Edit in
+      guard case let .sourceEdit(edit) = value else {
+        throw RuntimeError(
+          message: method == .withFix
+            ? "withFix takes SourceFix.Edit values or edit arrays"
+            : RuntimeBuilder.edits.argumentRequirement,
+          location: location
+        )
+      }
+      return edit
+    }
   }
 }
