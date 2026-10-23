@@ -1,3 +1,6 @@
+import BylawsCore
+import BylawsPaths
+import BylawsRunner
 import Clocks
 import Foundation
 import LanguageServerProtocol
@@ -44,9 +47,20 @@ struct EditorDiagnosticsTests {
     let project = try DiagnosticTestProject(source: "final class Good {}")
     let clock = TestClock()
     let start = clock.now
+    let sourcePath = project.source.path
     let state = BylawsLanguageServerState(
       clock: clock,
-      client: TestConnection()
+      client: TestConnection(),
+      runner: RuleRunning(
+        run: { configuration throws(CancellationError) in
+          let text = configuration.overlay.text(forFileAt: sourcePath)
+          return RuleRunResult.mock(
+            rootPath: configuration.root.string,
+            diagnosticAt: text == "class Bad {}" ? sourcePath : nil
+          )
+        },
+        discardCaches: { _ in }
+      )
     )
     var request = initializeRequest(root: project.root, supportsPull: true)
     request.initializationOptions = .dictionary([
@@ -60,7 +74,7 @@ struct EditorDiagnosticsTests {
     let items = try await diagnosticItems(from: state, for: uri)
 
     #expect(items.count == 1)
-    #expect(items.first?.code == .string("final-classes"))
+    #expect(items.first?.message == "Class must be final")
     #expect(clock.now == start)
     await state.shutdown()
   }

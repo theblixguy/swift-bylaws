@@ -121,9 +121,12 @@ extension SourceCapture {
       }
       var paths = Set(sourcePaths)
       if swiftPM {
+        var visitedDirectories: Set<LexicalFilePath> = []
         for path in sourcePaths {
           var directory = LexicalFilePath(path).removingLastComponent()
-          while root.contains(directory) {
+          while visitedDirectories.insert(directory).inserted,
+                root.contains(directory)
+          {
             paths.insert(directory.appending("Package.swift").string)
             if directory == root { break }
             directory = directory.removingLastComponent()
