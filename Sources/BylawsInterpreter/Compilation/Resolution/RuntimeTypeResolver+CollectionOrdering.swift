@@ -3,7 +3,8 @@ import BylawsSemantics
 extension RuntimeTypeResolver {
   mutating func resolveComparator(
     _ expression: RuntimeExpression,
-    element: RuntimeType
+    element: RuntimeType,
+    propagatesEffects: Bool = true
   ) -> RuntimeType {
     let comparison: SupportedAPI.RuntimeClosureType? = switch expression.kind {
     case let .closure(definition):
@@ -51,10 +52,12 @@ extension RuntimeTypeResolver {
       comparison.result, toMatch: .boolean,
       subject: "the comparison", at: expression.location
     )
-    requireEffects(
-      canSuspend: false, canThrow: comparison.isThrowing,
-      at: expression.location
-    )
+    if propagatesEffects {
+      requireEffects(
+        canSuspend: false, canThrow: comparison.isThrowing,
+        at: expression.location
+      )
+    }
     return .boolean
   }
 }

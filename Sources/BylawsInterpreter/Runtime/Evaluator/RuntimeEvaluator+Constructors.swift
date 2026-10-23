@@ -24,7 +24,7 @@ extension RuntimeEvaluator {
     }
     switch constructor {
     case .sourceLayout, .line, .newline, .blankLine, .indent, .wrap, .softBreak,
-         .align:
+         .align, .group:
       return try await constructLayout(
         constructor,
         arguments: arguments,

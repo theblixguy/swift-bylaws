@@ -9,7 +9,22 @@ extension RuntimeTypeResolver {
   ) -> RuntimeType {
     switch constructor {
     case .sourceLayout, .line, .newline, .blankLine, .indent, .wrap, .softBreak,
-         .align:
+         .align, .group:
+      let outerElement = layoutElementType
+      if !typeArguments.isEmpty {
+        if typeArguments.count == 1,
+           constructor == .group || constructor == .blankLine || constructor ==
+           .newline
+        {
+          layoutElementType = typeArguments[0]
+        } else {
+          diagnose(
+            "\(constructor.rawValue) takes one element type",
+            at: location
+          )
+        }
+      }
+      defer { layoutElementType = outerElement }
       return resolveLayoutConstructor(constructor, values: values, at: location)
     case .dictionary:
       return resolveDictionary(

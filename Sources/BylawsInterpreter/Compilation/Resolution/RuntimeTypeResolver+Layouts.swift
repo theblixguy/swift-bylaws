@@ -6,9 +6,42 @@ extension RuntimeTypeResolver {
     values: [(String?, RuntimeExpression)],
     at location: DeclarationLocation
   ) -> RuntimeType {
+    if constructor == .group {
+      guard values.map(\.0).equal([.where]), let predicate = values.first?.1
+      else {
+        diagnose("Group takes one predicate labelled where:", at: location)
+        values.forEach { _ = resolve($0.1) }
+        return .layoutGroup(layoutElementType ?? .unknown)
+      }
+      resolveLayoutPredicate(predicate, at: location)
+      return .layoutGroup(layoutElementType ?? .unknown)
+    }
     if constructor == .newline || constructor == .blankLine || constructor ==
       .softBreak
     {
+      if constructor != .softBreak, !values.isEmpty {
+        let labels = values.map(\.0)
+        guard labels.equal([.before]) || labels.equal([.after])
+          || labels.equal([.between, .and])
+        else {
+          diagnose(
+            "\(constructor.rawValue) takes one predicate with before: or after:, or two predicates with between:and:",
+            at: location
+          )
+          values.forEach { _ = resolve($0.1) }
+          return .conditionalLayoutOperation(
+            constructor,
+            layoutElementType ?? .unknown
+          )
+        }
+        for (_, predicate) in values {
+          resolveLayoutPredicate(predicate, at: location)
+        }
+        return .conditionalLayoutOperation(
+          constructor,
+          layoutElementType ?? .unknown
+        )
+      }
       if !values.isEmpty {
         diagnose("\(constructor.rawValue) takes no arguments", at: location)
         values.forEach { _ = resolve($0.1) }
@@ -50,8 +83,40 @@ extension RuntimeTypeResolver {
         at: location
       )
     }
+    let outerElement = layoutElementType
+    let outerAutomatic = layoutUsesAutomaticOperations
+    layoutElementType = receiver.collectionElement
+    layoutUsesAutomaticOperations = false
+    defer {
+      layoutElementType = outerElement
+      layoutUsesAutomaticOperations = outerAutomatic
+    }
     if let body = values.first?.1 { resolveLayoutClosure(body) }
-    return .sourceEdit
+    if layoutUsesAutomaticOperations,
+       let expression = values.first?.1,
+       case let .closure(body) = expression.kind
+    {
+      automaticLayoutClosures.insert(body.location)
+    }
+    return layoutUsesAutomaticOperations ? .sourceFix : .sourceEdit
+  }
+
+  private mutating func resolveLayoutPredicate(
+    _ expression: RuntimeExpression,
+    at location: DeclarationLocation
+  ) {
+    guard let element = layoutElementType else {
+      diagnose(
+        "SourceListLayout must be inside a collection replacement. Move the policy into replacement.",
+        at: location
+      )
+      _ = resolve(expression)
+      return
+    }
+    _ = resolveCallable(
+      expression, input: element, expectedResult: .boolean,
+      allowsThrowing: true, propagatesEffects: false, at: location
+    )
   }
 
   private mutating func resolveLayoutClosure(_ expression: RuntimeExpression) {

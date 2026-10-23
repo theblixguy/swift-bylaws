@@ -67,9 +67,13 @@ enum RuntimeProgramResolver {
       resolver.resolveRuleBody(body)
     }
 
-    if !resolver.constructors.isEmpty {
-      let resolution = RuntimeConstructorResolution(constructors: resolver
-        .constructors)
+    if !resolver.constructors.isEmpty || !resolver.automaticLayoutClosures
+      .isEmpty
+    {
+      let resolution = RuntimeConstructorResolution(
+        constructors: resolver.constructors,
+        automaticLayoutClosures: resolver.automaticLayoutClosures
+      )
       file.runtimeBindings = file.runtimeBindings.map {
         RuntimeGlobalBinding(
           name: $0.name, type: $0.type,

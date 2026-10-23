@@ -7,6 +7,28 @@ extension RuntimeEvaluator {
     at location: DeclarationLocation,
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> [RuntimeValue] {
+    try await stableSorted(
+      values,
+      state: &state
+    ) { lhs, rhs, state throws(RuntimeError) in
+      try await compare(
+        lhs,
+        rhs,
+        using: comparison,
+        at: location,
+        state: &state
+      )
+    }
+  }
+
+  func stableSorted<Element: Sendable>(
+    _ values: [Element], state: inout RuntimeEvaluationState,
+    by comparison: (
+      Element,
+      Element,
+      inout RuntimeEvaluationState
+    ) async throws(RuntimeError) -> Bool
+  ) async throws(RuntimeError) -> [Element] {
     guard values.count > 1 else { return values }
     var source = values
     var destination = values
@@ -25,9 +47,8 @@ extension RuntimeEvaluator {
           } else if right == end {
             destination[output] = source[left]
             left += 1
-          } else if try await compare(
-            source[right], source[left], using: comparison,
-            at: location, state: &state
+          } else if try await comparison(
+            source[right], source[left], &state
           ) {
             destination[output] = source[right]
             right += 1
@@ -43,7 +64,7 @@ extension RuntimeEvaluator {
     return source
   }
 
-  private func compare(
+  func compare(
     _ lhs: RuntimeValue,
     _ rhs: RuntimeValue,
     using callable: RuntimeValue?,

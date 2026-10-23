@@ -1,6 +1,25 @@
 import BylawsSemantics
 
 extension RuntimeValue {
+  func layoutOperations(at location: DeclarationLocation) throws(RuntimeError)
+    -> [RuntimeLayoutOperation]
+  {
+    switch self {
+    case let .layoutPlan(operations): return operations
+    case let .layoutGroup(predicate, comparison): return [.group(
+        predicate: predicate,
+        comparison: comparison
+      )]
+    case let .sourceLayout(layout):
+      return try layout.node.listOperations(at: location)
+    default:
+      throw RuntimeError(
+        message: "SourceListLayout must contain groups and separators. Use a separate replacement for explicit source.",
+        location: location
+      )
+    }
+  }
+
   func layoutNode(at location: DeclarationLocation) throws(RuntimeError)
     -> SourceLayout.Node
   {
@@ -36,6 +55,28 @@ extension RuntimeValue {
     default:
       throw RuntimeError(
         message: "SourceLayout must contain captured source. Select a parsed source value.",
+        location: location
+      )
+    }
+  }
+}
+
+extension SourceLayout.Node {
+  fileprivate func listOperations(at location: DeclarationLocation)
+    throws(RuntimeError) -> [RuntimeLayoutOperation]
+  {
+    switch self {
+    case .blankLine: return [.separator(.blankLine)]
+    case .newline: return [.separator(.newline)]
+    case let .sequence(nodes):
+      var operations: [RuntimeLayoutOperation] = []
+      for node in nodes {
+        operations.append(contentsOf: try node.listOperations(at: location))
+      }
+      return operations
+    default:
+      throw RuntimeError(
+        message: "SourceListLayout must contain groups and separators. Use a separate replacement for explicit source.",
         location: location
       )
     }

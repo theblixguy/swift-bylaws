@@ -83,7 +83,7 @@ struct CorrectionTypeTests {
 
     await expectCorrectionRejection(
       in: project,
-      containing: "withFix takes SourceFix.Edit values or edit arrays",
+      containing: "withFix takes SourceFix, SourceFix.Edit or edit arrays",
       atLine: 6
     )
   }

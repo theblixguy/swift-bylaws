@@ -20,10 +20,24 @@ extension SupportedAPI.RuntimeType {
       case "Double": .double
       case "String": .string
       case "SourceSlice": .sourceSlice
+      case "SourceFix": .sourceFix
       case "SourceLayout": .sourceLayout
+      case "Group":
+        .layoutGroup(Self.singleGenericArgument(of: reference).map {
+          Self(writtenType: $0.text)
+        } ?? .unknown)
       case "Line": .layoutOperation(.line)
-      case "Newline": .layoutOperation(.newline)
-      case "BlankLine": .layoutOperation(.blankLine)
+      case "Newline", "BlankLine":
+        if let element = Self.singleGenericArgument(of: reference),
+           element.name != "Never"
+        {
+          .conditionalLayoutOperation(
+            reference.name == "Newline" ? .newline : .blankLine,
+            Self(writtenType: element.text)
+          )
+        } else {
+          .layoutOperation(reference.name == "Newline" ? .newline : .blankLine)
+        }
       case "Indent": .layoutOperation(.indent)
       case "Wrap": .layoutOperation(.wrap)
       case "Break": .layoutOperation(.softBreak)
@@ -135,7 +149,8 @@ extension SupportedAPI.RuntimeType {
       true
     case let .array(element), let .arraySlice(element),
          let .manifestList(element), let .set(element),
-         let .optional(element):
+         let .optional(element), let .layoutGroup(element),
+         let .conditionalLayoutOperation(_, element):
       element.containsUnknown
     case let .constructor(_, arguments):
       arguments.contains(where: \.containsUnknown)
@@ -152,6 +167,7 @@ extension SupportedAPI.RuntimeType {
 
   var receiver: SupportedAPI.RuntimeReceiver? {
     switch self {
+    case .layoutGroup: .layoutGroup
     case .sourceSlice: .sourceSlice
     case .sourceSpacing: .sourceSpacing
     case .fixContext: .fixContext
@@ -195,6 +211,7 @@ extension SupportedAPI.RuntimeType {
 
   var collectionElement: Self {
     switch self {
+    case let .layoutGroup(element): element
     case let .array(element), let .arraySlice(element): element
     case let .manifestList(element): element
     case let .set(element): element

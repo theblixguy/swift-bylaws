@@ -658,6 +658,7 @@ other APIs.
 | `FunctionCall` | `argumentLabels`, `arguments`, `baseName`, `calledExpression`, `calledExpressionSource`, `location`, `memberName`, `memberNameSource`, `name`, `nameSource`, `source`, `spacing`, `tokens`, `trivia` | `argument`, `hasArgumentLabel`, `references` |
 | `FunctionCall.Argument` | `expression`, `expressionSource`, `label`, `labelSource`, `location`, `source`, `spacing`, `text`, `tokens`, `trivia` | None |
 | `GenericParameter` | `constraintName`, `name` | None |
+| `Group` | None | `sorted` |
 | `Import` | `attributes`, `kind`, `location`, `moduleName`, `name`, `nameSource`, `source`, `spacing`, `tokens`, `trivia`, `visibility` | `attribute`, `hasAttribute` |
 | `ImportGraph` | `targets` | None |
 | `ImportGraph.Target` | `importedBy`, `imports`, `instability`, `name` | None |

@@ -39,6 +39,7 @@ package enum SupportedAPI {
   }
 
   package enum ArgumentLabel: String, Sendable {
+    case and, before, after
     case applying
     case changes
     case width, argument

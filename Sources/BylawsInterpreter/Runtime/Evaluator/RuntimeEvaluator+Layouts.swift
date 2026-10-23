@@ -7,9 +7,19 @@ extension RuntimeEvaluator {
     arguments: RuntimeArguments,
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> RuntimeValue {
+    if constructor == .group {
+      try arguments.requireLabels(["where"], for: constructor.rawValue)
+      return .layoutGroup(
+        predicate: try arguments.value(at: 0),
+        comparison: nil
+      )
+    }
     if constructor == .newline || constructor == .blankLine || constructor ==
       .softBreak
     {
+      if constructor != .softBreak, !arguments.values.isEmpty {
+        return try conditionalSeparator(constructor, arguments: arguments)
+      }
       try arguments.requireLabels([], for: constructor.rawValue)
       let node: SourceLayout.Node =
         switch constructor {
@@ -67,7 +77,7 @@ extension RuntimeEvaluator {
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> RuntimeValue {
     try arguments.requireLabels([nil], for: .replacement)
-    let layout = try await layoutBody(
+    let result = try await layoutResult(
       arguments.value(at: 0),
       at: arguments.location,
       state: &state
@@ -76,6 +86,20 @@ extension RuntimeEvaluator {
       let providers =
         try elements
           .map { try $0.sourceProvider(at: arguments.location) }
+      if case let .layoutPlan(plan) = result {
+        let operations = try await resolveLayoutPlan(
+          plan, elements: elements, at: arguments.location, state: &state
+        )
+        return .sourceFix(try SourceListLayoutReplacement.make(
+          elements: providers, operations: operations
+        ))
+      }
+      guard case let .sourceLayout(layout) = result else {
+        throw RuntimeError(
+          message: RuntimeBuilder.layout.argumentRequirement,
+          location: arguments.location
+        )
+      }
       return .sourceEdit(
         try SourceLayoutReplacement.make(
           elements: providers,
@@ -92,6 +116,21 @@ extension RuntimeEvaluator {
     at location: DeclarationLocation,
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> SourceLayout {
+    let result = try await layoutResult(callable, at: location, state: &state)
+    guard case let .sourceLayout(layout) = result else {
+      throw RuntimeError(
+        message: "SourceLayout must emit source values. Use groups in a collection replacement.",
+        location: location
+      )
+    }
+    return layout
+  }
+
+  private func layoutResult(
+    _ callable: RuntimeValue,
+    at location: DeclarationLocation,
+    state: inout RuntimeEvaluationState
+  ) async throws(RuntimeError) -> RuntimeValue {
     let result: RuntimeValue
     switch callable {
     case let .closure(closure):
@@ -113,12 +152,45 @@ extension RuntimeEvaluator {
         location: location
       )
     }
-    guard case let .sourceLayout(layout) = result else {
+    switch result {
+    case .sourceLayout:
+      if case let .closure(closure) = callable,
+         closure.definition.isAutomaticLayout
+      {
+        return .layoutPlan(try result.layoutOperations(at: location))
+      }
+      return result
+    case .layoutPlan: return result
+    default:
       throw RuntimeError(
         message: RuntimeBuilder.layout.argumentRequirement,
         location: location
       )
     }
-    return layout
+  }
+
+  private func conditionalSeparator(
+    _ constructor: SupportedAPI.Constructor,
+    arguments: RuntimeArguments
+  ) throws(RuntimeError) -> RuntimeValue {
+    let condition: RuntimeLayoutOperation.Condition
+    if arguments.hasLabels([.before]) {
+      condition = .before(try arguments.value(at: 0))
+    } else if arguments.hasLabels([.after]) {
+      condition = .after(try arguments.value(at: 0))
+    } else if arguments.hasLabels([.between, .and]) {
+      condition = .between(
+        try arguments.value(at: 0),
+        try arguments.value(at: 1)
+      )
+    } else {
+      throw RuntimeError(
+        message: "\(constructor.rawValue) takes one predicate with before: or after:, or two predicates with between:and:",
+        location: arguments.location
+      )
+    }
+    return .layoutPlan([.conditionalSeparator(
+      condition, constructor == .blankLine ? .blankLine : .newline
+    )])
   }
 }

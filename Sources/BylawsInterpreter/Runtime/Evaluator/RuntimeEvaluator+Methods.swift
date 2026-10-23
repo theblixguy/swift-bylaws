@@ -46,6 +46,11 @@ extension RuntimeEvaluator {
       )
     }
     switch receiver {
+    case let .layoutGroup(predicate, _) where name == .sorted:
+      return .layoutGroup(
+        predicate: predicate,
+        comparison: try arguments.value(at: 0)
+      )
     case let .sourceSlice(value):
       if name == .replacement,
          case let .member(literal)? = arguments.values.first?.value,

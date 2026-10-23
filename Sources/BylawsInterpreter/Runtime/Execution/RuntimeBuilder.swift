@@ -9,7 +9,7 @@ enum RuntimeBuilder {
 
   var argumentRequirement: String {
     switch self {
-    case .edits: "withFix takes SourceFix.Edit values or edit arrays"
+    case .edits: "withFix takes SourceFix, SourceFix.Edit or edit arrays"
     case .layout: "SourceLayout takes source values, layouts or source collections"
     case .checks: "Rule takes check results"
     case .rules: "Array<Rule> takes Rule values or rule arrays"
@@ -30,7 +30,7 @@ enum RuntimeBuilder {
   func accepts(_ type: SupportedAPI.RuntimeType) -> Bool {
     switch self {
     case .layout: type.supportsLayout
-    case .edits: type == .sourceEdit || type
+    case .edits: type == .sourceFix || type == .sourceEdit || type
       .isAssignable(to: .array(.sourceEdit))
     case .checks: type.isRuleResult
     case .rules: type == .rule || type.isAssignable(to: .array(.rule))
@@ -44,6 +44,19 @@ enum RuntimeBuilder {
   ) throws(RuntimeError) -> RuntimeValue {
     switch self {
     case .layout:
+      if values.contains(where: {
+        switch $0 {
+        case .layoutPlan, .layoutGroup: true
+        default: false
+        }
+      }) {
+        var operations: [RuntimeLayoutOperation] = []
+        for value in values {
+          operations
+            .append(contentsOf: try value.layoutOperations(at: location))
+        }
+        return .layoutPlan(operations)
+      }
       var nodes: [SourceLayout.Node] = []
       for value in values {
         nodes.append(try value.layoutNode(at: location))
@@ -51,7 +64,11 @@ enum RuntimeBuilder {
       return .sourceLayout(SourceLayout(node: .sequence(nodes)))
     case .rules, .layers, .edits:
       let elements = values.flatMap { value in
-        if case let .array(elements) = value { elements } else { [value] }
+        switch value {
+        case let .array(elements): elements
+        case let .sourceFix(fix): fix.edits.map(RuntimeValue.sourceEdit)
+        default: [value]
+        }
       }
       if self == .edits {
         guard elements.allSatisfy({ $0.hasRuntimeType(.sourceEdit) }) else {

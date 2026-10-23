@@ -9,8 +9,11 @@ extension SupportedAPI {
     case regex
     case sourceSlice
     case sourceEdit
+    case sourceFix
     case sourceLayout
+    case layoutGroup(RuntimeType)
     case layoutOperation(Constructor)
+    case conditionalLayoutOperation(Constructor, RuntimeType)
     case sourceSpacing
     case fixContext(ModelType?)
     case url
@@ -58,8 +61,12 @@ extension SupportedAPI {
       case .regex: "Regex"
       case .sourceSlice: "SourceSlice"
       case .sourceEdit: "SourceFix.Edit"
+      case .sourceFix: "SourceFix"
       case .sourceLayout: "SourceLayout"
+      case let .layoutGroup(element): "Group<\(element.writtenName)>"
       case let .layoutOperation(operation): operation.rawValue
+      case let .conditionalLayoutOperation(operation, element):
+        "\(operation.rawValue)<\(element.writtenName)>"
       case .sourceSpacing: "SourceSpacing"
       case let .fixContext(subject):
         subject.map { "FixContext<\($0.rawValue)>" } ?? "FixContext"
@@ -121,6 +128,7 @@ extension SupportedAPI {
   }
 
   package enum RuntimeReceiver: Hashable, Sendable {
+    case layoutGroup
     case arraySlice
     case sourceSlice, sourceSpacing, fixContext
     case url

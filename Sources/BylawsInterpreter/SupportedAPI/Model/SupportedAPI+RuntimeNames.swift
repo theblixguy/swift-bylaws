@@ -370,6 +370,7 @@ extension SupportedAPI {
   }
 
   package enum Constructor: String, CaseIterable, Sendable {
+    case group = "Group"
     case newline = "Newline"
     case sourceLayout = "SourceLayout"
     case line = "Line"

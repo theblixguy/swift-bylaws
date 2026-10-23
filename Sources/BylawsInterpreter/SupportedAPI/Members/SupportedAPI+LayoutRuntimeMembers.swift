@@ -1,5 +1,14 @@
 extension SupportedAPI {
   static let layoutRuntimeMembers: [RuntimeMemberAPI] = [
+    method(
+      .sorted,
+      on: [.layoutGroup],
+      arguments: .alternatives([
+        [.init(.by, .collectionComparator)],
+        [.init(nil, .collectionComparator)],
+      ]),
+      result: .receiver
+    ),
     property(
       .spacing,
       on: Set(sourceProvidingModels.map(RuntimeReceiver.model))
@@ -91,7 +100,8 @@ extension SupportedAPI.RuntimeType {
     if providesSource { return true }
     if let element = sequenceElement { return element.providesSource }
     return switch self {
-    case .sourceLayout, .sourceEdit, .layoutOperation: true
+    case .sourceLayout, .sourceEdit, .layoutOperation, .layoutGroup,
+         .conditionalLayoutOperation: true
     default: false
     }
   }

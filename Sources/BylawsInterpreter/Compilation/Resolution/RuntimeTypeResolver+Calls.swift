@@ -199,7 +199,10 @@ extension RuntimeTypeResolver {
       let (argument, parameter) = pair
       switch parameter.type {
       case .collectionComparator:
-        return resolveComparator(argument.1, element: element)
+        return resolveComparator(
+          argument.1, element: element,
+          propagatesEffects: receiver.receiver != .layoutGroup
+        )
       case .dictionaryValueCallable:
         guard case let .dictionary(_, valueType) = receiver
         else { return .unknown }
@@ -296,6 +299,7 @@ extension RuntimeTypeResolver {
     input: RuntimeType,
     expectedResult: RuntimeType?,
     allowsThrowing: Bool = false,
+    propagatesEffects: Bool = true,
     at location: DeclarationLocation
   ) -> RuntimeType {
     switch expression.kind {
@@ -307,7 +311,7 @@ extension RuntimeTypeResolver {
         requiresSynchronousBody: true,
         allowsThrowingBody: allowsThrowing
       )
-      if allowsThrowing {
+      if allowsThrowing, propagatesEffects {
         requireEffects(
           canSuspend: false, canThrow: closure.isThrowing,
           at: expression.location
@@ -331,7 +335,7 @@ extension RuntimeTypeResolver {
             at: expression.location
           )
         }
-        if allowsThrowing {
+        if allowsThrowing, propagatesEffects {
           requireEffects(
             canSuspend: false, canThrow: function.isThrowing,
             at: expression.location
@@ -374,7 +378,7 @@ extension RuntimeTypeResolver {
           at: expression.location
         )
       }
-      if allowsThrowing {
+      if allowsThrowing, propagatesEffects {
         requireEffects(
           canSuspend: false, canThrow: closure.isThrowing,
           at: expression.location

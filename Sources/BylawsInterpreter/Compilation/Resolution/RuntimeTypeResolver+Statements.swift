@@ -27,6 +27,24 @@ extension RuntimeTypeResolver {
       case let .expression(expression):
         let result = resolve(expression, expected: expected)
         results = [result]
+        if builder == .layout {
+          switch result {
+          case let .layoutGroup(element), let .conditionalLayoutOperation(
+            _,
+            element
+          ):
+            layoutUsesAutomaticOperations = true
+            if let layoutElementType {
+              require(
+                element,
+                toMatch: layoutElementType,
+                subject: "the layout element",
+                at: expression.location
+              )
+            }
+          default: break
+          }
+        }
         if let builder, !builder.accepts(result) {
           diagnose(
             builder.argumentRequirement,

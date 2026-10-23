@@ -255,6 +255,7 @@ extension SupportedAPI.RuntimeMemberAPI {
 extension RuntimeValue {
   var runtimeReceiver: SupportedAPI.RuntimeReceiver? {
     switch self {
+    case .layoutGroup: .layoutGroup
     case .sourceSlice: .sourceSlice
     case .sourceSpacing: .sourceSpacing
     case .fixContext: .fixContext

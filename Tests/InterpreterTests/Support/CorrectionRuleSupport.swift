@@ -4,6 +4,14 @@ import BylawsTestSupport
 import Foundation
 import Testing
 
+func correctedSource(
+  applying fix: SourceFix,
+  sourceLocation: SourceLocation = #_sourceLocation
+) throws -> String {
+  let first = try #require(fix.edits.first, sourceLocation: sourceLocation)
+  return try first.source.file.replacement(applying: fix.edits).replacement
+}
+
 func correctionProject(
   declarations: String = "",
   ruleBody: String

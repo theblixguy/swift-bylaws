@@ -13,6 +13,9 @@ struct RuntimeTypeResolver {
   var allowsSuspension = true
   var observedSuspension = false
   var observedThrowing = false
+  var layoutElementType: RuntimeType?
+  var layoutUsesAutomaticOperations = false
+  var automaticLayoutClosures: Set<DeclarationLocation> = []
 
   init(
     environment: [String: RuntimeType],

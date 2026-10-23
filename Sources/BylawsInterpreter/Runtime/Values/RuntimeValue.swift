@@ -35,7 +35,10 @@ indirect enum RuntimeValue: Sendable {
   case regex(RuntimeRegex)
   case sourceSlice(SourceSlice)
   case sourceEdit(SourceFix.Edit)
+  case sourceFix(SourceFix)
   case sourceLayout(SourceLayout)
+  case layoutPlan([RuntimeLayoutOperation])
+  case layoutGroup(predicate: RuntimeValue, comparison: RuntimeValue?)
   case sourceSpacing(SourceSpacing)
   case fixContext(RuntimeFixContext)
   case url(URL)
@@ -112,7 +115,10 @@ extension RuntimeValue {
       subject == nil
         || violations.offenders.allSatisfy { $0.modelType == subject }
     case (.sourceSlice, .sourceSlice), (.sourceEdit, .sourceEdit): true
+    case (.sourceFix, .sourceFix): true
     case (.sourceLayout, .sourceLayout): true
+    case (.sourceLayout, .layoutPlan), (.layoutGroup, .layoutGroup): true
+    case (.conditionalLayoutOperation, .layoutPlan): true
     case (.layoutOperation, .sourceLayout): true
     case (.sourceSpacing, .sourceSpacing): true
     case let (.fixContext(subject), .fixContext(context)):
