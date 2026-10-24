@@ -3,6 +3,66 @@ import Testing
 
 @Suite("Nested source layouts")
 struct SourceLayoutCompositionTests {
+  @Test(
+    "Empty embedded edit retains surrounding argument content",
+    arguments: [false, true]
+  )
+  func partialDeletion(lines: Bool) throws {
+    let file = try FileCollector.collect(
+      source: "let r = send(first: value!, second: 2)", path: "/App.swift"
+    )
+    let arguments = try #require(file.calls.first).arguments
+    try #require(arguments.count == 2)
+    let marker = try arguments[0].source.matches(of: /!/).only()
+    let deletion = marker.replacement(with: "")
+    let layout = try arguments.replacement {
+      if lines {
+        Line { deletion }
+        Line { arguments[1] }
+      } else {
+        deletion
+        arguments[1]
+      }
+    }
+
+    let result = try file.source.replacement(applying: [layout])
+    let expected = if lines {
+      "let r = send(\n  first: value,\n  second: 2\n)"
+    } else {
+      "let r = send(first: value, second: 2)"
+    }
+
+    #expect(result.replacement == expected)
+  }
+
+  @Test(
+    "Attribute width excludes following declaration line",
+    arguments: ["\n", "\r\n", "\r"]
+  )
+  func followingLine(ending: String) throws {
+    let original = "@A @B\(ending)class VeryLongDeclaration {}"
+    let file = try FileCollector.collect(source: original, path: "/App.swift")
+    let declaration = try #require(file.classes.first)
+    try #require(declaration.attributes.count == 2)
+    let candidate = try declaration.attributes
+      .replacement(whenLineExceeds: 10) {
+        for attribute in declaration.attributes {
+          Line { attribute }
+        }
+      }
+    try #require(candidate.source.text == "@A @B\(ending)")
+    #expect(candidate.replacement == "@A @B\(ending)")
+
+    let unchanged = try file.source.replacement(applying: [candidate])
+    #expect(unchanged.replacement == original)
+    let rename = try declaration.nameSource
+      .replacement(with: "AnotherVeryLongDeclaration")
+    let renamed = try file.source.replacement(applying: [candidate, rename])
+
+    #expect(renamed.replacement
+      == "@A @B\(ending)class AnotherVeryLongDeclaration {}")
+  }
+
   @Test("Separate line joins can create a width violation for the next pass")
   func siblingLineJoin() throws {
     let original = "first(1, 2); second(3,\n  4)"

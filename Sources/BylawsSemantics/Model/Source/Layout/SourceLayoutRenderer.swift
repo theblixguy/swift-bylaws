@@ -74,13 +74,7 @@ package enum SourceLayoutRenderer {
       resolveEdit: resolveEdit
     )
     guard !layout.sources.isEmpty else { return "" }
-    var writer = Writer(
-      context: context,
-      startsWithLine: events.prefix(while: { !$0.hasText })
-        .contains(where: \.isLineBoundary),
-      endsWithLine: events.reversed().prefix(while: { !$0.hasText })
-        .contains(where: \.isLineBoundary)
-    )
+    var writer = Writer(context: context)
     return try writer.render(events)
   }
 
@@ -109,10 +103,6 @@ package enum SourceLayoutRenderer {
       default: false
       }
     }
-
-    var isLineBoundary: Bool {
-      if case .lineBoundary = self { true } else { false }
-    }
   }
 
   private static func events(
@@ -125,7 +115,6 @@ package enum SourceLayoutRenderer {
     case let .source(source):
       return [.deferred { try resolve(source, $0) }]
     case let .edit(edit):
-      guard edit.layout != nil || !edit.replacement.isEmpty else { return [] }
       return [.deferred { try resolveEdit(edit, $0) }]
     case let .sequence(children):
       var result: [Event] = []
@@ -147,11 +136,7 @@ package enum SourceLayoutRenderer {
         resolveEdit: resolveEdit
       )
       guard content.contains(where: \.hasText) else { return [] }
-      return [
-        .lineBoundary,
-        .line(content),
-        .lineBoundary,
-      ]
+      return [.line(content)]
     case .blankLine:
       return [.boundary(.blankLine)]
     case .newline:
@@ -186,29 +171,27 @@ package enum SourceLayoutRenderer {
     var indentations: [String]
     var widths: [Int] = []
     var hasContent = false
-    let startsWithLine: Bool
-    let endsWithLine: Bool
+    var startsWithLine = false
+    var endsWithLine = false
 
-    init(context: Context, startsWithLine: Bool, endsWithLine: Bool) {
+    init(context: Context) {
       self.context = context
       column = context.initialColumn
       lineIndentation = context.initialIndentation
       indentations = [context.baseIndentation]
-      self.startsWithLine = startsWithLine
-      self.endsWithLine = endsWithLine
     }
 
     mutating func render(_ events: [Event]) throws -> String {
       for event in events {
         switch event {
         case let .deferred(make):
-          try appendDeferred(make)
+          _ = try appendDeferred(make)
         case let .line(events):
-          try appendDeferred { try Self.line(events, at: $0) }
+          try appendLine(events)
         case let .boundary(boundary):
           pending = max(pending ?? boundary, boundary)
         case .lineBoundary:
-          pending = max(pending ?? .newline, .newline)
+          requestLine()
         case .indent:
           indentations.append(indentation + context.indentationUnit)
         case .align:
@@ -281,22 +264,48 @@ package enum SourceLayoutRenderer {
 
     private mutating func appendDeferred(
       _ make: (Placement) throws -> String
-    ) throws {
+    ) throws -> Bool {
       let predicted = placement
       let preview = try make(predicted)
-      guard !preview.isEmpty else { return }
-      flushBoundary(before: preview)
-      let actual = Placement(
-        column: column, indentation: indentation,
-        lineIndentation: lineIndentation
-      )
+      guard !preview.isEmpty else { return false }
+      let boundary = resolvedBoundary(before: preview)
+      let actual = if hasContent, let boundary, boundary != .soft {
+        Placement(
+          column: endColumn(of: indentation, startingAt: 0),
+          indentation: indentation, lineIndentation: indentation
+        )
+      } else { predicted }
       let value = if actual.column == predicted.column,
                      actual.lineIndentation == predicted.lineIndentation
       {
         preview
       } else { try make(actual) }
+      guard !value.isEmpty else { return false }
+      flushBoundary(boundary)
       append(value)
       hasContent = true
+      endsWithLine = false
+      return true
+    }
+
+    private mutating func requestLine() {
+      pending = max(pending ?? .newline, .newline)
+      if !hasContent { startsWithLine = true }
+      endsWithLine = true
+    }
+
+    private mutating func appendLine(_ events: [Event]) throws {
+      let previousPending = pending
+      let previousStart = startsWithLine
+      let previousEnd = endsWithLine
+      requestLine()
+      if try appendDeferred({ try Self.line(events, at: $0) }) {
+        requestLine()
+      } else {
+        pending = previousPending
+        startsWithLine = previousStart
+        endsWithLine = previousEnd
+      }
     }
 
     private static func line(
@@ -330,7 +339,14 @@ package enum SourceLayoutRenderer {
         )
         switch event {
         case let .deferred(make): try append(make(current))
-        case let .line(children): try append(line(children, at: current))
+        case let .line(children):
+          let value = try line(children, at: current)
+          if !value.isEmpty {
+            guard result.isEmpty
+            else { throw SourceLayoutError.lineContainsNewline }
+            try append(value)
+            pending = .newline
+          }
         case let .boundary(value): pending = max(pending ?? value, value)
         case .lineBoundary: pending = max(pending ?? .newline, .newline)
         case .indent, .align, .endIndentation, .wrap, .endWrap: break
@@ -355,7 +371,23 @@ package enum SourceLayoutRenderer {
       }
     }
 
-    private mutating func flushBoundary(before value: String) {
+    private func resolvedBoundary(before value: String) -> Boundary? {
+      guard let pending else { return nil }
+      return if pending == .soft, let width = widths.last,
+                endColumn(
+                  of:
+                  value
+                    .prefix { !$0.isSourceLayoutNewline },
+                  startingAt: column + 1
+                ) > width
+      {
+        .newline
+      } else {
+        pending
+      }
+    }
+
+    private mutating func flushBoundary(_ boundary: Boundary?) {
       defer { pending = nil }
       if !hasContent {
         if startsWithLine, context.hasSourceBefore {
@@ -367,19 +399,7 @@ package enum SourceLayoutRenderer {
         }
         return
       }
-      guard let pending else { return }
-      let boundary: Boundary =
-        if pending == .soft, let width = widths.last,
-        endColumn(
-          of:
-          value
-            .prefix { !$0.isSourceLayoutNewline },
-          startingAt: column + 1
-        ) > width {
-          .newline
-        } else {
-          pending
-        }
+      guard let boundary else { return }
       switch boundary {
       case .soft:
         text += " "

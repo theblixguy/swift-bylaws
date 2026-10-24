@@ -298,8 +298,13 @@ package enum SourceLayoutReplacement {
     if placement == nil, !hasNestedEdits {
       return source.hasLine(exceeding: maximumWidth)
     }
-    let suffix = placement?.trailingText ?? lineSuffix(after: source)
-    let lines = (renderedText + suffix).split(
+    guard !renderedText.isEmpty else { return false }
+    let measured = if renderedText.last?.isPhysicalLayoutLineEnding == true {
+      renderedText
+    } else {
+      renderedText + (placement?.trailingText ?? lineSuffix(after: source))
+    }
+    let lines = measured.split(
       omittingEmptySubsequences: false,
       whereSeparator: \.isPhysicalLayoutLineEnding
     )

@@ -64,6 +64,18 @@ extension SourceLayoutComposition.Session {
     var cursor = 0
     var column = placement.column
     var lineIndentation = placement.lineIndentation
+    func append(_ value: String) {
+      let wasIndentation = column == SourceTextWidth
+        .column(after: lineIndentation)
+      result += value
+      column = SourceTextWidth.column(after: value, startingAt: column)
+      if value.contains(where: SourceLayoutText.isNewline) {
+        lineIndentation = SourceLayoutText
+          .indentation(in: SourceLayoutText.lastLine(in: result))
+      } else if wasIndentation {
+        lineIndentation += SourceLayoutText.indentation(in: value)
+      }
+    }
     for edit in roots {
       let lower = try projected
         .offset(edit.source.range.lowerBound - source.range.lowerBound)
@@ -73,16 +85,7 @@ extension SourceLayoutComposition.Session {
         decoding: projectedBytes[cursor..<lower],
         as: UTF8.self
       )
-      result += prefix
-      let wasIndentation = column == SourceTextWidth
-        .column(after: lineIndentation)
-      column = SourceTextWidth.column(after: prefix, startingAt: column)
-      if prefix.contains(where: SourceLayoutText.isNewline) {
-        lineIndentation = SourceLayoutText
-          .indentation(in: SourceLayoutText.lastLine(in: result))
-      } else if wasIndentation {
-        lineIndentation += SourceLayoutText.indentation(in: prefix)
-      }
+      append(prefix)
       let original = String(
         decoding: projectedBytes[lower..<upper],
         as: UTF8.self
@@ -112,16 +115,7 @@ extension SourceLayoutComposition.Session {
           indentation: placement.indentation
         ).text
       }
-      result += replacement
-      let replacedIndentation = column == SourceTextWidth
-        .column(after: lineIndentation)
-      column = SourceTextWidth.column(after: replacement, startingAt: column)
-      if replacement.contains(where: SourceLayoutText.isNewline) {
-        lineIndentation = SourceLayoutText
-          .indentation(in: SourceLayoutText.lastLine(in: result))
-      } else if replacedIndentation {
-        lineIndentation += SourceLayoutText.indentation(in: replacement)
-      }
+      append(replacement)
       cursor = upper
     }
     result += String(decoding: projectedBytes[cursor...], as: UTF8.self)

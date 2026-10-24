@@ -3,6 +3,26 @@ import Testing
 
 @Suite("Source layout rendering")
 struct SourceLayoutRendererTests {
+  @Test("Empty content after wrapping leaves no boundary")
+  func emptyAfterWrapping() throws {
+    let first = try source("a")
+    let second = try source("b")
+    let layout = makeLayout {
+      Wrap(width: 1) {
+        first
+        Indent { second }
+      }
+    }
+    let result = try SourceLayoutRenderer.render(
+      layout, context: .init(indentationUnit: "    ")
+    ) { provider, placement in
+      let text = try provider.source.text
+      return text == "b" && placement.column >= 4 ? "" : text
+    }
+
+    #expect(result == "a")
+  }
+
   @Test("Line emits attributes in selected order")
   func attributeLine() throws {
     let observable = try source("@Observable")
