@@ -720,7 +720,7 @@ other APIs.
 | `SourceFile` | `actors`, `assignments`, `calls`, `classes`, `compilationBranches`, `enums`, `expressions`, `extensions`, `functions`, `imports`, `initializers`, `lineCount`, `location`, `name`, `path`, `properties`, `protocols`, `source`, `sourceText`, `spacing`, `structs`, `tokens`, `trivia`, `typealiases`, `types`, `variableBindings` | `calls`, `imports`, `withSyntax` |
 | `SourceFileSyntax` | None | `tokens` |
 | `SourceNode` | `ancestors`, `attributes`, `call`, `cases`, `children`, `descendants`, `description`, `elements`, `expression`, `kind`, `location`, `members`, `modifiers`, `name`, `parameters`, `parent`, `property`, `source`, `spacing`, `statements`, `text`, `tokens`, `trivia` | `attribute`, `contains`, `hasAttribute` |
-| `SourceSlice` | `file`, `filePath`, `range`, `spacing`, `text`, `tokens`, `trivia` | `matches`, `replacement`, `slice` |
+| `SourceSlice` | `file`, `filePath`, `range`, `spacing`, `text`, `tokens`, `trivia` | `hasLine`, `matches`, `replacement`, `slice` |
 | `SourceSpacing` | `after`, `before` | None |
 | `SourceToken` | `kind`, `leadingTrivia`, `next`, `previous`, `source`, `spacing`, `text`, `tokens`, `trailingTrivia`, `trivia` | None |
 | `SourceTrivia` | `isComment`, `kind`, `source`, `spacing`, `text`, `tokens`, `trivia` | None |
@@ -735,6 +735,12 @@ other APIs.
 | `Violations` | `checkedCount`, `count`, `isEmpty`, `offenders`, `rule` | `findings`, `withFix` |
 
 <!-- runtime-capabilities:end -->
+
+Source collections support `replacement(whenLineExceeds:)` for layouts that
+apply only above a chosen line width. Omit the argument to apply the layout
+unconditionally. `SourceSlice.hasLine(exceeding:tabWidth:)` checks complete
+source lines touched by a slice, including text outside the slice. See
+<doc:FormattingCookbook> for complete rules in `Bylaws.swift` and Swift Testing.
 
 Portable files may import `Bylaws`, `Testing`, `Foundation`, `BylawsIndex`,
 `BylawsIndexStore` and `BylawsSyntax`, while existing rules can continue to

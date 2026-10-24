@@ -440,7 +440,19 @@ struct SourceLayoutRendererTests {
     context: SourceLayoutRenderer.Context = .init()
   ) throws -> String {
     try SourceLayoutRenderer
-      .render(layout, context: context) { try $0.source.text }
+      .render(layout, context: context) { provider, placement in
+        let source = try provider.source
+        let prefix = String(
+          decoding: source.snapshot.text.utf8.prefix(source.range.lowerBound),
+          as: UTF8.self
+        )
+        return try SourceLayoutText(
+          source.text,
+          originalIndentation: SourceLayoutText
+            .indentation(in: SourceLayoutText.lastLine(in: prefix)),
+          indentation: placement.indentation
+        ).text
+      }
   }
 
   private func failingLayout() throws -> SourceLayout {

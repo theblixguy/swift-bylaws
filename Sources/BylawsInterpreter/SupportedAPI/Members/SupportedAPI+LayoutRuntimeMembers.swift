@@ -20,7 +20,10 @@ extension SupportedAPI {
     method(
       .replacement,
       on: [.array, .arraySlice, .selection],
-      arguments: .exact([.init(nil)]),
+      arguments: .alternatives([
+        [.init(nil)],
+        [.init(.whenLineExceeds, .exact(.optional(.integer))), .init(nil)],
+      ]),
       result: .fixed(.sourceEdit), canThrow: true
     ),
     property(

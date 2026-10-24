@@ -8,6 +8,11 @@ Each recipe includes a complete `Bylaws.swift` rule and a Swift Testing rule.
 Use one version at a time. Both produce corrections for `bylaws lint
 --autocorrect`, and an already-correct layout produces no violation.
 
+Property grouping, statement spacing and layouts for call arguments can run
+together, including within nested calls and closures. Choose one policy for
+each list when recipes describe alternative layouts. Conflicting layouts and
+overlapping raw text replacements are rejected.
+
 <doc:FormattingSource> explains the builder operations and supported lists.
 <doc:CorrectingSourceCookbook> covers content changes, token and comment
 edits, multiple files and correction tests. Start with a narrow selection and
@@ -206,7 +211,8 @@ elements within a group.
 
 This rule places a blank line between a binding and a call, and between a
 statement containing `try` and an adjacent binding or call. Consecutive
-nonthrowing bindings keep their existing separation.
+nonthrowing bindings keep their existing separation. The selection includes
+function bodies and closures, so the same policy applies inside a callback.
 
 ### Bylaws.swift
 
@@ -217,7 +223,7 @@ nonisolated let app = Codebase(root: .automatic(), including: ["Sources/**"])
 
 nonisolated let rules: [Rule] = [
   Rule("statement-gaps", "Bindings and throwing calls use blank lines") {
-    try await app.syntaxNodes(of: .codeBlock)
+    try await app.syntaxNodes(of: .codeBlock, .closureExpression)
       .violations("Bindings and throwing calls use blank lines") { block in
         try block.statements.replacement {
           BlankLine(
@@ -243,7 +249,7 @@ import Testing
 @Test("Bindings and throwing calls use blank lines")
 func statementGaps() async throws {
   let app = Codebase(root: .automatic(), including: ["Sources/**"])
-  let violations = try await app.syntaxNodes(of: .codeBlock)
+  let violations = try await app.syntaxNodes(of: .codeBlock, .closureExpression)
     .violations("Bindings and throwing calls use blank lines") { block in
       try block.statements.replacement {
         BlankLine(
@@ -430,11 +436,17 @@ A stored layout refers to the source elements it was created from. Use it
 only in a replacement for that source list and emit each selected argument
 once.
 
-## Format a nested array argument
+## Put call arguments on separate lines
 
-This rule keeps leading unlabelled logging arguments together, puts each
-labelled argument on a new line and expands array arguments. A nested array
-correction stands in for its containing argument in the outer layout.
+This rule formats every call with more than one argument, including top-level
+calls. It keeps leading unlabelled arguments together, starts each labelled
+argument on a new line and
+puts each element of an array or dictionary argument on its own line.
+
+Nested calls use the same rule. The layouts compose, so a call inside an
+array, dictionary or another call keeps its own formatting. `Newline` followed
+by the source element permits those nested lines. Use `Line` when the entire
+element must fit on one physical line.
 
 ### Bylaws.swift
 
@@ -442,28 +454,43 @@ correction stands in for its containing argument in the outer layout.
 import Bylaws
 
 nonisolated let app = Codebase(root: .automatic(), including: ["Sources/**"])
+nonisolated let maximumWidth: Int? = nil
 
 nonisolated let rules: [Rule] = [
-  Rule("logging-layout", "Logging arguments use project layout") {
-    try await app.calls.named("logger.write")
-      .violations("Logging arguments use project layout") { call in
-        if !call.arguments.isEmpty {
+  Rule("argument-lines", "Call arguments use separate lines") {
+    try await app.syntaxNodes(of: .functionCall)
+      .violations("Call arguments use separate lines") { node in
+        if let call = node.call, call.arguments.count > 1 {
           let leading = call.arguments.prefix { $0.label == nil }
-          try call.arguments.replacement {
+          try call.arguments.replacement(whenLineExceeds: maximumWidth) {
             if !leading.isEmpty {
-              Line { leading }
+              Newline()
+              leading
             }
             for argument in call.arguments.dropFirst(leading.count) {
+              Newline()
               if let elements = argument.expression?.arrayElements,
                  !elements.isEmpty
               {
                 try elements.replacement {
                   for element in elements {
-                    Line { element }
+                    Newline()
+                    element
                   }
+                  Newline()
+                }
+              } else if let elements = argument.expression?.dictionaryElements,
+                        !elements.isEmpty
+              {
+                try elements.replacement {
+                  for element in elements {
+                    Newline()
+                    element
+                  }
+                  Newline()
                 }
               } else {
-                Line { argument }
+                argument
               }
             }
             Newline()
@@ -480,28 +507,43 @@ nonisolated let rules: [Rule] = [
 import Bylaws
 import Testing
 
-@Test("Logging arguments use project layout")
-func loggingLayout() async throws {
+@Test("Call arguments use separate lines")
+func argumentLines() async throws {
   let app = Codebase(root: .automatic(), including: ["Sources/**"])
-  let violations = try await app.calls.named("logger.write")
-    .violations("Logging arguments use project layout") { call in
-      if !call.arguments.isEmpty {
+  let maximumWidth: Int? = nil
+  let violations = try await app.syntaxNodes(of: .functionCall)
+    .violations("Call arguments use separate lines") { node in
+      if let call = node.call, call.arguments.count > 1 {
         let leading = call.arguments.prefix { $0.label == nil }
-        try call.arguments.replacement {
+        try call.arguments.replacement(whenLineExceeds: maximumWidth) {
           if !leading.isEmpty {
-            Line { leading }
+            Newline()
+            leading
           }
           for argument in call.arguments.dropFirst(leading.count) {
+            Newline()
             if let elements = argument.expression?.arrayElements,
                !elements.isEmpty
             {
               try elements.replacement {
                 for element in elements {
-                  Line { element }
+                  Newline()
+                  element
                 }
+                Newline()
+              }
+            } else if let elements = argument.expression?.dictionaryElements,
+                      !elements.isEmpty
+            {
+              try elements.replacement {
+                for element in elements {
+                  Newline()
+                  element
+                }
+                Newline()
               }
             } else {
-              Line { argument }
+              argument
             }
           }
           Newline()
@@ -509,14 +551,14 @@ func loggingLayout() async throws {
       }
     }
 
-  violations.report(ruleID: "logging-layout")
+  violations.report(ruleID: "argument-lines")
 }
 ```
 
 For a call with an array argument, the result is:
 
 ```text
-logger.write(
+record(
   .info, "Ready",
   category: "Transfer",
   tags: [
@@ -526,10 +568,16 @@ logger.write(
 )
 ```
 
-An empty array stays with its argument because it has no element span to
-replace. `Line` rejects an element containing physical line breaks. This
-recipe therefore stops rather than flattening a multiline expression. Use
-`Wrap` or emit the original element when your policy permits those forms.
+The default `nil` width applies the layout to every selected call. Set
+`maximumWidth` to `100` to change calls only when a source line exceeds 100
+columns. A line at the limit stays unchanged, as does an existing multiline
+call whose lines all fit. The check includes the call's position on its line.
+Tabs use eight-column stops.
+
+An outer layout can move a nested call onto a shorter line. The nested width
+check uses that new position, so a compact nested call can stay compact.
+An indivisible argument, such as a long string, can exceed the limit after
+formatting. Empty arrays and dictionaries keep their original spelling.
 
 ## Lay out another syntax list
 

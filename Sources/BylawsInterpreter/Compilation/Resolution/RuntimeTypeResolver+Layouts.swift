@@ -77,6 +77,14 @@ extension RuntimeTypeResolver {
     values: [(String?, RuntimeExpression)],
     at location: DeclarationLocation
   ) -> RuntimeType {
+    let hasWidth = values.map(\.0).equal([.whenLineExceeds, nil])
+    if hasWidth {
+      let width = resolve(values[0].1, expected: .optional(.integer))
+      require(
+        width, toMatch: .optional(.integer), subject: "the width",
+        at: values[0].1.location
+      )
+    }
     if !receiver.collectionElement.providesSource {
       diagnose(
         "SourceLayout must replace a collection of captured source",
@@ -91,9 +99,15 @@ extension RuntimeTypeResolver {
       layoutElementType = outerElement
       layoutUsesAutomaticOperations = outerAutomatic
     }
-    if let body = values.first?.1 { resolveLayoutClosure(body) }
+    if let body = values.last?.1 { resolveLayoutClosure(body) }
+    if layoutUsesAutomaticOperations, hasWidth {
+      diagnose(
+        "SourceListLayout must use an unconditional replacement. Remove whenLineExceeds.",
+        at: location
+      )
+    }
     if layoutUsesAutomaticOperations,
-       let expression = values.first?.1,
+       let expression = values.last?.1,
        case let .closure(body) = expression.kind
     {
       automaticLayoutClosures.insert(body.location)

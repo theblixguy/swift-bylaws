@@ -1,5 +1,6 @@
 extension SupportedAPI {
   package enum Member: String, CaseIterable, Hashable, Sendable {
+    case hasLine
     case elements, trivia, previous, next
     case modifiers
     case spacing, before, after
@@ -306,6 +307,7 @@ extension SupportedAPI {
   }
 
   package enum Method: String, CaseIterable, Sendable {
+    case hasLine
     case dropFirst, prefix
     case sorted, reversed
     case matches, replacement, only, argument, withFix, slice

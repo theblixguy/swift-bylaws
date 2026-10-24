@@ -203,7 +203,8 @@ extension RuntimeEvaluator {
             offenders: check.offenders.map(RuntimeModelValue.offender),
             checkedCount: check.checkedCount,
             fixes: check.fixes,
-            codebase: check.codebase
+            codebase: check.codebase,
+            layoutCandidates: check.layoutCandidates
           ))
         })
       case .violations:
@@ -213,7 +214,8 @@ extension RuntimeEvaluator {
             .map(RuntimeModelValue.offender),
           checkedCount: findings.violations.checkedCount,
           fixes: findings.violations.fixes,
-          codebase: findings.violations.codebase
+          codebase: findings.violations.codebase,
+          layoutCandidates: findings.violations.layoutCandidates
         ))
       case .warnings:
         return .array(findings.warnings.map { .model(.check(.warning($0))) })

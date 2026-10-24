@@ -15,11 +15,7 @@ extension SourceLayoutReplacement {
     }
 
     func indentation(before offset: Int) -> String {
-      let start = lineStart(before: offset)
-      return String(
-        decoding: bytes[start..<offset].prefix { $0 == 32 || $0 == 9 },
-        as: UTF8.self
-      )
+      SourceLayoutText.indentation(in: bytes, before: offset)
     }
 
     func column(before offset: Int) -> Int {

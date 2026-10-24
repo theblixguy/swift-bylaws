@@ -66,7 +66,8 @@ enum RuntimeBuilder {
       let elements = values.flatMap { value in
         switch value {
         case let .array(elements): elements
-        case let .sourceFix(fix): fix.edits.map(RuntimeValue.sourceEdit)
+        case let .sourceFix(fix):
+          (fix.edits + fix.layoutCandidates).map(RuntimeValue.sourceEdit)
         default: [value]
         }
       }

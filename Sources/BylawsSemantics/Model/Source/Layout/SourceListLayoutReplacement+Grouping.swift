@@ -28,6 +28,7 @@ extension SourceListLayoutReplacement {
       }
     }
     var edits: [SourceFix.Edit] = []
+    var candidates: [SourceFix.Edit] = []
     for (regionID, region) in regions.enumerated() {
       var nodes: [SourceLayout.Node] = []
       var pending: SourceWhitespace?
@@ -63,10 +64,26 @@ extension SourceListLayoutReplacement {
           .endPositionBeforeTrailingTrivia.utf8Offset
       )
       let replacement = String(content)
-      if !source.text.utf8.elementsEqual(replacement.utf8) {
-        edits.append(source.replacement(with: replacement))
+      let plan = edit.layout.map {
+        SourceLayoutPlan(
+          elements: $0.elements, node: $0.node,
+          allowsPartialList: $0.allowsPartialList,
+          baseIndentation: $0.baseIndentation,
+          targetRange: source.range, trimmed: true,
+          lineWidthLimit: $0.lineWidthLimit, nested: $0.nested
+        )
+      }
+      let grouped = SourceFix.Edit(
+        source: source,
+        replacement: replacement,
+        layout: plan
+      )
+      if source.text.utf8.elementsEqual(replacement.utf8) {
+        candidates.append(grouped)
+      } else {
+        edits.append(grouped)
       }
     }
-    return SourceFix(edits: edits)
+    return SourceFix(edits: edits, layoutCandidates: candidates)
   }
 }

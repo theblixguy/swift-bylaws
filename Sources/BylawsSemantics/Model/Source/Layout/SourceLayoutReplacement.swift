@@ -18,29 +18,44 @@ extension Collection where Element: SourceProviding {
   /// Space indentation comes from source outside the replaced list, with two
   /// spaces used when none can be inferred. Tabs use one tab per level.
   /// Wrapping defaults to 100 characters.
+  /// A width condition preserves layouts whose touched physical lines fit.
+  /// Contained layouts are evaluated at their placement in the outer layout.
   /// - Throws: ``SourceError`` when captured source cannot be read,
   ///   ``SourceLayoutReplacementError`` for unsupported input or source
   ///   ownership, or ``SourceLayoutError`` for a layout that cannot be rendered.
   ///   Errors from `layout` also propagate to the caller.
   public func replacement(
+    whenLineExceeds maximumWidth: Int? = nil,
     @SourceLayoutBuilder _ layout: () throws -> SourceLayout
   ) throws -> SourceFix.Edit {
-    try SourceLayoutReplacement.make(elements: map(\.self), layout: layout())
+    try SourceLayoutReplacement.make(
+      elements: map(\.self), layout: layout(), whenLineExceeds: maximumWidth
+    )
   }
 }
 
 package enum SourceLayoutReplacement {
   package static func make(
-    elements: [any SourceProviding], layout: SourceLayout
+    elements: [any SourceProviding], layout: SourceLayout,
+    whenLineExceeds maximumWidth: Int? = nil
   ) throws -> SourceFix.Edit {
-    try make(elements: elements, layout: layout, parsedTree: nil)
+    try make(
+      elements: elements, layout: layout, parsedTree: nil,
+      whenLineExceeds: maximumWidth
+    )
   }
 
   static func make(
     elements: [any SourceProviding], layout: SourceLayout,
     parsedTree: SourceFileSyntax?, allowsPartialList: Bool = false,
-    sourceContext: Context? = nil, baseIndentation: String? = nil
+    sourceContext: Context? = nil, baseIndentation: String? = nil,
+    nested: [SourceFix.Edit] = [],
+    placement: SourceLayoutRenderer.Placement? = nil,
+    whenLineExceeds maximumWidth: Int? = nil
   ) throws -> SourceFix.Edit {
+    if let maximumWidth, maximumWidth <= 0 {
+      throw SourceLayoutError.widthMustBePositive
+    }
     let slices = try elements.map { try $0.source }
     guard let first = slices.first
     else { throw SourceLayoutReplacementError.emptyCollection }
@@ -129,9 +144,10 @@ package enum SourceLayoutReplacement {
       } else {
         contentIndent
       }
-    let context = SourceLayoutRenderer.Context(
+    var context = SourceLayoutRenderer.Context(
       initialColumn: sourceContext
         .column(before: sourceList.leadingContentStart),
+      initialIndentation: originalIndent,
       baseIndentation: contentIndent,
       indentationUnit: unit,
       lineEnding: ending,
@@ -142,55 +158,169 @@ package enum SourceLayoutReplacement {
       hasSourceAfter: sourceList.nextContentStart != nil,
       closingIndentation: closingIndent
     )
-    let lastID = output.last?.node.id
-    func rendered(
-      _ item: Item,
-      replacing edit: SourceFix.Edit? = nil
-    ) throws -> String {
-      var text = try SourceSlice(
-        snapshot: first.snapshot,
-        range: item.contentRange
-      ).text
-      if let edit {
-        let start = edit.source.range.lowerBound - item.contentRange.lowerBound
-        let end = edit.source.range.upperBound - item.contentRange.lowerBound
-        var bytes = Array(text.utf8)
-        bytes.replaceSubrange(start..<end, with: edit.replacement.utf8)
-        text = String(decoding: bytes, as: UTF8.self)
-      }
-      if sourceList.hasCommas,
-         item.node.id != lastID || sourceList.hasTrailingComma
-      {
-        text += ","
-      }
-      return text
-    }
-    let replacement = try SourceLayoutRenderer.render(
-      layout,
-      context: context,
-      resolve: { provider in
-        let slice = try provider.source
-        guard let item = itemsByRange[slice.range]
-        else {
-          throw SourceLayoutReplacementError.foreignElement
-        }
-        return try rendered(item)
-      },
-      resolveEdit: { edit in
-        guard let item =
-          items
-            .first(where: { $0.contentRange.contains(edit.source.range) })
-        else {
-          throw SourceLayoutReplacementError.foreignElement
-        }
-        return try rendered(item, replacing: edit)
-      }
-    )
     let source = try SourceSlice(
       snapshot: first.snapshot,
       range: sourceList.range
     )
-    return source.replacement(with: replacement)
+    let plan = try SourceLayoutPlan(
+      elements: slices.map(\.range),
+      node: SourceLayoutPlan.freeze(layout, snapshot: first.snapshot),
+      allowsPartialList: allowsPartialList,
+      baseIndentation: baseIndentation, targetRange: source.range,
+      lineWidthLimit: maximumWidth,
+      nested: nested.map(SourceLayoutPlan.CapturedEdit.init)
+    )
+    try plan.validate(source: source)
+    let session = SourceLayoutComposition.Session(
+      snapshot: first.snapshot,
+      tree: tree
+    )
+    if let placement {
+      context = projectedContext(
+        context, at: placement, source: source, list: sourceList,
+        hasBaseIndentation: baseIndentation != nil
+      )
+    }
+    if let maximumWidth {
+      let unchangedPlacement = SourceLayoutRenderer.Placement(
+        column: placement?.column ?? sourceContext
+          .column(before: source.range.lowerBound),
+        indentation: placement?.lineIndentation
+          ?? sourceContext.indentation(before: source.range.lowerBound),
+        lineIndentation: placement?.lineIndentation
+          ?? sourceContext.indentation(before: source.range.lowerBound),
+        trailingText: placement?.trailingText ?? lineSuffix(after: source)
+      )
+      let contentEdits = try session.contentEdits(in: nested)
+      let measuredText = try session.content(
+        source,
+        applying: contentEdits,
+        at: unchangedPlacement
+      )
+      if !exceedsLineWidth(
+        maximumWidth, source: source, renderedText: measuredText,
+        at: placement, startingColumn: unchangedPlacement.column,
+        hasNestedEdits: !contentEdits.isEmpty
+      ) {
+        return SourceFix.Edit(
+          source: source,
+          replacement: try session.content(
+            source,
+            applying: nested,
+            at: unchangedPlacement
+          ),
+          layout: plan
+        )
+      }
+    }
+    let lastID = output.last?.node.id
+    func render(
+      _ item: Item,
+      edit: SourceFix.Edit? = nil,
+      at placement: SourceLayoutRenderer.Placement
+    ) throws -> String {
+      let content = try SourceSlice(
+        snapshot: first.snapshot,
+        range: item.contentRange
+      )
+      let children = nested
+        .filter { item.contentRange.contains($0.source.range) }
+        + (edit.map { [$0] } ?? [])
+      let separator = sourceList.hasCommas
+        && (item.node.id != lastID || sourceList.hasTrailingComma) ? "," : ""
+      var placement = placement
+      placement.trailingText = separator
+      return try session
+        .content(content, applying: children, at: placement) + separator
+    }
+    let replacement = try SourceLayoutRenderer.render(
+      layout,
+      context: context,
+      resolve: { provider, placement in
+        let slice = try provider.source
+        guard let item = itemsByRange[slice.range] else {
+          throw SourceLayoutReplacementError.foreignElement
+        }
+        return try render(item, at: placement)
+      },
+      resolveEdit: { edit, placement in
+        guard let item = items
+          .first(where: { $0.contentRange.contains(edit.source.range) })
+        else {
+          throw SourceLayoutReplacementError.foreignElement
+        }
+        return try render(item, edit: edit, at: placement)
+      }
+    )
+    return SourceFix.Edit(
+      source: source, replacement: replacement, layout: plan
+    )
+  }
+
+  private static func projectedContext(
+    _ originalContext: SourceLayoutRenderer.Context,
+    at placement: SourceLayoutRenderer.Placement,
+    source: SourceSlice, list sourceList: List,
+    hasBaseIndentation: Bool
+  ) -> SourceLayoutRenderer.Context {
+    var context = originalContext
+    let unit = context.indentationUnit
+    let original = placement.originalText ?? source.text
+    let leading = String(original.prefix(while: isLayoutWhitespace))
+    context.initialColumn = SourceTextWidth.column(
+      after: leading, startingAt: placement.column
+    )
+    context.initialIndentation = leading
+      .contains(where: \.isPhysicalLayoutLineEnding)
+      ? SourceLayoutText
+      .indentation(in: SourceLayoutText.lastLine(in: leading))
+      : placement.lineIndentation
+    context.baseIndentation = if hasBaseIndentation {
+      placement.lineIndentation
+    } else if sourceList.indentationBase == .contents
+      || sourceList.indentationBase == nil && sourceList.isDelimited
+    {
+      placement.lineIndentation + unit
+    } else { placement.lineIndentation }
+    context.closingIndentation = sourceList.closesOwner
+      ? placement.lineIndentation : context.baseIndentation
+    context.leadingWhitespace = leading
+    context.trailingWhitespace = String(original.reversed()
+      .prefix(while: isLayoutWhitespace).reversed())
+    return context
+  }
+
+  private static func exceedsLineWidth(
+    _ maximumWidth: Int, source: SourceSlice, renderedText: String,
+    at placement: SourceLayoutRenderer.Placement?, startingColumn: Int,
+    hasNestedEdits: Bool
+  ) -> Bool {
+    if placement == nil, !hasNestedEdits {
+      return source.hasLine(exceeding: maximumWidth)
+    }
+    let suffix = placement?.trailingText ?? lineSuffix(after: source)
+    let lines = (renderedText + suffix).split(
+      omittingEmptySubsequences: false,
+      whereSeparator: \.isPhysicalLayoutLineEnding
+    )
+    return lines.enumerated().contains { index, line in
+      SourceTextWidth.exceeds(
+        maximumWidth, in: line, startingAt: index == 0 ? startingColumn : 0
+      )
+    }
+  }
+
+  private static func lineSuffix(after source: SourceSlice) -> String {
+    String(String(
+      decoding: source.snapshot.text.utf8.dropFirst(source.range.upperBound),
+      as: UTF8.self
+    )
+    .prefix { !$0.isPhysicalLayoutLineEnding })
+  }
+
+  private static func isLayoutWhitespace(_ character: Character) -> Bool {
+    character == " " || character == "\t" || character
+      .isPhysicalLayoutLineEnding
   }
 }
 
