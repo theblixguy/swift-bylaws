@@ -19,6 +19,7 @@ public struct Violations<Element: Sendable>: Sendable {
 
   package let witnesses: [DeclarationLocation?]
   package let codebase: Codebase?
+  package let layoutCandidates: [SourceFix.Edit]
 
   /// Creates a violations value from a checked rule's results.
   public init(rule: String, offenders: [Element], checkedCount: Int) {
@@ -36,7 +37,8 @@ public struct Violations<Element: Sendable>: Sendable {
     checkedCount: Int,
     witnesses: [DeclarationLocation?],
     fixes: [SourceFix?]? = nil,
-    codebase: Codebase? = nil
+    codebase: Codebase? = nil,
+    layoutCandidates: [SourceFix.Edit] = []
   ) {
     self.rule = rule
     self.offenders = offenders
@@ -44,6 +46,7 @@ public struct Violations<Element: Sendable>: Sendable {
     self.witnesses = witnesses
     self.fixes = fixes ?? Array(repeating: nil, count: offenders.count)
     self.codebase = codebase
+    self.layoutCandidates = layoutCandidates
     precondition(self.fixes.count == offenders.count)
     precondition(witnesses.count == offenders.count)
   }
@@ -95,6 +98,7 @@ extension Violations: Equatable where Element: Equatable {
       && lhs.offenders == rhs.offenders
       && lhs.checkedCount == rhs.checkedCount
       && lhs.fixes == rhs.fixes
+      && lhs.layoutCandidates == rhs.layoutCandidates
   }
 }
 
@@ -104,6 +108,7 @@ extension Violations: Hashable where Element: Hashable {
     hasher.combine(offenders)
     hasher.combine(checkedCount)
     hasher.combine(fixes)
+    hasher.combine(layoutCandidates)
   }
 }
 
@@ -113,12 +118,17 @@ extension Violations: Codable where Element: Codable {
     case offenders
     case checkedCount
     case fixes
+    case layoutCandidates
   }
 
   public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let offenders = try container.decode([Element].self, forKey: .offenders)
     let fixes = try container.decodeIfPresent([SourceFix?].self, forKey: .fixes)
+    let candidates = try container.decodeIfPresent(
+      [SourceFix.Edit].self, forKey: .layoutCandidates
+    ) ?? []
+    for candidate in candidates { try candidate.validateLayoutCandidate() }
     guard fixes == nil || fixes?.count == offenders.count else {
       throw DecodingError.dataCorruptedError(
         forKey: .fixes, in: container,
@@ -130,7 +140,8 @@ extension Violations: Codable where Element: Codable {
       offenders: offenders,
       checkedCount: try container.decode(Int.self, forKey: .checkedCount),
       witnesses: Array(repeating: nil, count: offenders.count),
-      fixes: fixes
+      fixes: fixes,
+      layoutCandidates: candidates
     )
   }
 
@@ -141,6 +152,12 @@ extension Violations: Codable where Element: Codable {
     try container.encode(checkedCount, forKey: .checkedCount)
     if fixes.contains(where: { $0 != nil }) {
       try container.encode(fixes, forKey: .fixes)
+    }
+    if !layoutCandidates.isEmpty {
+      for candidate in layoutCandidates {
+        try candidate.validateLayoutCandidate()
+      }
+      try container.encode(layoutCandidates, forKey: .layoutCandidates)
     }
   }
 }
@@ -210,7 +227,8 @@ extension Violations where Element: Located {
       checkedCount: checkedCount,
       witnesses: Array(repeating: nil, count: offenders.count),
       fixes: fixes,
-      codebase: codebase
+      codebase: codebase,
+      layoutCandidates: layoutCandidates
     )
   }
 }
@@ -226,7 +244,8 @@ extension Violations {
       checkedCount: checkedCount,
       witnesses: indices.map { witnesses[$0] },
       fixes: indices.map { fixes[$0] },
-      codebase: codebase
+      codebase: codebase,
+      layoutCandidates: layoutCandidates
     )
   }
 }

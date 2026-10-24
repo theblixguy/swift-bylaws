@@ -24,6 +24,16 @@ extension SupportedAPI {
     property(.filePath, on: [.sourceSlice], result: .fixed(.string)),
     property(.range, on: [.sourceSlice], result: .fixed(.integerRange)),
     method(
+      .hasLine,
+      on: [.sourceSlice],
+      arguments: .alternatives([
+        [.init(.exceeding, .exact(.integer))],
+        [.init(.exceeding, .exact(.integer)),
+         .init(.tabWidth, .exact(.integer))],
+      ]),
+      result: .fixed(.boolean)
+    ),
+    method(
       .replacement,
       on: [.sourceSlice],
       arguments: .alternatives([

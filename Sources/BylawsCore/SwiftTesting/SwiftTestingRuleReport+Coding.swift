@@ -40,30 +40,48 @@ extension SwiftTestingRuleReport: Codable {
 
   package func encode(to encoder: any Encoder) throws {
     try validateContents()
+    for check in checks {
+      for fix in check.fixes.compactMap(\.self) {
+        for edit in fix.edits { try SourceLayoutComposition.validate(edit) }
+        for candidate in fix
+          .layoutCandidates { try candidate.validateLayoutCandidate() }
+      }
+      for candidate in check.layoutCandidates {
+        try candidate.validateLayoutCandidate()
+      }
+    }
     var snapshots: [SourceSnapshot] = []
     var indices: [SourceSnapshot: Int] = [:]
+    func captured(_ edit: SourceFix.Edit) -> Edit {
+      let snapshot = edit.source.snapshot
+      let index: Int
+      if let existing = indices[snapshot] { index = existing }
+      else {
+        index = snapshots.count
+        snapshots.append(snapshot)
+        indices[snapshot] = index
+      }
+      return Edit(
+        snapshot: index, range: edit.source.range,
+        replacement: edit.replacement, layout: edit.layout
+      )
+    }
     let checks = checks.map { check in
       Check(
         rule: check.rule, offenders: check.offenders,
         checkedCount: check.checkedCount,
         fixes: check.fixes.map { fix in
           fix.map { fix in
-            Fix(title: fix.title, edits: fix.edits.map { edit in
-              let snapshot = edit.source.snapshot
-              let index: Int
-              if let existing = indices[snapshot] { index = existing }
-              else {
-                index = snapshots.count
-                snapshots.append(snapshot)
-                indices[snapshot] = index
-              }
-              return Edit(
-                snapshot: index, range: edit.source.range,
-                replacement: edit.replacement
-              )
-            })
+            Fix(
+              title: fix.title,
+              edits: fix.edits.map(captured),
+              layoutCandidates: fix.layoutCandidates.isEmpty ? nil : fix
+                .layoutCandidates.map(captured)
+            )
           }
-        }
+        },
+        layoutCandidates: check.layoutCandidates.isEmpty
+          ? nil : check.layoutCandidates.map(captured)
       )
     }
     let store = encoder.userInfo[SwiftTestingSnapshotStore.codingKey]
@@ -100,6 +118,7 @@ extension SwiftTestingRuleReport: Codable {
     let offenders: [Offender]
     let checkedCount: Int
     let fixes: [Fix?]
+    let layoutCandidates: [Edit]?
 
     func decoded(snapshots: [SourceSnapshot]) throws -> Violations<Offender> {
       guard fixes.count == offenders.count else {
@@ -107,25 +126,26 @@ extension SwiftTestingRuleReport: Codable {
           "The fix count must equal the offender count"
         )
       }
+      let candidates = try (layoutCandidates ?? []).map {
+        try $0.decoded(snapshots: snapshots)
+      }
+      for candidate in candidates { try candidate.validateLayoutCandidate() }
       return try Violations(
         rule: rule, offenders: offenders, checkedCount: checkedCount,
         witnesses: Array(repeating: nil, count: offenders.count),
         fixes: fixes.map { fix in
           try fix.map { fix in
-            try SourceFix(fix.title, edits: fix.edits.map { edit in
-              guard snapshots.indices.contains(edit.snapshot) else {
-                throw SwiftTestingRuleSessionError.malformedReport(
-                  "Source snapshot index \(edit.snapshot) is outside the report's snapshot list"
-                )
-              }
-              return try SourceFix.Edit(
-                source: SourceSlice(
-                  snapshot: snapshots[edit.snapshot], range: edit.range
-                ), replacement: edit.replacement
-              )
-            })
+            let candidates = try (fix.layoutCandidates ?? [])
+              .map { try $0.decoded(snapshots: snapshots) }
+            for candidate in candidates {
+              try candidate.validateLayoutCandidate()
+            }
+            return try SourceFix(fix.title, edits: fix.edits.map {
+              try $0.decoded(snapshots: snapshots)
+            }, layoutCandidates: candidates)
           }
-        }
+        },
+        layoutCandidates: candidates
       )
     }
   }
@@ -133,11 +153,27 @@ extension SwiftTestingRuleReport: Codable {
   private struct Fix: Codable {
     let title: String?
     let edits: [Edit]
+    let layoutCandidates: [Edit]?
   }
 
   private struct Edit: Codable {
     let snapshot: Int
     let range: Range<Int>
     let replacement: String
+    let layout: SourceLayoutPlan?
+
+    func decoded(snapshots: [SourceSnapshot]) throws -> SourceFix.Edit {
+      guard snapshots.indices.contains(snapshot) else {
+        throw SwiftTestingRuleSessionError.malformedReport(
+          "Source snapshot index \(snapshot) is outside the report's snapshot list"
+        )
+      }
+      let source = try SourceSlice(snapshot: snapshots[snapshot], range: range)
+      let edit = SourceFix.Edit(
+        source: source, replacement: replacement, layout: layout
+      )
+      try SourceLayoutComposition.validate(edit)
+      return edit
+    }
   }
 }

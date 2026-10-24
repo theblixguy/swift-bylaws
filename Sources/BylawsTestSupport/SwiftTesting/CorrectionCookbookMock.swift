@@ -1,14 +1,32 @@
 import Testing
 
-package struct CorrectionCookbookMock: Sendable {
-  package let ruleID: String
+package struct CorrectionCookbookMock: Sendable, CustomTestStringConvertible {
+  package let ruleIDs: [String]
   package let article: String
   package let sources: [String: String]
   package let expected: [String: String]
+  package let maximumWidth: Int?
+  package let testDescription: String
+
+  package init(
+    ruleIDs: [String],
+    article: String,
+    sources: [String: String],
+    expected: [String: String],
+    maximumWidth: Int? = nil,
+    testDescription: String? = nil
+  ) {
+    self.ruleIDs = ruleIDs
+    self.article = article
+    self.sources = sources
+    self.expected = expected
+    self.maximumWidth = maximumWidth
+    self.testDescription = testDescription ?? ruleIDs.joined(separator: ", ")
+  }
 
   package static let cases: [Self] = [
     Self(
-      ruleID: "uppercase-hex-digits", article: "CorrectingSourceCookbook",
+      ruleIDs: ["uppercase-hex-digits"], article: "CorrectingSourceCookbook",
       sources: ["Sources/Mask.swift": """
       let mask = 0xdead_Beef
       let plain = 255
@@ -23,7 +41,7 @@ package struct CorrectionCookbookMock: Sendable {
       """]
     ),
     Self(
-      ruleID: "binary-plus-spacing", article: "CorrectingSourceCookbook",
+      ruleIDs: ["binary-plus-spacing"], article: "CorrectingSourceCookbook",
       sources: [
         "Sources/Math/Total.swift": """
         let count = 1+2
@@ -42,7 +60,7 @@ package struct CorrectionCookbookMock: Sendable {
       ]
     ),
     Self(
-      ruleID: "comment-markers", article: "CorrectingSourceCookbook",
+      ruleIDs: ["comment-markers"], article: "CorrectingSourceCookbook",
       sources: ["Sources/Comments.swift": """
       let note = "FIXME"
       // FIXME: adjust cache
@@ -59,7 +77,7 @@ package struct CorrectionCookbookMock: Sendable {
       """]
     ),
     Self(
-      ruleID: "registered-screen-name", article: "CorrectingSourceCookbook",
+      ruleIDs: ["registered-screen-name"], article: "CorrectingSourceCookbook",
       sources: [
         "Sources/LegacyScreen.swift": "class LegacyScreen {}",
         "Sources/Registry.swift": "let registered = \"LegacyScreen\"",
@@ -72,7 +90,7 @@ package struct CorrectionCookbookMock: Sendable {
       ]
     ),
     Self(
-      ruleID: "observable-first", article: "FormattingCookbook",
+      ruleIDs: ["observable-first"], article: "FormattingCookbook",
       sources: [
         "Sources/Screen.swift": "@MainActor\n@Observable class Screen {}",
       ],
@@ -81,7 +99,7 @@ package struct CorrectionCookbookMock: Sendable {
       ]
     ),
     Self(
-      ruleID: "property-groups", article: "FormattingCookbook",
+      ruleIDs: ["property-groups"], article: "FormattingCookbook",
       sources: ["Sources/Panel.swift": #"""
       struct Panel {
         let completion: () -> Void
@@ -152,7 +170,7 @@ package struct CorrectionCookbookMock: Sendable {
       """#]
     ),
     Self(
-      ruleID: "statement-gaps", article: "FormattingCookbook",
+      ruleIDs: ["statement-gaps"], article: "FormattingCookbook",
       sources: ["Sources/Refresh.swift": """
       func refresh() async throws {
         let request = try makeRequest()
@@ -219,7 +237,7 @@ package struct CorrectionCookbookMock: Sendable {
       """]
     ),
     Self(
-      ruleID: "argument-width", article: "FormattingCookbook",
+      ruleIDs: ["argument-width"], article: "FormattingCookbook",
       sources: ["Sources/Send.swift": """
       let value = send(first: "First delivery batch", second: "Cached delivery data", third: "Latest delivery time")
       """],
@@ -229,7 +247,7 @@ package struct CorrectionCookbookMock: Sendable {
       """]
     ),
     Self(
-      ruleID: "reusable-argument-layout", article: "FormattingCookbook",
+      ruleIDs: ["reusable-argument-layout"], article: "FormattingCookbook",
       sources: ["Sources/Send.swift": "let result = send(first: 1, second: 2)"],
       expected: ["Sources/Send.swift": """
       let result = send(
@@ -238,7 +256,7 @@ package struct CorrectionCookbookMock: Sendable {
       """]
     ),
     Self(
-      ruleID: "logging-layout", article: "FormattingCookbook",
+      ruleIDs: ["argument-lines"], article: "FormattingCookbook",
       sources: ["Sources/Log.swift": """
       let entry = logger.write(.info, "Ready", category: "Transfer", tags: ["ready", "cached"])
       """],
@@ -254,7 +272,7 @@ package struct CorrectionCookbookMock: Sendable {
       """]
     ),
     Self(
-      ruleID: "condition-width", article: "FormattingCookbook",
+      ruleIDs: ["condition-width"], article: "FormattingCookbook",
       sources: ["Sources/Conditions.swift": """
       if isReady, isConnected, hasAccount, isAuthorised, canRefresh, isVisible, isActive, isCurrent {}
       """],
@@ -264,8 +282,4 @@ package struct CorrectionCookbookMock: Sendable {
       """]
     ),
   ]
-}
-
-extension CorrectionCookbookMock: CustomTestStringConvertible {
-  package var testDescription: String { ruleID }
 }

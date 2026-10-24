@@ -115,7 +115,8 @@ extension RuntimeEvaluator {
     .violations(RuntimeViolations(
       rule: value.rule,
       offenders: value.offenders.map(RuntimeModelValue.importDeclaration),
-      checkedCount: value.checkedCount
+      checkedCount: value.checkedCount,
+      layoutCandidates: value.layoutCandidates
     ))
   }
 }

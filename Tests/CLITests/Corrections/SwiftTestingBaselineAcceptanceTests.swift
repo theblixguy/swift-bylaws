@@ -1,3 +1,4 @@
+import Bylaws
 import BylawsCore
 import BylawsInterpreter
 import BylawsPaths
@@ -102,6 +103,58 @@ struct SwiftTestingBaselineAcceptanceTests {
     #expect(violations.fixes == [otherFix])
     #expect(violations.witnesses == [witness])
     #expect(violations.checkedCount == 2)
+  }
+
+  @Test("Accepted parent layout stays inactive around child correction")
+  func acceptedParentLayout() async throws {
+    let original = "struct Panel {\n  func zebra() {}\n  func alpha() {}\n}"
+    let project = try TemporaryProject(files: ["Panel.swift": original])
+    let codebase = Codebase(
+      root: .directory(project.rootURL.path), including: ["Panel.swift"],
+      swiftLanguageMode: .v6
+    )
+    let parent = try await codebase.syntaxNodes(of: .structDeclaration)
+      .violations("Order members") { declaration in
+        try declaration.members.replacement {
+          declaration.members.sorted { ($0.name ?? "") < ($1.name ?? "") }
+        }
+      }
+    let child = try await codebase.functions.named("zebra")
+      .violations(of: .named("finish"))
+      .withFix("Rename method") { context in
+        try context.offender.nameSource.replacement(with: "finish")
+      }
+    let collection = try SwiftTestingRuleResults.collect(from: [
+      swiftTestingReport(parent, accepted: [true], id: "member-order"),
+      swiftTestingReport(child, accepted: [false], id: "method-name"),
+    ], alongside: [])
+
+    let result = try await run(collection, in: project)
+    let parentReport = try #require(result.reports
+      .first { $0.id == "member-order" })
+    let childReport = try #require(result.reports
+      .first { $0.id == "method-name" })
+    let plan = CorrectionPlan.prepare(
+      reports: result.reports, rootPath: project.rootURL.path
+    )
+
+    #expect(parentReport.violations.isEmpty)
+    #expect(parentReport.violations.layoutCandidates.isEmpty)
+    #expect(childReport.violations.offenders.map(\.name) == ["zebra"])
+    #expect(plan.diagnostics.isEmpty)
+    #expect(plan.fixCount == 1)
+    #expect(plan.changes.count == 1)
+    let changed = try await plan.apply(captures: [])
+    #expect(changed == [project.fileURL(for: "Panel.swift").path])
+    #expect(try String(
+      contentsOf: project.fileURL(for: "Panel.swift"),
+      encoding: .utf8
+    ) == """
+    struct Panel {
+      func finish() {}
+      func alpha() {}
+    }
+    """)
   }
 
   @Test(

@@ -1,4 +1,12 @@
 package enum SourceLayoutRenderer {
+  package struct Placement {
+    package let column: Int
+    package let indentation: String
+    package let lineIndentation: String
+    package var originalText: String?
+    package var trailingText: String = ""
+  }
+
   package enum Separator: Sendable {
     case space
     case newline
@@ -6,6 +14,7 @@ package enum SourceLayoutRenderer {
 
   package struct Context: Sendable {
     package var initialColumn: Int
+    package var initialIndentation: String
     package var baseIndentation: String
     package var indentationUnit: String
     package var lineEnding: String
@@ -20,6 +29,7 @@ package enum SourceLayoutRenderer {
 
     package init(
       initialColumn: Int = 0,
+      initialIndentation: String = "",
       baseIndentation: String = "",
       indentationUnit: String = "  ",
       lineEnding: String = "\n",
@@ -33,6 +43,7 @@ package enum SourceLayoutRenderer {
       closingIndentation: String? = nil
     ) {
       self.initialColumn = initialColumn
+      self.initialIndentation = initialIndentation
       self.baseIndentation = baseIndentation
       self.indentationUnit = indentationUnit
       self.lineEnding = lineEnding
@@ -50,8 +61,9 @@ package enum SourceLayoutRenderer {
   package static func render(
     _ layout: SourceLayout,
     context: Context,
-    resolve: (any SourceProviding) throws -> String,
-    resolveEdit: (SourceFix.Edit) throws -> String = { $0.replacement }
+    resolve: @escaping (any SourceProviding, Placement) throws -> String,
+    resolveEdit: @escaping (SourceFix.Edit, Placement) throws
+      -> String = { edit, _ in edit.replacement }
   ) throws -> String {
     guard context.defaultWidth > 0
     else { throw SourceLayoutError.widthMustBePositive }
@@ -62,13 +74,7 @@ package enum SourceLayoutRenderer {
       resolveEdit: resolveEdit
     )
     guard !layout.sources.isEmpty else { return "" }
-    var writer = Writer(
-      context: context,
-      startsWithLine: events.prefix(while: { !$0.hasText })
-        .contains(where: \.isLineBoundary),
-      endsWithLine: events.reversed().prefix(while: { !$0.hasText })
-        .contains(where: \.isLineBoundary)
-    )
+    var writer = Writer(context: context)
     return try writer.render(events)
   }
 
@@ -81,7 +87,8 @@ package enum SourceLayoutRenderer {
   }
 
   private enum Event {
-    case text(String, indentation: String)
+    case deferred((Placement) throws -> String)
+    case line([Event])
     case boundary(Boundary)
     case lineBoundary
     case indent
@@ -91,41 +98,24 @@ package enum SourceLayoutRenderer {
     case endWrap
 
     var hasText: Bool {
-      if case .text = self { true } else { false }
-    }
-
-    var isLineBoundary: Bool {
-      if case .lineBoundary = self { true } else { false }
+      switch self {
+      case .deferred, .line: true
+      default: false
+      }
     }
   }
 
   private static func events(
     for node: SourceLayout.Node,
     separator: Separator,
-    resolve: (any SourceProviding) throws -> String,
-    resolveEdit: (SourceFix.Edit) throws -> String
+    resolve: @escaping (any SourceProviding, Placement) throws -> String,
+    resolveEdit: @escaping (SourceFix.Edit, Placement) throws -> String
   ) throws -> [Event] {
     switch node {
     case let .source(source):
-      let text = try resolve(source)
-      return text.isEmpty
-        ? []
-        : [
-          .text(
-            text,
-            indentation: try originalIndentation(of: source)
-          ),
-        ]
+      return [.deferred { try resolve(source, $0) }]
     case let .edit(edit):
-      let text = try resolveEdit(edit)
-      return text.isEmpty
-        ? []
-        : [
-          .text(
-            text,
-            indentation: originalIndentation(of: edit.source)
-          ),
-        ]
+      return [.deferred { try resolveEdit(edit, $0) }]
     case let .sequence(children):
       var result: [Event] = []
       for child in children {
@@ -146,33 +136,7 @@ package enum SourceLayoutRenderer {
         resolveEdit: resolveEdit
       )
       guard content.contains(where: \.hasText) else { return [] }
-      var text = ""
-      var pending: Boundary?
-      for event in content {
-        switch event {
-        case let .text(value, _):
-          guard !value.contains(where: \.isSourceLayoutNewline) else {
-            throw SourceLayoutError.lineContainsNewline
-          }
-          if !text.isEmpty, let pending {
-            guard pending == .soft
-            else { throw SourceLayoutError.lineContainsNewline }
-            text += " "
-          }
-          text += value
-          pending = nil
-        case let .boundary(boundary):
-          pending = max(pending ?? boundary, boundary)
-        case .lineBoundary:
-          pending = max(pending ?? .newline, .newline)
-        case .indent, .align, .endIndentation, .wrap, .endWrap: break
-        }
-      }
-      return [
-        .lineBoundary,
-        .text(text, indentation: ""),
-        .lineBoundary,
-      ]
+      return [.line(content)]
     case .blankLine:
       return [.boundary(.blankLine)]
     case .newline:
@@ -198,54 +162,36 @@ package enum SourceLayoutRenderer {
     }
   }
 
-  private static func originalIndentation(
-    of provider: any SourceProviding
-  ) throws
-    -> String
-  {
-    originalIndentation(of: try provider.source)
-  }
-
-  private static func originalIndentation(of source: SourceSlice) -> String {
-    let bytes = source.snapshot.text.utf8
-    let end = bytes.index(bytes.startIndex, offsetBy: source.range.lowerBound)
-    let lineStart =
-      bytes[..<end].lastIndex { $0 == 0x0A || $0 == 0x0D }
-        .map { bytes.index(after: $0) } ?? bytes.startIndex
-    let indentation = bytes[lineStart..<end].prefix { $0 == 0x20 || $0 == 0x09 }
-    return String(decoding: indentation, as: UTF8.self)
-  }
-
   private struct Writer {
     let context: Context
     var text = ""
     var column: Int
+    var lineIndentation: String
     var pending: Boundary?
     var indentations: [String]
     var widths: [Int] = []
     var hasContent = false
-    let startsWithLine: Bool
-    let endsWithLine: Bool
+    var startsWithLine = false
+    var endsWithLine = false
 
-    init(context: Context, startsWithLine: Bool, endsWithLine: Bool) {
+    init(context: Context) {
       self.context = context
       column = context.initialColumn
+      lineIndentation = context.initialIndentation
       indentations = [context.baseIndentation]
-      self.startsWithLine = startsWithLine
-      self.endsWithLine = endsWithLine
     }
 
     mutating func render(_ events: [Event]) throws -> String {
       for event in events {
         switch event {
-        case let .text(value, originalIndentation):
-          flushBoundary(before: value)
-          try append(value, originalIndentation: originalIndentation)
-          hasContent = true
+        case let .deferred(make):
+          _ = try appendDeferred(make)
+        case let .line(events):
+          try appendLine(events)
         case let .boundary(boundary):
           pending = max(pending ?? boundary, boundary)
         case .lineBoundary:
-          pending = max(pending ?? .newline, .newline)
+          requestLine()
         case .indent:
           indentations.append(indentation + context.indentationUnit)
         case .align:
@@ -305,6 +251,110 @@ package enum SourceLayoutRenderer {
       indentations.last ?? context.baseIndentation
     }
 
+    private var placement: Placement {
+      let startsLine = pending != nil && (
+        hasContent ? pending != .soft : startsWithLine && context
+          .hasSourceBefore
+      )
+      return Placement(
+        column: columnAfterPendingBoundary, indentation: indentation,
+        lineIndentation: startsLine ? indentation : lineIndentation
+      )
+    }
+
+    private mutating func appendDeferred(
+      _ make: (Placement) throws -> String
+    ) throws -> Bool {
+      let predicted = placement
+      let preview = try make(predicted)
+      guard !preview.isEmpty else { return false }
+      let boundary = resolvedBoundary(before: preview)
+      let actual = if hasContent, let boundary, boundary != .soft {
+        Placement(
+          column: endColumn(of: indentation, startingAt: 0),
+          indentation: indentation, lineIndentation: indentation
+        )
+      } else { predicted }
+      let value = if actual.column == predicted.column,
+                     actual.lineIndentation == predicted.lineIndentation
+      {
+        preview
+      } else { try make(actual) }
+      guard !value.isEmpty else { return false }
+      flushBoundary(boundary)
+      append(value)
+      hasContent = true
+      endsWithLine = false
+      return true
+    }
+
+    private mutating func requestLine() {
+      pending = max(pending ?? .newline, .newline)
+      if !hasContent { startsWithLine = true }
+      endsWithLine = true
+    }
+
+    private mutating func appendLine(_ events: [Event]) throws {
+      let previousPending = pending
+      let previousStart = startsWithLine
+      let previousEnd = endsWithLine
+      requestLine()
+      if try appendDeferred({ try Self.line(events, at: $0) }) {
+        requestLine()
+      } else {
+        pending = previousPending
+        startsWithLine = previousStart
+        endsWithLine = previousEnd
+      }
+    }
+
+    private static func line(
+      _ events: [Event],
+      at placement: Placement
+    ) throws -> String {
+      var result = ""
+      var pending: Boundary?
+      func append(_ value: String) throws {
+        guard !value.isEmpty else { return }
+        guard !value.contains(where: \.isSourceLayoutNewline) else {
+          throw SourceLayoutError.lineContainsNewline
+        }
+        if !result.isEmpty, let pending {
+          guard pending == .soft
+          else { throw SourceLayoutError.lineContainsNewline }
+          result += " "
+        }
+        result += value
+        pending = nil
+      }
+      for event in events {
+        let start = SourceTextWidth.column(
+          after: result,
+          startingAt: placement.column
+        )
+          + (!result.isEmpty && pending != nil ? 1 : 0)
+        let current = Placement(
+          column: start, indentation: placement.indentation,
+          lineIndentation: placement.lineIndentation
+        )
+        switch event {
+        case let .deferred(make): try append(make(current))
+        case let .line(children):
+          let value = try line(children, at: current)
+          if !value.isEmpty {
+            guard result.isEmpty
+            else { throw SourceLayoutError.lineContainsNewline }
+            try append(value)
+            pending = .newline
+          }
+        case let .boundary(value): pending = max(pending ?? value, value)
+        case .lineBoundary: pending = max(pending ?? .newline, .newline)
+        case .indent, .align, .endIndentation, .wrap, .endWrap: break
+        }
+      }
+      return result
+    }
+
     private var columnAfterPendingBoundary: Int {
       guard let pending else { return column }
       if !hasContent {
@@ -321,30 +371,35 @@ package enum SourceLayoutRenderer {
       }
     }
 
-    private mutating func flushBoundary(before value: String) {
+    private func resolvedBoundary(before value: String) -> Boundary? {
+      guard let pending else { return nil }
+      return if pending == .soft, let width = widths.last,
+                endColumn(
+                  of:
+                  value
+                    .prefix { !$0.isSourceLayoutNewline },
+                  startingAt: column + 1
+                ) > width
+      {
+        .newline
+      } else {
+        pending
+      }
+    }
+
+    private mutating func flushBoundary(_ boundary: Boundary?) {
       defer { pending = nil }
       if !hasContent {
         if startsWithLine, context.hasSourceBefore {
           text += context.lineEnding + indentation
           column = endColumn(of: indentation, startingAt: 0)
+          lineIndentation = indentation
         } else {
           text += context.leadingWhitespace
         }
         return
       }
-      guard let pending else { return }
-      let boundary: Boundary =
-        if pending == .soft, let width = widths.last,
-        endColumn(
-          of:
-          value
-            .prefix { !$0.isSourceLayoutNewline },
-          startingAt: column + 1
-        ) > width {
-          .newline
-        } else {
-          pending
-        }
+      guard let boundary else { return }
       switch boundary {
       case .soft:
         text += " "
@@ -354,34 +409,16 @@ package enum SourceLayoutRenderer {
         if boundary == .blankLine { text += context.lineEnding }
         text += indentation
         column = endColumn(of: indentation, startingAt: 0)
+        lineIndentation = indentation
       }
     }
 
-    private mutating func append(
-      _ value: String, originalIndentation: String
-    ) throws {
-      let lines = value.split(
-        omittingEmptySubsequences: false,
-        whereSeparator: \.isSourceLayoutNewline
-      )
-      guard let first = lines.first else { return }
-      if indentation != originalIndentation,
-         lines.dropFirst().contains(where: {
-           !$0.isEmpty && !$0.hasPrefix(originalIndentation)
-         })
-      {
-        throw SourceLayoutError.inconsistentIndentation
-      }
-      text += first
-      column = endColumn(of: first, startingAt: column)
-      for line in lines.dropFirst() {
-        var content = String(line)
-        if !content.isEmpty, content.hasPrefix(originalIndentation) {
-          content.removeFirst(originalIndentation.count)
-          content = indentation + content
-        }
-        text += context.lineEnding + content
-        column = endColumn(of: content, startingAt: 0)
+    private mutating func append(_ value: String) {
+      text += value
+      column = endColumn(of: value, startingAt: column)
+      if value.contains(where: \.isSourceLayoutNewline) {
+        lineIndentation = SourceLayoutText
+          .indentation(in: SourceLayoutText.lastLine(in: value))
       }
     }
 
@@ -389,12 +426,11 @@ package enum SourceLayoutRenderer {
       of text: some StringProtocol,
       startingAt start: Int
     ) -> Int {
-      text.reduce(start) { column, character in
-        character == "\t"
-          ? column + context.tabWidth - column
-          % context
-          .tabWidth : column + 1
-      }
+      SourceTextWidth.column(
+        after: text,
+        startingAt: start,
+        tabWidth: context.tabWidth
+      )
     }
   }
 }

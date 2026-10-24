@@ -12,10 +12,16 @@ extension Selection {
   ) async throws -> Violations<Element> {
     var offenders: [Element] = []
     var fixes: [SourceFix?] = []
+    var candidates: [SourceFix.Edit] = []
     for element in self {
       try Task.checkCancellation()
-      let edits = try await changes(element).filter {
-        !$0.source.text.utf8.elementsEqual($0.replacement.utf8)
+      var edits: [SourceFix.Edit] = []
+      for edit in try await changes(element) {
+        if edit.source.text.utf8.elementsEqual(edit.replacement.utf8) {
+          if edit.layout != nil { candidates.append(edit) }
+        } else {
+          edits.append(edit)
+        }
       }
       guard !edits.isEmpty else { continue }
       offenders.append(element)
@@ -27,7 +33,8 @@ extension Selection {
       checkedCount: count,
       witnesses: Array(repeating: nil, count: offenders.count),
       fixes: fixes,
-      codebase: codebase
+      codebase: codebase,
+      layoutCandidates: candidates
     )
   }
 }
@@ -35,6 +42,6 @@ extension Selection {
 extension ArrayBuilder where Element == SourceFix.Edit {
   /// Includes all edits from a proposed correction.
   public static func buildExpression(_ fix: SourceFix) -> [SourceFix.Edit] {
-    fix.edits
+    fix.edits + fix.layoutCandidates
   }
 }

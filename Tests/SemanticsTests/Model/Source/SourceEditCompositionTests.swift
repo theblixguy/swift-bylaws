@@ -23,6 +23,55 @@ struct SourceEditCompositionTests {
     #expect(edit.source.text == "send(first: 1, second: 2)")
   }
 
+  @Test("Raw multiline replacement preserves authored indentation bytes")
+  func rawIndentation() throws {
+    let source = try FileCollector.collect(
+      source: "  foo()\n", path: "/App.swift"
+    ).source
+    let replacement = try source.slice(2..<7)
+      .replacement(with: "foo()\n  bar()")
+
+    let result = try source.replacement(applying: [replacement])
+
+    #expect(result.replacement.utf8.elementsEqual("  foo()\n  bar()\n".utf8))
+  }
+
+  @Test("Standalone raw replacement keeps unindented continuation bytes")
+  func rawContinuation() throws {
+    let source = try FileCollector.collect(
+      source: "  foo()\n", path: "/App.swift"
+    ).source
+    let replacement = try source.slice(2..<7)
+      .replacement(with: "call(\n2\n)")
+
+    let result = try source.replacement(applying: [replacement])
+
+    #expect(result.replacement.utf8.elementsEqual("  call(\n2\n)\n".utf8))
+  }
+
+  @Test(
+    "Adjacent indentation edit preserves raw continuation bytes",
+    arguments: [
+      ("    ", "foo()\n  bar()", "    foo()\n  bar()\n"),
+      ("", "foo()\n  bar()", "foo()\n  bar()\n"),
+      ("    ", "call(\n2\n)", "    call(\n2\n)\n"),
+      ("", "call(\n2\n)", "call(\n2\n)\n"),
+    ]
+  )
+  func adjacentIndentation(
+    indentation: String, replacement: String, expected: String
+  ) throws {
+    let source = try FileCollector.collect(
+      source: "  foo()\n", path: "/App.swift"
+    ).source
+    let prefix = try source.slice(0..<2).replacement(with: indentation)
+    let content = try source.slice(2..<7).replacement(with: replacement)
+
+    let result = try source.replacement(applying: [prefix, content])
+
+    #expect(result.replacement.utf8.elementsEqual(expected.utf8))
+  }
+
   @Test("Composition rejects foreign snapshots")
   func snapshots() throws {
     let file = try FileCollector.collect(
@@ -73,6 +122,25 @@ struct SourceEditCompositionTests {
         position.replacement(with: " "),
         position.replacement(with: "\n"),
       ])
+    }
+  }
+
+  @Test(
+    "Explicit composition rejects identical repeated edits",
+    arguments: [false, true]
+  )
+  func repeatedEdits(insertion: Bool) throws {
+    let source = try FileCollector.collect(
+      source: "let value = 1", path: "/App.swift"
+    ).source
+    let edit = if insertion {
+      try source.slice(0..<0).replacement(with: "// Keep\n")
+    } else {
+      try source.slice(0..<3).replacement(with: "var")
+    }
+
+    #expect(throws: SourceError.overlappingEdits) {
+      try source.replacement(applying: [edit, edit])
     }
   }
 

@@ -8,10 +8,12 @@ struct RuntimeViolations: Sendable, Equatable {
   let witnesses: [DeclarationLocation?]
   let fixes: [SourceFix?]
   let codebase: Codebase?
+  let layoutCandidates: [SourceFix.Edit]
 
   static func == (lhs: Self, rhs: Self) -> Bool {
     lhs.rule == rhs.rule && lhs.offenders == rhs.offenders
       && lhs.checkedCount == rhs.checkedCount && lhs.fixes == rhs.fixes
+      && lhs.layoutCandidates == rhs.layoutCandidates
   }
 
   init(
@@ -20,12 +22,14 @@ struct RuntimeViolations: Sendable, Equatable {
     checkedCount: Int,
     witnesses: [DeclarationLocation?]? = nil,
     fixes: [SourceFix?]? = nil,
-    codebase: Codebase? = nil
+    codebase: Codebase? = nil,
+    layoutCandidates: [SourceFix.Edit] = []
   ) {
     self.rule = rule
     self.offenders = offenders
     self.checkedCount = checkedCount
     self.codebase = codebase
+    self.layoutCandidates = layoutCandidates
     self.fixes = fixes ?? Array(repeating: nil, count: offenders.count)
     self.witnesses = witnesses
       ?? Array(repeating: nil, count: offenders.count)
@@ -55,7 +59,8 @@ struct RuntimeViolations: Sendable, Equatable {
       checkedCount: checkedCount,
       witnesses: Array(repeating: nil, count: retained.count),
       fixes: retainedFixes,
-      codebase: codebase
+      codebase: codebase,
+      layoutCandidates: layoutCandidates
     )
   }
 }
