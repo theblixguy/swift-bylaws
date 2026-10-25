@@ -4,6 +4,9 @@ import BylawsSemantics
 import Foundation
 
 let benchmarks = { @Sendable in
+  registerCorrectionBenchmarks()
+  registerConditionalLayoutBenchmarks()
+
   let smallSource = """
   import Foundation
 

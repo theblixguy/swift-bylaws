@@ -9,10 +9,11 @@ import Testing
 struct CorrectionCookbookTests {
   @Test(
     "Portable recipe corrects source and passes on second run",
-    arguments: CorrectionCookbookMock.cases
+    arguments: CorrectionCookbookMock.cases + CorrectionCookbookMock
+      .formattingCases
   )
   func portableRecipe(mock: CorrectionCookbookMock) async throws {
-    let source = try ruleSource(article: mock.article, ruleID: mock.ruleID)
+    let source = try mock.bylawsSource()
     let files = mock.sources.merging([
       "Package.swift": "",
       "Bylaws.swift": source,
@@ -22,11 +23,16 @@ struct CorrectionCookbookTests {
       in: project,
       rulesFile: "Bylaws.swift"
     )
-    try #require(program.rules.count == 1)
-    let rule = try #require(program.rules.first)
-    #expect(rule.id.rawValue == mock.ruleID)
-    let findings = try await rule.findings()
-    let edits = findings.violations.fixes.compactMap(\.self).flatMap(\.edits)
+    try #require(program.rules.count == mock.ruleIDs.count)
+    #expect(Set(program.rules.map(\.id.rawValue)) == Set(mock.ruleIDs))
+    var edits: [SourceFix.Edit] = []
+    var layoutCandidates: [SourceFix.Edit] = []
+    for rule in program.rules {
+      let findings = try await rule.findings()
+      try #require(!findings.violations.isEmpty, "\(rule.id)")
+      edits += findings.violations.fixes.compactMap(\.self).flatMap(\.edits)
+      layoutCandidates += findings.violations.layoutCandidates
+    }
     try #require(!edits.isEmpty)
     let paths = Set(mock.expected.keys.map { project.fileURL(for: $0).path })
     #expect(Set(edits.map(\.source.filePath)).isSubset(of: paths))
@@ -39,12 +45,17 @@ struct CorrectionCookbookTests {
         #expect(first.source.file.text == original)
       }
       let actual = if let first = fileEdits.first {
-        try first.source.file.replacement(applying: fileEdits)
-          .replacement
+        try first.source.file.replacement(
+          applying: fileEdits,
+          layoutCandidates: layoutCandidates.filter {
+            $0.source.filePath == absolutePath
+          }
+        )
+        .replacement
       } else {
         original
       }
-      #expect(actual == expected, "\(mock.ruleID): \(path)")
+      #expect(actual == expected, "\(mock.testDescription): \(path)")
       try project.write(actual, to: path)
     }
     await CodebaseCache.shared.removeEntries(under: project.rootURL.path)
@@ -52,26 +63,15 @@ struct CorrectionCookbookTests {
       in: project,
       rulesFile: "Bylaws.swift"
     )
-    try #require(updated.rules.count == 1)
-    let verified = try await #require(updated.rules.first).findings()
-
-    #expect(verified.violations.isEmpty)
-    #expect(verified.violations.fixes.compactMap(\.self).isEmpty)
-  }
-
-  private func ruleSource(article: String, ruleID: String) throws -> String {
-    let root = URL(fileURLWithPath: #filePath)
-      .deletingLastPathComponent().deletingLastPathComponent()
-      .deletingLastPathComponent().deletingLastPathComponent()
-      .deletingLastPathComponent()
-    let path = root.appendingPathComponent(
-      "Sources/Bylaws/Bylaws.docc/\(article).md"
-    )
-    let article = try String(contentsOf: path, encoding: .utf8)
-    let blocks = article.components(separatedBy: "```swift\n").dropFirst()
-      .compactMap { $0.components(separatedBy: "\n```").first }
-      .filter { $0.contains("Rule(\"\(ruleID)\"") }
-    try #require(blocks.count == 1)
-    return try #require(blocks.first)
+    try #require(updated.rules.count == mock.ruleIDs.count)
+    #expect(Set(updated.rules.map(\.id.rawValue)) == Set(mock.ruleIDs))
+    for rule in updated.rules {
+      let verified = try await rule.findings()
+      #expect(verified.violations.isEmpty, "\(rule.id)")
+      #expect(
+        verified.violations.fixes.compactMap(\.self).isEmpty,
+        "\(rule.id)"
+      )
+    }
   }
 }

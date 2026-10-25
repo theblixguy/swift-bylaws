@@ -14,6 +14,83 @@
   @Suite("Swift Testing CLI corrections")
   struct SwiftTestingCorrectionProcessTests {
     @Test(
+      "Native formatting recipes correct together and pass second run",
+      .timeLimit(.minutes(10))
+    )
+    func cookbookFormattingLifecycle() async throws {
+      let first = try #require(CorrectionCookbookMock.formattingCases.first)
+      let consumer = try SwiftTestingReportConsumer(
+        additionalTests: first.swiftTestingSource()
+      )
+      let testFile = consumer.root
+        .appendingPathComponent("Tests/RuleTests/Rules.swift")
+      let originalTests = try String(contentsOf: testFile, encoding: .utf8)
+      var previousPaths: Set<String> = []
+      for mock in CorrectionCookbookMock.formattingCases {
+        let functions = try mock.swiftTestingFunctions().joined(separator: "|")
+        let configuredTests = originalTests.replacing(
+          "maximumWidth: Int? = nil",
+          with: "maximumWidth: Int? = \(mock.maximumWidth.map(String.init) ?? "nil")"
+        )
+        if try String(contentsOf: testFile, encoding: .utf8) !=
+          configuredTests
+        {
+          try configuredTests.write(
+            to: testFile,
+            atomically: true,
+            encoding: .utf8
+          )
+        }
+        for path in previousPaths.subtracting(mock.sources.keys) {
+          try FileManager.default
+            .removeItem(at: consumer.root.appendingPathComponent(path))
+        }
+        for (path, source) in mock.sources {
+          let file = consumer.root.appendingPathComponent(path)
+          try FileManager.default.createDirectory(
+            at: file.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+          )
+          try source.write(to: file, atomically: true, encoding: .utf8)
+        }
+        previousPaths = Set(mock.sources.keys)
+
+        let correction = try await run(
+          consumer, function: functions, arguments: ["--autocorrect"]
+        )
+
+        try #require(
+          correction.status == .exited(0),
+          "\(mock.testDescription)\n\(correction.standardOutput)\n\(correction.standardError)"
+        )
+        try expectReport(correction, violations: 0, ruleIDs: mock.ruleIDs)
+        #expect(correction.standardError.contains("Corrected 1 file:"))
+        for (path, expected) in mock.expected {
+          #expect(try String(
+            contentsOf: consumer.root.appendingPathComponent(path),
+            encoding: .utf8
+          ) == expected, "\(mock.testDescription)")
+        }
+
+        let repeated = try await run(consumer, function: functions)
+
+        try #require(
+          repeated.status == .exited(0),
+          "\(mock.testDescription)\n\(repeated.standardOutput)\n\(repeated.standardError)"
+        )
+        try expectReport(repeated, violations: 0, ruleIDs: mock.ruleIDs)
+        for (path, expected) in mock.expected {
+          #expect(try String(
+            contentsOf: consumer.root.appendingPathComponent(path),
+            encoding: .utf8
+          ) == expected, "\(mock.testDescription)")
+        }
+      }
+      #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8)
+        == SwiftTestingReportConsumer.source)
+    }
+
+    @Test(
       "Native correction verifies rebuilt compiler index",
       .timeLimit(.minutes(10))
     )
@@ -49,7 +126,7 @@
         correction.status == .exited(0),
         "stdout:\n\(correction.standardOutput)\nstderr:\n\(correction.standardError)"
       )
-      try expectReport(correction, violations: 0, ruleID: "indexed-rename")
+      try expectReport(correction, violations: 0, ruleIDs: ["indexed-rename"])
       #expect(correction.standardError.contains("Corrected 1 file:"))
       #expect(correction.standardError.contains("Sources/App/Screen.swift"))
       #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8)
@@ -206,7 +283,7 @@
         preview.status == .exited(1),
         "stdout:\n\(preview.standardOutput)\nstderr:\n\(preview.standardError)"
       )
-      try expectReport(preview, violations: 1, ruleID: "formatting")
+      try expectReport(preview, violations: 1, ruleIDs: ["formatting"])
       #expect(preview.standardError.contains("@Environment"))
       #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8)
         == FormattingMock.combined)
@@ -219,7 +296,7 @@
         correction.status == .exited(0),
         "stdout:\n\(correction.standardOutput)\nstderr:\n\(correction.standardError)"
       )
-      try expectReport(correction, violations: 0, ruleID: "formatting")
+      try expectReport(correction, violations: 0, ruleIDs: ["formatting"])
       #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8)
         == FormattingMock.formattedCombined)
     }
@@ -256,7 +333,7 @@
         preview.status == .exited(1),
         "\(preview.standardOutput)\n\(preview.standardError)"
       )
-      try expectReport(preview, violations: 1, ruleID: "attribute-layout")
+      try expectReport(preview, violations: 1, ruleIDs: ["attribute-layout"])
       #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8) ==
         original)
 
@@ -267,7 +344,7 @@
         correction.status == .exited(0),
         "\(correction.standardOutput)\n\(correction.standardError)"
       )
-      try expectReport(correction, violations: 0, ruleID: "attribute-layout")
+      try expectReport(correction, violations: 0, ruleIDs: ["attribute-layout"])
       #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8) ==
         expected)
     }
@@ -275,7 +352,7 @@
     private func expectReport(
       _ result: Result,
       violations: Int,
-      ruleID: String = "rename-class",
+      ruleIDs: [String] = ["rename-class"],
       sourceLocation: SourceLocation = #_sourceLocation
     ) throws {
       let report = try #require(JSONSerialization.jsonObject(
@@ -284,7 +361,10 @@
       let summary = try #require(
         report["summary"] as? [String: Int], sourceLocation: sourceLocation
       )
-      #expect(summary["checkedRules"] == 1, sourceLocation: sourceLocation)
+      #expect(
+        summary["checkedRules"] == ruleIDs.count,
+        sourceLocation: sourceLocation
+      )
       #expect(
         summary["violations"] == violations,
         sourceLocation: sourceLocation
@@ -293,7 +373,7 @@
         report["rules"] as? [[String: Any]], sourceLocation: sourceLocation
       )
       #expect(
-        rules.compactMap { $0["id"] as? String } == [ruleID],
+        rules.compactMap { $0["id"] as? String }.sorted() == ruleIDs.sorted(),
         sourceLocation: sourceLocation
       )
     }

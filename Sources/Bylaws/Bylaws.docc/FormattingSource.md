@@ -99,19 +99,24 @@ can emit.
 ## Wrap call arguments
 
 This rule keeps the leading unlabelled arguments together and puts each
-remaining argument on its own line:
+remaining argument on its own line. Its syntax query includes top-level calls:
 
 ```swift
-Rule("call-arguments", "Log arguments use separate lines") {
-  try await app.calls.named("logger.write")
-    .violations("Wrap labelled arguments") { call in
-      if call.arguments.count > 1 {
+Rule("call-arguments", "Call arguments use separate lines") {
+  try await app.syntaxNodes(of: .functionCall)
+    .violations("Wrap labelled arguments") { node in
+      if let call = node.call, call.arguments.count > 1 {
         let leading = call.arguments.prefix { $0.label == nil }
-        try call.arguments.replacement {
-          Line { leading }
-          for argument in call.arguments.dropFirst(leading.count) {
-            Line { argument }
+        try call.arguments.replacement(whenLineExceeds: 100) {
+          if !leading.isEmpty {
+            Newline()
+            leading
           }
+          for argument in call.arguments.dropFirst(leading.count) {
+            Newline()
+            argument
+          }
+          Newline()
         }
       }
     }
@@ -135,6 +140,18 @@ within its argument. Each containing element must appear once, including
 when it contains a nested edit. Use `Newline()` before the first element when
 the list must start on a new line, or after the last element when the closing
 parenthesis must start on a new line.
+
+Layouts from different rules can format a nested call and its containing
+statement or declaration together. Use `Newline()` before an element that
+can span several lines. Use `Line` when the whole element must stay on one
+physical line.
+
+`whenLineExceeds: 100` applies the layout only when a containing source line
+exceeds 100 columns. A nested layout uses its position after the outer layout
+moves it, so a call that fits can stay compact. A line at the limit stays
+unchanged. Omit the argument, or pass `nil`, to apply the
+layout unconditionally. To check a captured region directly, use
+`source.hasLine(exceeding: 100, tabWidth: 8)`.
 
 ## Select source and whitespace
 
@@ -243,10 +260,14 @@ A layout preserves captured source elements. Use the source replacement API
 to change a name, literal or other content. Layout checks reject foreign source,
 missing elements and unclear comment ownership. Conditional-compilation
 boundaries and formatting-control comments also stop rearrangement.
-The builder takes one nested edit per containing element. Several nested
-edits for the same element are rejected.
+Each element must appear once in a layout builder. Conflicting captured
+layouts and overlapping raw text replacements are rejected.
 Use `argument.expressionSource.replacement(applying:)` to combine edits to
 parts of one argument before emitting it in the outer layout.
+
+The CLI applies one set of corrections before verification. If a separate
+layout joins lines and makes another call too long, verification reports the
+remaining violation. Run `--autocorrect` again to apply that new correction.
 
 A multi-line element must have a common outer indentation on its non-empty
 continuation lines for a layout to change its indentation. A partial change

@@ -2,7 +2,7 @@ import BylawsSyntax
 
 /// The whitespace immediately before and after a source element.
 public struct SourceSpacing: Sendable {
-  /// The whitespace before the element and its attached documentation.
+  /// The whitespace before the element and its attached comments.
   public let before: SourceSlice
 
   /// The whitespace after the element, starting after its last token.
@@ -57,7 +57,7 @@ public struct SourceSpacing: Sendable {
 extension SourceProviding {
   /// The adjacent whitespace, ending before any neighbouring comment.
   ///
-  /// A declaration includes its attached documentation. A property or argument
+  /// A declaration includes its attached comments. A property or argument
   /// uses its complete declaration or argument. Other models use their captured
   /// source range.
   /// - Complexity: O(n), where n is the length of the source file.

@@ -5,10 +5,10 @@ through the CLI.
 
 ## Overview
 
-Each recipe is a complete rule in both `Bylaws.swift` and Swift Testing. Use
-one version of a recipe at a time. A normal run reports proposed corrections.
-Use `bylaws lint --autocorrect --dry-run` to review them, then `bylaws lint
---autocorrect` to apply them and rerun the rules.
+Each recipe has a complete rule for `Bylaws.swift` and Swift Testing. Choose
+one version to use in your project. A normal run reports violations. Use
+`bylaws lint --autocorrect --dry-run` to review proposed corrections, then
+`bylaws lint --autocorrect` to apply them and rerun the rules.
 
 Start with a small source replacement, then use tokens and trivia when the
 rule must distinguish code from comments or strings. <doc:CorrectingSource>
@@ -17,9 +17,9 @@ explains source scope, correction checks and CLI options.
 
 ## Change part of a literal
 
-This rule changes lowercase letters in hexadecimal integer literals. It keeps
-the prefix, separators and surrounding code. The match itself identifies the
-editable source, so the rule does not calculate a diagnostic range.
+This rule changes lowercase letters in hexadecimal integer literals. The match
+identifies the letters to replace, which keeps the prefix, separators and
+surrounding code unchanged.
 
 ### Bylaws.swift
 
@@ -65,13 +65,12 @@ func uppercaseHexDigits() async throws {
 ```
 
 For `0xdead_Beef`, the result is `0xDEAD_BEEF`. Decimal literals, comment text
-and string contents remain outside the selection. An
-already-correct literal produces no violation because its proposal changes no
-bytes.
+and string contents remain outside the selection. A literal whose letters
+are uppercase produces no violation.
 
 ## Space a binary operator
 
-This rule puts one space on each side of a written binary `+` in
+This rule puts one space on each side of a binary `+` in
 `Sources/Math`. It distinguishes the operator token from a unary `+`, a
 comment or a string. The policy keeps existing line breaks.
 
@@ -136,10 +135,8 @@ func binaryPlusSpacing() async throws {
 }
 ```
 
-The token's source and adjacent whitespace come from the captured file. The
-rule does not infer which `+` overload a call uses. This policy applies to
-every binary `+` in its selected files, including custom operators with that
-spelling.
+The rule applies to every binary `+` in the selected files, including
+overloaded operators.
 
 ## Change a comment marker
 
@@ -193,16 +190,14 @@ func commentMarkers() async throws {
 }
 ```
 
-This changes a marker, rather than resolving the work described by the
-comment. Use a precise match when a comment can contain source examples or
-identifiers that must retain their spelling.
+Use a precise match when a comment can contain source examples or identifiers
+that must retain their spelling.
 
 ## Change a declaration and a related file
 
-This rule keeps a type's name and a registry string consistent. The registry
-is an explicit project convention: `Sources/Registry.swift` contains exactly
-one string literal with the old registered name. The correction stops if the
-registration lookup is ambiguous.
+This rule renames `LegacyScreen` to `AccountScreen` and updates its registration
+in `Sources/Registry.swift`. It checks that the file contains exactly one
+string literal with the old name before proposing either edit.
 
 ### Bylaws.swift
 
@@ -264,10 +259,9 @@ resolve some references, subject to the build and index limits in
 
 ## Test the correction
 
-Test the source result as well as the reported violation. This test defines
-the rule logic once, checks exact output and runs the same logic against the
-corrected source. It uses a source replacement to combine edits for inspection
-without writing files.
+Test the corrected source as well as the reported violation. This test checks
+the exact output and runs the same rule against the corrected source. It
+combines the edits in memory so it can check the result without changing files.
 
 ```swift
 import Bylaws
@@ -300,8 +294,7 @@ func hexCorrectionResult() async throws {
 }
 ```
 
-A layout test should also check its refusal cases. This test confirms that a
-replacement cannot discard a captured attribute:
+You can also check that a layout rejects an omitted attribute:
 
 ```swift
 import Bylaws
@@ -323,7 +316,7 @@ func omittedAttribute() async throws {
 }
 ```
 
-Add passing, failing and refusal cases for the syntax your rule selects.
+Test source that your rule should change and source that it should preserve.
 Include comments, Unicode, line endings and multiline strings when the rule
 can change them. A successful syntax check cannot establish that a correction
 preserves program behaviour.

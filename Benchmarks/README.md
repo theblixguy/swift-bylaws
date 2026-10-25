@@ -1,7 +1,7 @@
 # Local benchmarks
 
-The benchmark package measures parsing, queries and CLI runs. To run the parser
-and query benchmarks, use this command from the repository root:
+The benchmark package measures parsing, queries, source corrections and CLI
+runs. To run the library benchmarks, use this command from the repository root:
 
 ```sh
 swift package --package-path Benchmarks benchmark
@@ -25,3 +25,11 @@ allocation counters measure the parent benchmark process.
 The parser and query benchmarks run inside the benchmark process, where those
 counters apply. To compare builds, run the same benchmark case on the same
 machine with the same settings.
+
+The correction cases include large files, nested calls and batches of up to
+1,000 edits. To measure correction report encoding and decoding in a debug
+build, use:
+
+```sh
+BYLAWS_PERF=1 swift test --filter SwiftTestingReportPerformanceTests
+```

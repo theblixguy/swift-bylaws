@@ -51,9 +51,9 @@ bytes. Each match identifies the source to replace, so you do not have to
 calculate a range from the diagnostic.
 
 The fix closure runs once for each offender. You can write individual edits,
-edit arrays, `if` and `for` statements in its result builder.
-All edits for one offender form one correction, including edits in several
-files. An empty result leaves that offender without a correction.
+arrays of edits, `if` and `for` statements in its result builder. All edits for
+one offender form one correction, including edits in several files. An empty
+result leaves that offender without a correction.
 
 You can also propose corrections directly with
 `selection.violations("Requirement") { element in ... }`. Bylaws reports each
@@ -118,13 +118,12 @@ different files. `only()` throws if the query finds no companion or several
 companions. This example changes declaration names only. A rename that also
 changes references must select and replace those references explicitly.
 
-The codebase retains its root, inclusion patterns and exclusions. A query can
-read all files within that scope, without a fixed line or byte limit. The
-available memory limits how much source a run can hold. You can also query
-another explicitly configured `Codebase`. Bylaws checks for changes to the
-Swift source and supported project configuration read through these queries.
-If a fix depends on a separate file read or network request, Bylaws cannot
-check whether that input has changed.
+A query can read any file selected by the codebase's root, inclusion patterns
+and exclusions. There is no fixed line or byte limit, though the source must
+fit in the available memory. You can also query another configured `Codebase`.
+Bylaws checks for changes to the Swift source and supported project
+configuration read through these queries. If a fix reads a file separately or
+makes a network request, Bylaws cannot check whether that input has changed.
 
 ## Write a Swift Testing rule
 
@@ -257,10 +256,10 @@ An imported library can contain both application code and rule helpers,
 so the CLI cannot identify its helpers for protection automatically. Keep
 matcher and fix helpers in test targets when they must be protected.
 
-The CLI combines equal replacements. If replacements overlap, it rejects
-every correction involved in the conflict, including other edits in a
+The CLI combines identical replacements and compatible nested layouts. It
+rejects every correction involved in a conflict, including other edits in a
 correction that spans several files. Independent corrections can proceed.
-The CLI parses each proposed file with its captured Swift language mode and
+The CLI parses each proposed file with its selected Swift language mode and
 rejects a correction that produces syntax errors. Every rule that proposes
 corrections for a file must use the same `swiftLanguageMode`.
 
@@ -291,5 +290,4 @@ scope applies. Keep queries and fixes that depend on that scope inside the
 rule body or a helper called from it. See
 <doc:RunningRulesFromTheCLI#Discovery-and-overrides> for the override rules.
 
-A Swift Testing rule can use the full Swift language. Its replacements must
-use the same correction API to identify the captured source to change.
+A Swift Testing rule can use the full Swift language.

@@ -6,7 +6,6 @@
 /// A declaration model's `Codable` conformance encodes its values and location
 /// but omits its captured source. A decoded model can compare equal to the
 /// original while its source projections throw ``SourceError/unavailable``.
-/// Bylaws' parse cache retains the captured source.
 ///
 /// ``SourceSlice`` retains its captured source when encoded and decoded.
 public protocol SourceProviding: Sendable {

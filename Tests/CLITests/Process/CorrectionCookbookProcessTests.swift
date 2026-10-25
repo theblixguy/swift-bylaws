@@ -8,6 +8,73 @@
 
   @Suite("Compiled correction cookbook")
   struct CorrectionCookbookProcessTests {
+    @Test("Portable formatting recipes correct together and pass second run")
+    func portableFormattingLifecycle() throws {
+      let project = try CLIProcessProject(source: "", rules: nil)
+      var previousPaths: Set<String> = []
+      for mock in CorrectionCookbookMock.formattingCases {
+        try mock.bylawsSource().write(
+          to: project.root.appendingPathComponent("Bylaws.swift"),
+          atomically: true, encoding: .utf8
+        )
+        for path in previousPaths.subtracting(mock.sources.keys) {
+          try FileManager.default
+            .removeItem(at: project.root.appendingPathComponent(path))
+        }
+        for (path, source) in mock.sources {
+          let file = project.root.appendingPathComponent(path)
+          try FileManager.default.createDirectory(
+            at: file.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+          )
+          try source.write(to: file, atomically: true, encoding: .utf8)
+        }
+        previousPaths = Set(mock.sources.keys)
+
+        let correction = try project.run(
+          "--autocorrect", "--source-only", "--skip-tests", "--format", "json"
+        )
+
+        try #require(
+          correction.status == 0,
+          "\(mock.testDescription)\n\(correction.standardError)"
+        )
+        #expect(correction.standardError.contains("Corrected 1 file:"))
+        for (path, expected) in mock.expected {
+          #expect(try String(
+            contentsOf: project.root.appendingPathComponent(path),
+            encoding: .utf8
+          ) == expected, "\(mock.testDescription)")
+        }
+
+        let repeated = try project.run(
+          "--source-only", "--skip-tests", "--format", "json"
+        )
+
+        #expect(
+          repeated.status == 0,
+          "\(mock.testDescription)\n\(repeated.standardError)"
+        )
+        for result in [correction, repeated] {
+          let report = try #require(JSONSerialization.jsonObject(
+            with: Data(result.standardOutput.utf8)
+          ) as? [String: Any])
+          let summary = try #require(report["summary"] as? [String: Int])
+          let rules = try #require(report["rules"] as? [[String: Any]])
+          #expect(summary["checkedRules"] == 3)
+          #expect(summary["violations"] == 0)
+          #expect(Set(rules.compactMap { $0["id"] as? String }) ==
+            Set(mock.ruleIDs))
+        }
+        for (path, expected) in mock.expected {
+          #expect(try String(
+            contentsOf: project.root.appendingPathComponent(path),
+            encoding: .utf8
+          ) == expected, "\(mock.testDescription)")
+        }
+      }
+    }
+
     @Test(
       "Native recipes correct source and pass on second run",
       .timeLimit(.minutes(10))
@@ -52,16 +119,26 @@
         #expect(completed.contains { $0.contains(function) }, "\(function)")
       }
 
-      for mock in CorrectionCookbookMock.cases {
-        let recipes = blocks.filter {
-          $0.contains("report(ruleID: \"\(mock.ruleID)\"")
+      let testFile = consumer.root
+        .appendingPathComponent("Tests/RuleTests/Rules.swift")
+      let originalTests = try String(contentsOf: testFile, encoding: .utf8)
+      let cases = CorrectionCookbookMock.cases + CorrectionCookbookMock
+        .formattingCases
+      for (index, mock) in cases.enumerated() {
+        let functions = try mock.swiftTestingFunctions()
+        let configuredTests = originalTests.replacing(
+          "maximumWidth: Int? = nil",
+          with: "maximumWidth: Int? = \(mock.maximumWidth.map(String.init) ?? "nil")"
+        )
+        if try String(contentsOf: testFile, encoding: .utf8) !=
+          configuredTests
+        {
+          try configuredTests.write(
+            to: testFile,
+            atomically: true,
+            encoding: .utf8
+          )
         }
-        try #require(recipes.count == 1)
-        let recipe = try #require(recipes.first)
-        let declaration = try #require(recipe.components(separatedBy: "\n")
-          .first { $0.hasPrefix("func ") })
-        let function = try #require(declaration.dropFirst(5)
-          .split(separator: "(").first).description
         for (path, source) in mock.sources {
           let file = consumer.root.appendingPathComponent(path)
           try FileManager.default.createDirectory(
@@ -70,13 +147,14 @@
           )
           try source.write(to: file, atomically: true, encoding: .utf8)
         }
-        let initial = try await collectedReport(
-          consumer, function: function, ruleID: mock.ruleID,
-          phase: "\(mock.ruleID)-before"
+        let initial = try await collectedReports(
+          consumer, functions: functions, ruleIDs: mock.ruleIDs,
+          phase: "recipe-\(index)-before"
         )
-        try #require(!initial.findings.violations.isEmpty)
-        let edits = initial.findings.violations.fixes.compactMap(\.self)
-          .flatMap(\.edits)
+        try #require(initial.allSatisfy { !$0.findings.violations.isEmpty })
+        let edits = initial.flatMap(\.findings.violations.fixes)
+          .compactMap(\.self).flatMap(\.edits)
+        let candidates = initial.flatMap(\.findings.violations.layoutCandidates)
         try #require(!edits.isEmpty)
         let paths = Set(mock.expected.keys.map {
           consumer.root.appendingPathComponent($0).resolvingSymlinksInPath()
@@ -96,22 +174,34 @@
             #expect(Data(first.source.file.text.utf8) == Data(original.utf8))
           }
           let actual = if let first = fileEdits.first {
-            try first.source.file.replacement(applying: fileEdits).replacement
+            try first.source.file.replacement(
+              applying: fileEdits,
+              layoutCandidates: candidates.filter {
+                URL(fileURLWithPath: $0.source.filePath)
+                  .resolvingSymlinksInPath()
+                  == file
+              }
+            ).replacement
           } else {
             original
           }
           #expect(
             Data(actual.utf8) == Data(expected.utf8),
-            "\(mock.ruleID): \(path)"
+            "\(mock.testDescription): \(path)"
           )
           try actual.write(to: file, atomically: true, encoding: .utf8)
         }
-        let verified = try await collectedReport(
-          consumer, function: function, ruleID: mock.ruleID,
-          phase: "\(mock.ruleID)-after"
+        let verified = try await collectedReports(
+          consumer, functions: functions, ruleIDs: mock.ruleIDs,
+          phase: "recipe-\(index)-after"
         )
-        #expect(verified.findings.violations.isEmpty)
-        #expect(verified.findings.violations.fixes.compactMap(\.self).isEmpty)
+        for report in verified {
+          #expect(report.findings.violations.isEmpty, "\(report.ruleID)")
+          #expect(
+            report.findings.violations.fixes.compactMap(\.self).isEmpty,
+            "\(report.ruleID)"
+          )
+        }
         #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8)
           == SwiftTestingReportConsumer.source)
         for path in mock.sources.keys {
@@ -122,12 +212,12 @@
       }
     }
 
-    private func collectedReport(
+    private func collectedReports(
       _ consumer: SwiftTestingReportConsumer,
-      function: String,
-      ruleID: String,
+      functions: [String],
+      ruleIDs: [String],
       phase: String
-    ) async throws -> SwiftTestingRuleReport {
+    ) async throws -> [SwiftTestingRuleReport] {
       let directory = consumer.root.appendingPathComponent(
         phase, isDirectory: true
       )
@@ -136,20 +226,30 @@
         rootPath: consumer.root.path, isCorrection: true, sourceOnly: true
       )
       let result = try await consumer.run(
-        function, phase: "\(phase)-test", session: session
+        functions.joined(separator: "|"), phase: "\(phase)-test",
+        session: session
       )
-      let testID = try result.completedTestID(named: function)
+      try #require(result.status == .exited(0), "\(result.output)")
+      let records = try result.records()
+      let testIDs = records.filter {
+        $0.kind == "event" && $0.payload.kind == "testEnded"
+      }.compactMap(\.payload.testID)
+      #expect(testIDs.count == functions.count)
+      #expect(records.last?.payload.kind == "runEnded")
+      for function in functions {
+        #expect(testIDs.contains { $0.contains(function) }, "\(function)")
+      }
       let files = try FileManager.default.contentsOfDirectory(
         at: directory, includingPropertiesForKeys: nil
       ).filter { $0.lastPathComponent.hasPrefix("report-") }
-      try #require(files.count == 1)
-      let report = try SwiftTestingRuleSession.readReport(
-        at: #require(files.first)
-      )
-      #expect(report.sessionID == phase)
-      #expect(report.ruleID.rawValue == ruleID)
-      #expect(report.testID == testID)
-      return report
+      try #require(files.count == ruleIDs.count)
+      let reports = try files.map(SwiftTestingRuleSession.readReport)
+      #expect(Set(reports.map(\.ruleID.rawValue)) == Set(ruleIDs))
+      for report in reports {
+        #expect(report.sessionID == phase)
+        #expect(testIDs.contains(report.testID))
+      }
+      return reports
     }
   }
 #endif
