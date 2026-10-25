@@ -13,9 +13,11 @@ extension SourceFile {
   }
 
   package func syntaxNodes(of kinds: Set<SourceNode.Kind>) -> [SourceNode] {
+    let tree = swiftLanguageMode.parse(sourceText)
     let source = SourceText(
       buffer: sourceBuffer,
-      swiftLanguageMode: swiftLanguageMode
+      swiftLanguageMode: swiftLanguageMode,
+      parsedTree: tree
     )
     let declarations = properties + protocols.flatMap(\.requiredProperties)
     let propertiesByOffset = declarations
@@ -31,7 +33,7 @@ extension SourceFile {
       ),
       kinds: kinds
     )
-    collector.walk(swiftLanguageMode.parse(sourceText))
+    collector.walk(tree)
     return collector.nodes
   }
 }

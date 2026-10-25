@@ -4,9 +4,10 @@ enum SourceFileDiscovery {
   static func paths(
     under rootPath: String, including: [Glob], excluding: [Glob]
   ) async -> (paths: [String], failures: [CodebaseError.ReadFailure]) {
-    let root = LexicalFilePath(rootPath)
+    let root = LexicalFilePath(rootPath).string
+    let prefix = root.hasSuffix("/") ? root : root + "/"
     var paths: [String] = []
-    let failures = await DirectoryWalker.walk(rootPath) { relative, entry in
+    let failures = await DirectoryWalker.walk(root) { relative, entry in
       let path = Glob.Path(relative)
       switch entry {
       case .directory:
@@ -20,7 +21,7 @@ enum SourceFileDiscovery {
                 .contains(where: { $0.matches(path) }),
               !excluding.contains(where: { $0.matches(path) })
         else { return .descend }
-        paths.append(root.appending(relative).string)
+        paths.append(prefix + relative)
         return .descend
       }
     }
@@ -28,7 +29,8 @@ enum SourceFileDiscovery {
       paths,
       failures.map { failure in
         CodebaseError.ReadFailure(
-          path: root.appending(failure.relativePath).string,
+          path: failure.relativePath.isEmpty ? root : prefix + failure
+            .relativePath,
           reason: failure.reason
         )
       }.sorted { $0.path < $1.path }

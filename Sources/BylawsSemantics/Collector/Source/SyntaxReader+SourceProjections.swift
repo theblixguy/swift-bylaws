@@ -11,25 +11,29 @@ extension SyntaxReader {
       name = macro.macroName
       pound = macro.pound
     } else { return nil }
-    guard var result = parsedSource(of: node, name: name) else { return nil }
-    result.memberName = result.name
-    result.calledExpression = try? SourceSlice(
+    guard let whole = try? sourceSlice(of: node) else { return nil }
+    let calledExpression = try? SourceSlice(
       snapshot: text.buffer.snapshot.required(),
       range: pound.positionAfterSkippingLeadingTrivia.utf8Offset
         ..< name.endPositionBeforeTrailingTrivia.utf8Offset
     )
-    result.name = result.calledExpression
-    return result
+    return ParsedSource(
+      whole: whole, name: calledExpression,
+      calledExpression: calledExpression,
+      memberName: try? sourceSlice(of: name)
+    )
   }
 
   func callSource(of node: FunctionCallExprSyntax) -> ParsedSource? {
-    guard var result = parsedSource(of: node) else { return nil }
-    result.calledExpression = try? sourceSlice(of: node.calledExpression)
-    result.memberName = referenceName(in: node.calledExpression).flatMap {
+    guard let whole = try? sourceSlice(of: node) else { return nil }
+    let calledExpression = try? sourceSlice(of: node.calledExpression)
+    let memberName = referenceName(in: node.calledExpression).flatMap {
       try? sourceSlice(of: $0)
     }
-    result.name = result.calledExpression
-    return result
+    return ParsedSource(
+      whole: whole, name: calledExpression,
+      calledExpression: calledExpression, memberName: memberName
+    )
   }
 
   private func referenceName(in expression: ExprSyntax) -> TokenSyntax? {

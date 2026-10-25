@@ -1,4 +1,5 @@
 #if canImport(Testing)
+  public import BylawsCore
   public import BylawsSemantics
   @_weakLinked public import Testing
 
@@ -62,4 +63,6 @@
 
   extension Typealias: CustomTestStringConvertible,
     CustomTestArgumentEncodable {}
+
+  extension Violations: CustomTestStringConvertible {}
 #endif

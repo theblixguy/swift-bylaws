@@ -93,19 +93,23 @@ enum RulesDiscovery {
     var directories: [String] = []
     let unopenable = await DirectoryWalker
       .walk(rootPath) { relativePath, entry in
-        let path = LexicalFilePath(relativePath)
+        let bytes = relativePath.utf8
+        let separator = bytes.lastIndex(of: UInt8(ascii: "/"))
+        let nameStart = separator.map { bytes.index(after: $0) }
+          ?? bytes.startIndex
+        let basename = String(decoding: bytes[nameStart...], as: UTF8.self)
         switch entry {
         case .directory:
-          let skipped = path.lastComponent.map(skippedDirectories.contains)
-          if skipped == true { return .skipDescendants }
+          if skippedDirectories.contains(basename) { return .skipDescendants }
           if folders.isEmpty { return .descend }
           let folder = Glob.Path(relativePath)
           return folders.contains { $0.matches(folder) }
             ? .skipDescendants : .descend
         case .regularFile:
-          if path.lastComponent == name {
-            let directory = path.removingLastComponent().string
-            if !directory.isEmpty { directories.append(directory) }
+          if basename == name, let separator {
+            directories.append(String(
+              decoding: bytes[..<separator], as: UTF8.self
+            ))
           }
           return .descend
         }

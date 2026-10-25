@@ -118,7 +118,8 @@ package enum SourceListLayoutReplacement {
       throw SourceLayoutReplacementError.differentSnapshots
     }
     let snapshot = first.snapshot
-    let tree = snapshot.swiftLanguageMode.parse(snapshot.text)
+    let tree = snapshot.parsedTree
+      ?? snapshot.swiftLanguageMode.parse(snapshot.text)
     let items = try slices.map {
       try SourceLayoutReplacement.Item(
         source: $0,
@@ -131,7 +132,7 @@ package enum SourceListLayoutReplacement {
     else {
       throw SourceLayoutReplacementError.noncontiguousElements
     }
-    let bytes = Array(snapshot.text.utf8)
+    let bytes = snapshot.syntaxContext?.bytes ?? Array(snapshot.text.utf8)
     let list = try SourceLayoutReplacement.List(
       items: items, snapshot: snapshot, sourceBytes: bytes
     )

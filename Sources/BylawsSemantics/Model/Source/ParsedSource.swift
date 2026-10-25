@@ -1,9 +1,9 @@
-package struct ParsedSource: Sendable {
+package final class ParsedSource: Sendable {
   package let whole: SourceSlice
-  package var name: SourceSlice?
-  package var body: SourceSlice?
-  package var calledExpression: SourceSlice?
-  package var memberName: SourceSlice?
+  package let name: SourceSlice?
+  package let body: SourceSlice?
+  package let calledExpression: SourceSlice?
+  package let memberName: SourceSlice?
 
   package init(
     whole: SourceSlice, name: SourceSlice? = nil, body: SourceSlice? = nil,

@@ -24,9 +24,19 @@ struct SourceText: Sendable {
     )
   }
 
-  init(buffer: SourceBuffer, swiftLanguageMode: SwiftLanguageMode) {
+  init(
+    buffer: SourceBuffer, swiftLanguageMode: SwiftLanguageMode,
+    parsedTree: SourceFileSyntax? = nil
+  ) {
     self.swiftLanguageMode = swiftLanguageMode
-    self.buffer = buffer
+    self.buffer = if let parsedTree, let snapshot = buffer.snapshot {
+      SourceBuffer(
+        buffer.text, lineCount: buffer.lineCount,
+        snapshot: snapshot.withSyntaxTree(parsedTree)
+      )
+    } else {
+      buffer
+    }
     lines = SourceLineTable(buffer.text.utf8)
   }
 

@@ -1,4 +1,5 @@
 import BylawsSemantics
+import Foundation
 import Testing
 
 @Suite("Source snapshot equality")
@@ -67,5 +68,28 @@ struct SourceSnapshotTests {
 
     #expect(original != otherPath)
     #expect(original != otherMode)
+  }
+
+  @Test("Snapshot transport preserves fields and hash membership")
+  func transport() throws {
+    let data = Data(
+      #"{"filePath":"/virtual/Store.swift","text":"let café = 1\n","swiftLanguageMode":"6"}"#
+        .utf8
+    )
+    let decoded = try JSONDecoder().decode(SourceSnapshot.self, from: data)
+    let original = SourceSnapshot(
+      filePath: "/virtual/Store.swift", text: "let café = 1\n",
+      swiftLanguageMode: .v6
+    )
+    let encoded = try JSONEncoder().encode(original)
+    let payload = try #require(JSONSerialization.jsonObject(with: encoded)
+      as? [String: Any])
+
+    #expect(Set(payload.keys) == ["filePath", "text", "swiftLanguageMode"])
+    #expect(payload["filePath"] as? String == "/virtual/Store.swift")
+    #expect(payload["text"] as? String == "let café = 1\n")
+    #expect(payload["swiftLanguageMode"] as? String == "6")
+    #expect(decoded == original)
+    #expect(Set([original]).contains(decoded))
   }
 }

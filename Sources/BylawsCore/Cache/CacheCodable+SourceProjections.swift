@@ -19,7 +19,9 @@ extension SourceSlice: CacheCodable {
 }
 
 extension ParsedSource: CacheCodable {
-  package init(from decoder: CacheDecoder) throws(CacheDecoder.Malformed) {
+  package convenience init(from decoder: CacheDecoder) throws(CacheDecoder
+    .Malformed)
+  {
     self.init(
       whole: try decoder.decode(),
       name: try decoder.decode(),

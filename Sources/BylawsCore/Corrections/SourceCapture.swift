@@ -70,10 +70,11 @@ package enum SourceCapture {
 
   @TaskLocal package static var collector: Collector?
 
+  private static let hasCaptureDirectory = ProcessInfo.processInfo
+    .environment["BYLAWS_SOURCE_CAPTURE_DIRECTORY"] != nil
+
   package static var isEnabled: Bool {
-    collector != nil
-      || ProcessInfo.processInfo
-      .environment["BYLAWS_SOURCE_CAPTURE_DIRECTORY"] != nil
+    collector != nil || hasCaptureDirectory
   }
 
   package static func store(

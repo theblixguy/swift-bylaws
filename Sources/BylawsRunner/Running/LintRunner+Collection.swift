@@ -29,7 +29,11 @@ extension LintRunner {
     let activeCollector = captureSources ? collector : nil
     return try await SourceCapture.$collector.withValue(activeCollector) {
       () async throws -> Collection in
-      let ruleInputs = try await captureRuleInputs(configuration)
+      let ruleInputs: [SourceCapture.Record] = if captureSources {
+        try await captureRuleInputs(configuration)
+      } else {
+        []
+      }
       let testRun: SwiftPMTestRun? = if skipTests {
         nil
       } else {
