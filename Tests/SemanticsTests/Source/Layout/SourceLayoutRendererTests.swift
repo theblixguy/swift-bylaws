@@ -3,6 +3,26 @@ import Testing
 
 @Suite("Source layout rendering")
 struct SourceLayoutRendererTests {
+  @Test("Empty content after wrapping leaves no boundary")
+  func emptyAfterWrapping() throws {
+    let first = try source("a")
+    let second = try source("b")
+    let layout = makeLayout {
+      Wrap(width: 1) {
+        first
+        Indent { second }
+      }
+    }
+    let result = try SourceLayoutRenderer.render(
+      layout, context: .init(indentationUnit: "    ")
+    ) { provider, placement in
+      let text = try provider.source.text
+      return text == "b" && placement.column >= 4 ? "" : text
+    }
+
+    #expect(result == "a")
+  }
+
   @Test("Line emits attributes in selected order")
   func attributeLine() throws {
     let observable = try source("@Observable")
@@ -15,6 +35,26 @@ struct SourceLayoutRendererTests {
     )
 
     #expect(try render(layout) == "@Observable @MainActor")
+  }
+
+  @Test("Line tracks Unicode and configured tab columns", arguments: [
+    (4, [1, 10, 14]),
+    (8, [1, 10, 18]),
+  ])
+  func lineColumns(tabWidth: Int, expected: [Int]) throws {
+    let values = try ["abcdefgh", "\t🦊", "end"].map(source)
+    let layout = SourceLayout { Line { values } }
+    var columns: [Int] = []
+
+    let result = try SourceLayoutRenderer.render(
+      layout, context: .init(initialColumn: 1, tabWidth: tabWidth)
+    ) { provider, placement in
+      columns.append(placement.column)
+      return try provider.source.text
+    }
+
+    #expect(result == "abcdefgh \t🦊 end")
+    #expect(columns == expected)
   }
 
   @Test("Builder keeps conditions and loops in source order")
@@ -440,7 +480,19 @@ struct SourceLayoutRendererTests {
     context: SourceLayoutRenderer.Context = .init()
   ) throws -> String {
     try SourceLayoutRenderer
-      .render(layout, context: context) { try $0.source.text }
+      .render(layout, context: context) { provider, placement in
+        let source = try provider.source
+        let prefix = String(
+          decoding: source.snapshot.text.utf8.prefix(source.range.lowerBound),
+          as: UTF8.self
+        )
+        return try SourceLayoutText(
+          source.text,
+          originalIndentation: SourceLayoutText
+            .indentation(in: SourceLayoutText.lastLine(in: prefix)),
+          indentation: placement.indentation
+        ).text
+      }
   }
 
   private func failingLayout() throws -> SourceLayout {

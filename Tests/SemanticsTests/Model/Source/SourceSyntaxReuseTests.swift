@@ -44,4 +44,20 @@ struct SourceSyntaxReuseTests {
     #expect(decoded == snapshot)
     #expect(Set([snapshot]).contains(decoded))
   }
+
+  @Test("Retained syntax preserves layout preview validation")
+  func forgedPreview() throws {
+    let file = try FileCollector.collect(
+      source: "let result = send(first: 1, second: 2)", path: "/App.swift"
+    )
+    let call = try #require(file.syntaxNodes(of: .functionCall).first?.call)
+    let edit = try call.arguments.replacement { call.arguments.reversed() }
+    let forged = SourceFix.Edit(
+      source: edit.source, replacement: "first: 1", layout: edit.layout
+    )
+
+    #expect(throws: SourceLayoutComposition.Failure.self) {
+      try JSONEncoder().encode(forged)
+    }
+  }
 }

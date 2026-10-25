@@ -7,19 +7,16 @@ extension SourceLayoutReplacement {
     init(
       snapshot: SourceSnapshot,
       bytes: [UInt8],
-      excluding range: Range<Int>
+      excluding range: Range<Int>,
+      lineEnding: String? = nil
     ) {
       self.bytes = bytes
-      lineEnding = snapshot.lineEnding
+      self.lineEnding = lineEnding ?? snapshot.lineEnding
       indentationUnit = Self.indentationUnit(in: bytes, excluding: range)
     }
 
     func indentation(before offset: Int) -> String {
-      let start = lineStart(before: offset)
-      return String(
-        decoding: bytes[start..<offset].prefix { $0 == 32 || $0 == 9 },
-        as: UTF8.self
-      )
+      SourceLayoutText.indentation(in: bytes, before: offset)
     }
 
     func column(before offset: Int) -> Int {

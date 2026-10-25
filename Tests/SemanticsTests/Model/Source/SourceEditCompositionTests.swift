@@ -3,6 +3,63 @@ import Testing
 
 @Suite("Source edit composition")
 struct SourceEditCompositionTests {
+  @Test(
+    "Partial-slice composition retains closing delimiter in width check",
+    arguments: ["", "\n", "\r\n", "\r"], [9, 10]
+  )
+  func partialWidth(ending: String, maximumWidth: Int) throws {
+    let file = try FileCollector.collect(
+      source: "send(1, 2)\(ending)", path: "/App.swift"
+    )
+    let call = try #require(file.syntaxNodes(of: .functionCall).first?.call)
+    let layout = try call.arguments.replacement(
+      whenLineExceeds: maximumWidth
+    ) {
+      for argument in call.arguments {
+        Newline()
+        argument
+      }
+      Newline()
+    }
+
+    let partial = try layout.source.replacement(applying: [layout])
+    let corrected = try file.source.replacement(applying: [partial])
+    let lineEnding = ending.isEmpty ? "\n" : ending
+    let expected = if maximumWidth == 9 {
+      "\(lineEnding)  1,\(lineEnding)  2\(lineEnding)"
+    } else {
+      "1, 2"
+    }
+
+    #expect(partial.replacement.utf8.elementsEqual(expected.utf8))
+    #expect(corrected.replacement.utf8
+      .elementsEqual("send(\(expected))\(ending)".utf8))
+  }
+
+  @Test("Partial parent slice retains chained suffix in nested width check")
+  func partialParentWidth() throws {
+    let file = try FileCollector.collect(
+      source: "let r = outer(send(1, 2)).cached()", path: "/App.swift"
+    )
+    let calls = file.syntaxNodes(of: .functionCall).compactMap(\.call)
+    let inner = try #require(calls.first { $0.name == "send" })
+    let outer = try #require(calls.first { $0.name == "outer" })
+    let layout = try inner.arguments.replacement(whenLineExceeds: 33) {
+      for argument in inner.arguments {
+        Newline()
+        argument
+      }
+      Newline()
+    }
+
+    let partial = try outer.source.replacement(applying: [layout])
+    let corrected = try file.source.replacement(applying: [partial])
+
+    #expect(partial.replacement == "outer(send(\n  1,\n  2\n))")
+    #expect(corrected.replacement
+      == "let r = outer(send(\n  1,\n  2\n)).cached()")
+  }
+
   @Test("Composition preserves surrounding Unicode and applies original ranges")
   func originalRanges() throws {
     let file = try FileCollector.collect(
@@ -21,6 +78,55 @@ struct SourceEditCompositionTests {
 
     #expect(edit.replacement == "send(first: 100, second: 200)")
     #expect(edit.source.text == "send(first: 1, second: 2)")
+  }
+
+  @Test("Raw multiline replacement preserves authored indentation bytes")
+  func rawIndentation() throws {
+    let source = try FileCollector.collect(
+      source: "  foo()\n", path: "/App.swift"
+    ).source
+    let replacement = try source.slice(2..<7)
+      .replacement(with: "foo()\n  bar()")
+
+    let result = try source.replacement(applying: [replacement])
+
+    #expect(result.replacement.utf8.elementsEqual("  foo()\n  bar()\n".utf8))
+  }
+
+  @Test("Standalone raw replacement keeps unindented continuation bytes")
+  func rawContinuation() throws {
+    let source = try FileCollector.collect(
+      source: "  foo()\n", path: "/App.swift"
+    ).source
+    let replacement = try source.slice(2..<7)
+      .replacement(with: "call(\n2\n)")
+
+    let result = try source.replacement(applying: [replacement])
+
+    #expect(result.replacement.utf8.elementsEqual("  call(\n2\n)\n".utf8))
+  }
+
+  @Test(
+    "Adjacent indentation edit preserves raw continuation bytes",
+    arguments: [
+      ("    ", "foo()\n  bar()", "    foo()\n  bar()\n"),
+      ("", "foo()\n  bar()", "foo()\n  bar()\n"),
+      ("    ", "call(\n2\n)", "    call(\n2\n)\n"),
+      ("", "call(\n2\n)", "call(\n2\n)\n"),
+    ]
+  )
+  func adjacentIndentation(
+    indentation: String, replacement: String, expected: String
+  ) throws {
+    let source = try FileCollector.collect(
+      source: "  foo()\n", path: "/App.swift"
+    ).source
+    let prefix = try source.slice(0..<2).replacement(with: indentation)
+    let content = try source.slice(2..<7).replacement(with: replacement)
+
+    let result = try source.replacement(applying: [prefix, content])
+
+    #expect(result.replacement.utf8.elementsEqual(expected.utf8))
   }
 
   @Test("Composition rejects foreign snapshots")
@@ -73,6 +179,25 @@ struct SourceEditCompositionTests {
         position.replacement(with: " "),
         position.replacement(with: "\n"),
       ])
+    }
+  }
+
+  @Test(
+    "Explicit composition rejects identical repeated edits",
+    arguments: [false, true]
+  )
+  func repeatedEdits(insertion: Bool) throws {
+    let source = try FileCollector.collect(
+      source: "let value = 1", path: "/App.swift"
+    ).source
+    let edit = if insertion {
+      try source.slice(0..<0).replacement(with: "// Keep\n")
+    } else {
+      try source.slice(0..<3).replacement(with: "var")
+    }
+
+    #expect(throws: SourceError.overlappingEdits) {
+      try source.replacement(applying: [edit, edit])
     }
   }
 
