@@ -9,6 +9,16 @@ extension RuntimeEvaluator {
   ) throws(RuntimeError) -> RuntimeValue {
     do {
       switch name {
+      case .hasLine:
+        let hasTabWidth = arguments.values.count == 2
+        try arguments.requireLabels(
+          hasTabWidth ? [.exceeding, .tabWidth] : [.exceeding],
+          for: name
+        )
+        return .boolean(value.hasLine(
+          exceeding: try arguments.integer(at: 0),
+          tabWidth: hasTabWidth ? try arguments.integer(at: 1) : 8
+        ))
       case .replacement:
         if arguments.hasLabels([.applying]) {
           guard case let .array(values) = try arguments.value(at: 0) else {
@@ -85,6 +95,7 @@ extension RuntimeEvaluator {
     let body = try arguments.value(at: 1)
     var offenders: [RuntimeModelValue] = []
     var fixes: [SourceFix?] = []
+    var candidates: [SourceFix.Edit] = []
     for element in selection.elements {
       try step(at: arguments.location, state: &state)
       if let offender = element.offender,
@@ -93,20 +104,24 @@ extension RuntimeEvaluator {
       {
         continue
       }
-      let edits = try await correctionEdits(
+      let proposedEdits = try await correctionEdits(
         body, input: .model(element), method: .violations,
         at: arguments.location, state: &state
-      ).filter { !$0.source.text.utf8.elementsEqual($0.replacement.utf8) }
-      if !edits.isEmpty {
+      )
+      let fix = SourceFix(proposedEdits: proposedEdits)
+      if !fix.edits.isEmpty {
         offenders.append(element)
-        fixes.append(SourceFix(edits: edits))
+        fixes.append(fix)
+      } else {
+        candidates.append(contentsOf: fix.layoutCandidates)
       }
     }
     return .violations(
       RuntimeViolations(
         rule: requirement, offenders: offenders,
         checkedCount: selection.elements.count,
-        fixes: fixes, codebase: selection.codebase
+        fixes: fixes, codebase: selection.codebase,
+        layoutCandidates: candidates
       )
     )
   }
@@ -172,7 +187,8 @@ extension RuntimeEvaluator {
         checkedCount: violations.checkedCount,
         witnesses: violations.witnesses,
         fixes: fixes,
-        codebase: violations.codebase
+        codebase: violations.codebase,
+        layoutCandidates: violations.layoutCandidates
       )
     )
   }

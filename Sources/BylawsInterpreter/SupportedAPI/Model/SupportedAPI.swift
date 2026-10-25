@@ -43,6 +43,8 @@ package enum SupportedAPI {
     case applying
     case changes
     case width, argument
+    case exceeding, tabWidth
+    case whenLineExceeds
     case with
     case labeled
     case fileURLWithPath

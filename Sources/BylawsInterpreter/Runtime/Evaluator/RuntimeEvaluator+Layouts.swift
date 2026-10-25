@@ -76,9 +76,26 @@ extension RuntimeEvaluator {
     arguments: RuntimeArguments,
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> RuntimeValue {
-    try arguments.requireLabels([nil], for: .replacement)
+    let hasWidth = arguments.hasLabels([.whenLineExceeds, nil])
+    try arguments.requireLabels(
+      hasWidth ? [.whenLineExceeds, nil] : [nil], for: .replacement
+    )
+    let maximumWidth: Int? = if hasWidth {
+      switch try arguments.value(at: 0) {
+      case let .integer(value), let .optional(.integer(value)):
+        value
+      case .optional(nil): nil
+      default:
+        throw RuntimeError(
+          message: "SourceLayout width must be Int or nil",
+          location: arguments.location
+        )
+      }
+    } else {
+      nil
+    }
     let result = try await layoutResult(
-      arguments.value(at: 0),
+      arguments.value(at: arguments.values.count - 1),
       at: arguments.location,
       state: &state
     )
@@ -87,6 +104,12 @@ extension RuntimeEvaluator {
         try elements
           .map { try $0.sourceProvider(at: arguments.location) }
       if case let .layoutPlan(plan) = result {
+        guard !hasWidth else {
+          throw RuntimeError(
+            message: "SourceListLayout must use an unconditional replacement. Remove whenLineExceeds.",
+            location: arguments.location
+          )
+        }
         let operations = try await resolveLayoutPlan(
           plan, elements: elements, at: arguments.location, state: &state
         )
@@ -103,7 +126,8 @@ extension RuntimeEvaluator {
       return .sourceEdit(
         try SourceLayoutReplacement.make(
           elements: providers,
-          layout: layout
+          layout: layout,
+          whenLineExceeds: maximumWidth
         )
       )
     } catch {
