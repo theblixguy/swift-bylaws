@@ -24,13 +24,14 @@ extension SwiftTestingRuleReport: Codable {
         "The report must contain either source snapshots or snapshot IDs"
       )
     }
+    let sources = SwiftTestingReportSources(snapshots: snapshots)
     self.init(
       sessionID: payload.sessionID, testID: payload.testID,
       ruleID: payload.ruleID, name: payload.name,
       enforcement: payload.enforcement, hint: payload.hint,
       location: payload.location,
       findings: Rule.Findings(
-        checks: try payload.checks.map { try $0.decoded(snapshots: snapshots) },
+        checks: try payload.checks.map { try $0.decoded(sources: sources) },
         warnings: payload.warnings
       ),
       baselineAccepted: payload.baselineAccepted, origin: payload.origin
@@ -40,32 +41,8 @@ extension SwiftTestingRuleReport: Codable {
 
   package func encode(to encoder: any Encoder) throws {
     try validateContents()
-    var snapshots: [SourceSnapshot] = []
-    var indices: [SourceSnapshot: Int] = [:]
-    let checks = checks.map { check in
-      Check(
-        rule: check.rule, offenders: check.offenders,
-        checkedCount: check.checkedCount,
-        fixes: check.fixes.map { fix in
-          fix.map { fix in
-            Fix(title: fix.title, edits: fix.edits.map { edit in
-              let snapshot = edit.source.snapshot
-              let index: Int
-              if let existing = indices[snapshot] { index = existing }
-              else {
-                index = snapshots.count
-                snapshots.append(snapshot)
-                indices[snapshot] = index
-              }
-              return Edit(
-                snapshot: index, range: edit.source.range,
-                replacement: edit.replacement
-              )
-            })
-          }
-        }
-      )
-    }
+    let sources = SwiftTestingReportSources()
+    let checks = try checks.map { try Check($0, sources: sources) }
     let store = encoder.userInfo[SwiftTestingSnapshotStore.codingKey]
       as? SwiftTestingSnapshotStore
     try Payload(
@@ -73,8 +50,8 @@ extension SwiftTestingRuleReport: Codable {
       ruleID: ruleID, name: name, enforcement: enforcement, hint: hint,
       location: location, checks: checks, warnings: warnings,
       baselineAccepted: baselineAccepted, origin: origin,
-      snapshots: store == nil ? snapshots : nil,
-      snapshotIDs: try store.map { try snapshots.map($0.write) }
+      snapshots: store == nil ? sources.snapshots : nil,
+      snapshotIDs: try store.map { try sources.snapshots.map($0.write) }
     ).encode(to: encoder)
   }
 
@@ -100,8 +77,24 @@ extension SwiftTestingRuleReport: Codable {
     let offenders: [Offender]
     let checkedCount: Int
     let fixes: [Fix?]
+    let layoutCandidates: [Edit]?
 
-    func decoded(snapshots: [SourceSnapshot]) throws -> Violations<Offender> {
+    init(
+      _ check: Violations<Offender>, sources: SwiftTestingReportSources
+    ) throws {
+      rule = check.rule
+      offenders = check.offenders
+      checkedCount = check.checkedCount
+      fixes = try check.fixes.map { fix in
+        try fix.map { try Fix($0, sources: sources) }
+      }
+      layoutCandidates = try check.layoutCandidates.isEmpty ? nil
+        : check.layoutCandidates.map(sources.captureCandidate)
+    }
+
+    func decoded(sources: SwiftTestingReportSources) throws
+      -> Violations<Offender>
+    {
       guard fixes.count == offenders.count else {
         throw SwiftTestingRuleSessionError.malformedReport(
           "The fix count must equal the offender count"
@@ -111,21 +104,9 @@ extension SwiftTestingRuleReport: Codable {
         rule: rule, offenders: offenders, checkedCount: checkedCount,
         witnesses: Array(repeating: nil, count: offenders.count),
         fixes: fixes.map { fix in
-          try fix.map { fix in
-            try SourceFix(fix.title, edits: fix.edits.map { edit in
-              guard snapshots.indices.contains(edit.snapshot) else {
-                throw SwiftTestingRuleSessionError.malformedReport(
-                  "Source snapshot index \(edit.snapshot) is outside the report's snapshot list"
-                )
-              }
-              return try SourceFix.Edit(
-                source: SourceSlice(
-                  snapshot: snapshots[edit.snapshot], range: edit.range
-                ), replacement: edit.replacement
-              )
-            })
-          }
-        }
+          try fix.map { try $0.decoded(sources: sources) }
+        },
+        layoutCandidates: (layoutCandidates ?? []).map(sources.restoreCandidate)
       )
     }
   }
@@ -133,11 +114,22 @@ extension SwiftTestingRuleReport: Codable {
   private struct Fix: Codable {
     let title: String?
     let edits: [Edit]
+    let layoutCandidates: [Edit]?
+
+    init(_ fix: SourceFix, sources: SwiftTestingReportSources) throws {
+      title = fix.title
+      edits = try fix.edits.map(sources.capture)
+      layoutCandidates = try fix.layoutCandidates.isEmpty ? nil
+        : fix.layoutCandidates.map(sources.captureCandidate)
+    }
+
+    func decoded(sources: SwiftTestingReportSources) throws -> SourceFix {
+      try SourceFix(
+        title, edits: edits.map(sources.restore),
+        layoutCandidates: (layoutCandidates ?? []).map(sources.restoreCandidate)
+      )
+    }
   }
 
-  private struct Edit: Codable {
-    let snapshot: Int
-    let range: Range<Int>
-    let replacement: String
-  }
+  private typealias Edit = SwiftTestingReportSources.Edit
 }

@@ -60,6 +60,77 @@ struct SwiftTestingRuleReportCodingTests {
     #expect(decoded.checks == report.checks)
   }
 
+  @Test(
+    "Report transport retains captured layout policy",
+    arguments: [false, true]
+  )
+  func layoutPolicy(diskBacked: Bool) throws {
+    let edit = try layoutEdit()
+    let report = try report(source: edit.source.file.text, edits: [edit])
+    let decoded: SwiftTestingRuleReport
+    if diskBacked {
+      let project = try TemporaryProject(files: [:])
+      let session = SwiftTestingRuleSession(
+        id: "run", directory: project.rootURL.path,
+        rootPath: project.rootURL.path
+      )
+      try session.write(report)
+      let stored = try #require(FileManager.default.contentsOfDirectory(
+        at: project.rootURL, includingPropertiesForKeys: nil
+      ).first { $0.lastPathComponent.hasPrefix("report-") })
+      let payload = try #require(JSONSerialization.jsonObject(
+        with: Data(contentsOf: stored)
+      ) as? [String: Any])
+      #expect((payload["snapshotIDs"] as? [String])?.count == 1)
+      decoded = try SwiftTestingRuleSession.readReport(at: stored)
+    } else {
+      let data = try JSONEncoder().encode(report)
+      let payload = try #require(JSONSerialization
+        .jsonObject(with: data) as? [String: Any])
+      #expect((payload["snapshots"] as? [Any])?.count == 1)
+      decoded = try JSONDecoder().decode(
+        SwiftTestingRuleReport.self,
+        from: data
+      )
+    }
+    let captured = try #require(decoded.checks.first?.fixes.first ?? nil)
+      .edits
+    try #require(captured.count == 1)
+    let restored = try #require(captured.first)
+
+    #expect(restored.layout == edit.layout)
+    #expect(restored.source.text == "@MainActor\n@Observable ")
+    #expect(restored.replacement == "@Observable @MainActor\n")
+    #expect(decoded.checks == report.checks)
+  }
+
+  @Test("Report decoding rejects a forged layout preview")
+  func forgedLayoutPreview() throws {
+    let edit = try layoutEdit()
+    let report = try report(source: edit.source.file.text, edits: [edit])
+    var payload = try #require(JSONSerialization.jsonObject(
+      with: JSONEncoder().encode(report)
+    ) as? [String: Any])
+    var checks = try #require(payload["checks"] as? [[String: Any]])
+    var check = try #require(checks.first)
+    var fixes = try #require(check["fixes"] as? [[String: Any]])
+    var fix = try #require(fixes.first)
+    var edits = try #require(fix["edits"] as? [[String: Any]])
+    var altered = try #require(edits.first)
+    altered["replacement"] = "@MainActor\n"
+    edits[0] = altered
+    fix["edits"] = edits
+    fixes[0] = fix
+    check["fixes"] = fixes
+    checks[0] = check
+    payload["checks"] = checks
+    let data = try JSONSerialization.data(withJSONObject: payload)
+
+    #expect(throws: (any Error).self) {
+      try JSONDecoder().decode(SwiftTestingRuleReport.self, from: data)
+    }
+  }
+
   @Test("Changed stored source blocks report decoding")
   func changedSnapshot() throws {
     let project = try TemporaryProject(files: [:])
@@ -104,13 +175,15 @@ struct SwiftTestingRuleReportCodingTests {
     }
   }
 
-  private func report(source: String) throws -> SwiftTestingRuleReport {
+  private func report(
+    source: String, edits: [SourceFix.Edit]? = nil
+  ) throws -> SwiftTestingRuleReport {
     let snapshot = SourceSnapshot(
       filePath: "/project/Screen.swift", text: source,
       swiftLanguageMode: .v6
     )
     let slice = try SourceSlice(snapshot: snapshot, range: 0..<0)
-    let fix = SourceFix("Add final", edits: [
+    let fix = SourceFix("Add final", edits: edits ?? [
       slice.replacement(with: "final "),
       slice.replacement(with: "cafe\u{301}"),
     ])
@@ -127,6 +200,28 @@ struct SwiftTestingRuleReportCodingTests {
         witnesses: [nil, nil], fixes: [fix, fix]
       )], warnings: []),
       baselineAccepted: [false, false], origin: nil
+    )
+  }
+
+  private func layoutEdit() throws -> SourceFix.Edit {
+    let file = try FileCollector.collect(
+      source: "@MainActor\n@Observable class Screen {}",
+      path: "/project/Screen.swift"
+    )
+    let attributes = try #require(file.classes.first).attributes
+    let layout = SourceLayout { Line { attributes.reversed() } }
+    let replacement = try attributes.replacement { layout }
+    let plan = try SourceLayoutPlan(
+      elements: attributes.map { try $0.source.range },
+      node: SourceLayoutPlan.freeze(
+        layout,
+        snapshot: replacement.source.snapshot
+      ),
+      targetRange: replacement.source.range
+    )
+    return SourceFix.Edit(
+      source: replacement.source, replacement: replacement.replacement,
+      layout: plan
     )
   }
 }

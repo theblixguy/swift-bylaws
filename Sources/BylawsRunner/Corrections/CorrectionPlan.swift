@@ -20,6 +20,7 @@ package struct CorrectionPlan {
     let ruleID: Rule.ID
     let location: DeclarationLocation
     let edits: [Edit]
+    let layoutCandidates: [SourceFix.Edit]
   }
 
   private struct Edit: Hashable {
@@ -27,12 +28,33 @@ package struct CorrectionPlan {
     let range: Range<Int>
     let replacement: Data
     let swiftLanguageMode: SwiftLanguageMode
+    let sourceEdit: SourceFix.Edit
 
     init(_ edit: SourceFix.Edit, resolvedPath: String) {
       path = resolvedPath
       range = edit.source.range
       replacement = Data(edit.replacement.utf8)
       swiftLanguageMode = edit.source.snapshot.swiftLanguageMode
+      sourceEdit = edit
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+      lhs.path == rhs.path && lhs.range == rhs.range
+        && lhs.replacement == rhs.replacement
+        && lhs.swiftLanguageMode == rhs.swiftLanguageMode
+        && lhs.sourceEdit.layout == rhs.sourceEdit.layout
+        &&
+        (lhs.sourceEdit.layout == nil || lhs.sourceEdit.source.snapshot == rhs
+          .sourceEdit.source.snapshot)
+    }
+
+    func hash(into hasher: inout Hasher) {
+      hasher.combine(path)
+      hasher.combine(range)
+      hasher.combine(replacement)
+      hasher.combine(swiftLanguageMode)
+      hasher.combine(sourceEdit.layout)
+      if sourceEdit.layout != nil { hasher.combine(sourceEdit.source.snapshot) }
     }
   }
 
@@ -55,15 +77,20 @@ package struct CorrectionPlan {
     var diagnostics: [Diagnostic] = []
     var targetsBySourcePath: [String: Result<Target, any Error>] = [:]
     var targetsByResolvedPath: [String: Target] = [:]
+    var layoutCandidates: [SourceFix.Edit] = []
     for report in reports {
+      layoutCandidates += report.violations.layoutCandidates
       for (offender, fix) in zip(
         report.violations.offenders,
         report.violations.fixes
       ) {
         guard let fix else { continue }
-        let edits = fix.edits.filter {
-          !$0.source.text.utf8.elementsEqual($0.replacement.utf8)
-        }
+        let proposed = SourceFix(
+          fix.title, proposedEdits: fix.edits,
+          layoutCandidates: fix.layoutCandidates
+        )
+        let edits = proposed.edits
+        let fixCandidates = proposed.layoutCandidates
         guard !edits.isEmpty else { continue }
         do {
           var proposedEdits: [Edit] = []
@@ -78,7 +105,7 @@ package struct CorrectionPlan {
               }
             }
             guard let target = try targetsBySourcePath[path]?.get(),
-                  target.original == Data(edit.source.snapshot.text.utf8)
+                  target.original.elementsEqual(edit.source.snapshot.text.utf8)
             else {
               throw CaptureError(
                 "the source changed at '\(path)'. Run the command again"
@@ -91,7 +118,7 @@ package struct CorrectionPlan {
           }
           proposals.append(Proposal(
             ruleID: report.id, location: offender.location,
-            edits: Array(Set(proposedEdits))
+            edits: Array(Set(proposedEdits)), layoutCandidates: fixCandidates
           ))
         } catch {
           diagnostics.append(diagnostic(
@@ -113,6 +140,8 @@ package struct CorrectionPlan {
     var changes: [Change] = []
     while true {
       let active = proposals.indices.filter { !rejected.contains($0) }
+      let activeCandidates = layoutCandidates + active
+        .flatMap { proposals[$0].layoutCandidates }
       let editsByPath = Dictionary(
         grouping: Set(active.flatMap { proposals[$0].edits }),
         by: \.path
@@ -126,7 +155,8 @@ package struct CorrectionPlan {
           guard let target = targetsByResolvedPath[path] else { continue }
           changes.append(try prepareChange(
             at: path, target: target, edits: edits,
-            swiftLanguageMode: first.swiftLanguageMode
+            swiftLanguageMode: first.swiftLanguageMode,
+            layoutCandidates: activeCandidates
           ))
         } catch {
           failedPaths.insert(path)
@@ -154,13 +184,38 @@ package struct CorrectionPlan {
 
   private static func prepareChange(
     at path: String, target: Target, edits: [Edit],
-    swiftLanguageMode: SwiftLanguageMode
+    swiftLanguageMode: SwiftLanguageMode,
+    layoutCandidates: [SourceFix.Edit]
   ) throws -> Change {
     var replacement = target.original
-    for edit in edits.sorted(by: {
-      $0.range.lowerBound > $1.range.lowerBound
-    }) {
-      replacement.replaceSubrange(edit.range, with: edit.replacement)
+    let sourcePaths = Set(edits.map(\.sourceEdit.source.filePath))
+    let candidates = layoutCandidates.filter {
+      sourcePaths.contains($0.source.filePath)
+        || LexicalFilePath($0.source.filePath).resolvingSymbolicLinks()?
+        .string == path
+    }
+    if let source = edits.first?.sourceEdit.source,
+       edits.allSatisfy({ $0.sourceEdit.source.snapshot == source.snapshot })
+    {
+      for candidate in candidates {
+        guard candidate.source.snapshot == source.snapshot else {
+          throw SourceError.differentSnapshots
+        }
+      }
+      replacement = Data(try source.file.replacement(
+        applying: edits.map(\.sourceEdit), layoutCandidates: candidates
+      ).replacement.utf8)
+    } else {
+      guard candidates.isEmpty,
+            edits.allSatisfy({ $0.sourceEdit.layout == nil })
+      else {
+        throw SourceError.differentSnapshots
+      }
+      for edit in edits
+        .sorted(by: { $0.range.lowerBound > $1.range.lowerBound })
+      {
+        replacement.replaceSubrange(edit.range, with: edit.replacement)
+      }
     }
     let text = String(decoding: replacement, as: UTF8.self)
     guard text.utf8.elementsEqual(replacement) else {
@@ -235,6 +290,23 @@ package struct CorrectionPlan {
     var rejected: [Int: String] = [:]
     for path in ownersByPath.keys.sorted() {
       guard let owners = ownersByPath[path] else { continue }
+      var sessions: [SourceSnapshot: SourceLayoutComposition.Session] = [:]
+      func canContain(_ parent: SourceFix.Edit, _ child: SourceFix.Edit)
+        -> Bool
+      {
+        guard parent.layout != nil,
+              parent.source.snapshot == child.source.snapshot
+        else { return false }
+        let snapshot = parent.source.snapshot
+        let session: SourceLayoutComposition.Session
+        if let existing = sessions[snapshot] {
+          session = existing
+        } else {
+          session = SourceLayoutComposition.Session(snapshot: snapshot)
+          sessions[snapshot] = session
+        }
+        return session.canContain(parent, child)
+      }
       let edits = owners.keys.sorted {
         if $0.range.lowerBound == $1.range.lowerBound {
           return $0.range.upperBound < $1.range.upperBound
@@ -258,6 +330,17 @@ package struct CorrectionPlan {
           let touchesInsertion = (lhs.isEmpty || rhs.isEmpty)
             && rhs.lowerBound <= lhs.upperBound
           if lhs.overlaps(rhs) || touchesInsertion {
+            if canContain(
+              edits[first].sourceEdit,
+              edits[second].sourceEdit
+            )
+              || canContain(
+                edits[second].sourceEdit,
+                edits[first].sourceEdit
+              )
+            {
+              continue
+            }
             let affected = (owners[edits[first]] ?? [])
               .union(owners[edits[second]] ?? [])
             for index in affected {

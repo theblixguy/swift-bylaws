@@ -99,7 +99,8 @@ extension Violations {
       checkedCount: checkedCount,
       witnesses: witnesses,
       fixes: fixes,
-      codebase: codebase
+      codebase: codebase,
+      layoutCandidates: layoutCandidates
     )
   }
 }
