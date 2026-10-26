@@ -1,6 +1,7 @@
-import BylawsSemantics
+import BylawsSyntax
 import Foundation
 import Testing
+@testable import BylawsSemantics
 
 @Suite("Source snapshot equality")
 struct SourceSnapshotTests {
@@ -68,6 +69,26 @@ struct SourceSnapshotTests {
 
     #expect(original != otherPath)
     #expect(original != otherMode)
+  }
+
+  @Test("Retaining syntax preserves snapshot value and leaves copies unchanged")
+  func retainedSyntax() throws {
+    let text = "// café 🦊\r\nfunc read() {}\r\n"
+    let original = SourceSnapshot(
+      filePath: "/virtual/Store.swift", text: text, swiftLanguageMode: .v5
+    )
+    let tree = SwiftLanguageMode.v5.parse(text)
+    let retained = original.withSyntaxTree(tree)
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = .sortedKeys
+
+    #expect(original.parsedTree == nil)
+    #expect(retained.parsedTree?.id == tree.id)
+    #expect(retained == original)
+    #expect(Set([original, retained]).count == 1)
+    #expect(retained.swiftLanguageMode == .v5)
+    #expect(retained.lineEnding == "\r\n")
+    #expect(try encoder.encode(retained) == encoder.encode(original))
   }
 
   @Test("Snapshot transport preserves fields and hash membership")
