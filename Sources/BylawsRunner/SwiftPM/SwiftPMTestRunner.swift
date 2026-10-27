@@ -67,6 +67,12 @@ package enum SwiftPMTestRunner {
     let request = directory.appendingPathComponent("request.json")
     try JSONEncoder().encode(session).write(to: request, options: .atomic)
     environment[SwiftTestingRuleSession.environmentKey] = request.path
+    let purpose: RuleRunPurpose = if session.isCorrection {
+      .proposeCorrections
+    } else {
+      .checkOnly
+    }
+    environment[RuleRunPurpose.environmentKey] = purpose.rawValue
     environment["BYLAWS_SOURCE_CAPTURE_DIRECTORY"] = captureDirectory.path
     environment["BYLAWS_SOURCE_CAPTURE_ID"] = session.id
     if session.isCorrection { environment["BYLAWS_CORRECTION_ACTIVE"] = "1" }

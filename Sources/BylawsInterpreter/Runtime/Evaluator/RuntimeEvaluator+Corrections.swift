@@ -96,6 +96,7 @@ extension RuntimeEvaluator {
     var offenders: [RuntimeModelValue] = []
     var fixes: [SourceFix?] = []
     var candidates: [SourceFix.Edit] = []
+    let proposesCorrections = RuleRunPurpose.current == .proposeCorrections
     for element in selection.elements {
       try step(at: arguments.location, state: &state)
       if let offender = element.offender,
@@ -108,6 +109,14 @@ extension RuntimeEvaluator {
         body, input: .model(element), method: .violations,
         at: arguments.location, state: &state
       )
+      if !proposesCorrections {
+        if proposedEdits.contains(where: {
+          !$0.source.text.utf8.elementsEqual($0.replacement.utf8)
+        }) {
+          offenders.append(element)
+        }
+        continue
+      }
       let fix = SourceFix(proposedEdits: proposedEdits)
       if !fix.edits.isEmpty {
         offenders.append(element)
@@ -120,7 +129,8 @@ extension RuntimeEvaluator {
       RuntimeViolations(
         rule: requirement, offenders: offenders,
         checkedCount: selection.elements.count,
-        fixes: fixes, codebase: selection.codebase,
+        fixes: proposesCorrections ? fixes : nil,
+        codebase: selection.codebase,
         layoutCandidates: candidates
       )
     )
@@ -155,6 +165,9 @@ extension RuntimeEvaluator {
         }
       }
     let callable = try arguments.value(at: count - 1)
+    guard RuleRunPurpose.current == .proposeCorrections else {
+      return .violations(violations.removingCorrections())
+    }
     var fixes: [SourceFix?] = []
     for index in violations.offenders.indices {
       try step(at: arguments.location, state: &state)

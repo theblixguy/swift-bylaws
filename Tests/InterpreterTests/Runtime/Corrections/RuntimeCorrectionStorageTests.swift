@@ -60,5 +60,6 @@ struct RuntimeCorrectionStorageTests {
     #expect(result.checkedCount == 3)
     #expect(result.fixes == [nil, fix])
     #expect(result.fixes[1]?.edits.first?.replacement == "New")
+    #expect(value.removingCorrections().proposedFixes == nil)
   }
 }

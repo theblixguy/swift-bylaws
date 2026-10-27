@@ -25,6 +25,8 @@
             )
             return
           }
+          let reported = session.isCorrection
+            ? findings : findings.removingCorrections()
           let report = SwiftTestingRuleReport(
             sessionID: session.id,
             testID: String(describing: test.id),
@@ -33,7 +35,7 @@
             enforcement: enforcement,
             hint: hint,
             location: location,
-            findings: findings,
+            findings: reported,
             baselineAccepted: findings.checks.flatMap(\.offenders).map {
               TraitScope.acceptsReportedViolation?(ruleID, $0) == true
             },

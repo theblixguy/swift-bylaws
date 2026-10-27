@@ -80,11 +80,19 @@ extension Violations {
   /// The closure runs once per offender, in order. Its edits form one
   /// correction, which may span several files. An empty result leaves the
   /// offender without a correction. This method keeps the files unchanged.
+  ///
+  /// Ordinary CLI lint runs skip this closure and return no corrections.
+  /// Correction previews, autocorrection, direct library calls and plain
+  /// `swift test` runs evaluate it. Keep the check's criteria outside the
+  /// correction closure.
   public func withFix(
     _ title: String? = nil,
     @ArrayBuilder<SourceFix.Edit> _ makeFix: (FixContext<Element>) async throws
       -> [SourceFix.Edit]
   ) async throws -> Self {
+    guard RuleRunPurpose.current == .proposeCorrections else {
+      return removingCorrections()
+    }
     var fixes: [SourceFix?] = []
     for offender in offenders {
       try Task.checkCancellation()
