@@ -3,16 +3,17 @@ import BylawsSyntax
 /// The complete source text against which a correction was prepared.
 public struct SourceSnapshot: Sendable, Codable, Hashable {
   /// The source file's path.
-  public let filePath: String
+  public var filePath: String { storage.filePath }
 
   /// The source file's text.
-  public let text: String
+  public var text: String { storage.text }
 
   /// The language mode used to parse the source.
-  public let swiftLanguageMode: SwiftLanguageMode
+  public var swiftLanguageMode: SwiftLanguageMode { storage.swiftLanguageMode }
 
-  private let textFingerprint: Int
-  let syntaxContext: SourceSyntaxContext?
+  private let storage: Storage
+
+  var syntaxContext: SourceSyntaxContext? { storage.syntaxContext }
 
   var parsedTree: SourceFileSyntax? { syntaxContext?.tree }
 
@@ -42,17 +43,16 @@ public struct SourceSnapshot: Sendable, Codable, Hashable {
     filePath: String, text: String, swiftLanguageMode: SwiftLanguageMode,
     textFingerprint: Int, syntaxContext: SourceSyntaxContext?
   ) {
-    self.filePath = filePath
-    self.text = text
-    self.swiftLanguageMode = swiftLanguageMode
-    self.textFingerprint = textFingerprint
-    self.syntaxContext = syntaxContext
+    storage = Storage(
+      filePath: filePath, text: text, swiftLanguageMode: swiftLanguageMode,
+      textFingerprint: textFingerprint, syntaxContext: syntaxContext
+    )
   }
 
   func withSyntaxTree(_ tree: SourceFileSyntax) -> Self {
     Self(
       filePath: filePath, text: text, swiftLanguageMode: swiftLanguageMode,
-      textFingerprint: textFingerprint,
+      textFingerprint: storage.textFingerprint,
       syntaxContext: SourceSyntaxContext(tree: tree, source: self)
     )
   }
@@ -73,8 +73,17 @@ public struct SourceSnapshot: Sendable, Codable, Hashable {
     )
   }
 
+  /// Encodes the path, source text and language mode.
+  public func encode(to encoder: any Encoder) throws {
+    var values = encoder.container(keyedBy: CodingKeys.self)
+    try values.encode(filePath, forKey: .filePath)
+    try values.encode(text, forKey: .text)
+    try values.encode(swiftLanguageMode, forKey: .swiftLanguageMode)
+  }
+
   /// Compares the paths, language modes and exact source bytes.
   public static func == (lhs: Self, rhs: Self) -> Bool {
+    if lhs.storage === rhs.storage { return true }
     guard lhs.filePath == rhs.filePath,
           lhs.swiftLanguageMode == rhs.swiftLanguageMode else { return false }
     // The nested closures keep both buffers alive for the address comparison.
@@ -92,7 +101,26 @@ public struct SourceSnapshot: Sendable, Codable, Hashable {
   public func hash(into hasher: inout Hasher) {
     hasher.combine(filePath)
     hasher.combine(swiftLanguageMode)
-    hasher.combine(textFingerprint)
+    hasher.combine(storage.textFingerprint)
+  }
+
+  private final class Storage: Sendable {
+    let filePath: String
+    let text: String
+    let swiftLanguageMode: SwiftLanguageMode
+    let textFingerprint: Int
+    let syntaxContext: SourceSyntaxContext?
+
+    init(
+      filePath: String, text: String, swiftLanguageMode: SwiftLanguageMode,
+      textFingerprint: Int, syntaxContext: SourceSyntaxContext?
+    ) {
+      self.filePath = filePath
+      self.text = text
+      self.swiftLanguageMode = swiftLanguageMode
+      self.textFingerprint = textFingerprint
+      self.syntaxContext = syntaxContext
+    }
   }
 }
 
