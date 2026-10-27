@@ -12,9 +12,7 @@ extension SourceSlice {
     as syntaxType: S.Type,
     _ transform: (S) throws -> S
   ) throws -> SourceFix.Edit {
-    let tree = snapshot.swiftLanguageMode.parse(snapshot.text)
-    var candidate = tree
-      .token(at: AbsolutePosition(utf8Offset: range.lowerBound))
+    var candidate = snapshot.token(at: range.lowerBound)
       .map(Syntax.init)
     while let node = candidate {
       if node.positionAfterSkippingLeadingTrivia.utf8Offset == range.lowerBound,

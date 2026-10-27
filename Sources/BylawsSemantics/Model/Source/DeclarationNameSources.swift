@@ -57,6 +57,8 @@ extension EnumCase {
 extension FunctionCall {
   /// The called expression as written.
   public var nameSource: SourceSlice {
-    get throws { try parsedSource.required().name.required(or: .missingPart) }
+    get throws {
+      try parsedSource.required().calledExpression.required(or: .missingPart)
+    }
   }
 }

@@ -23,6 +23,9 @@ struct LanguageModeCacheTests {
       swiftLanguageMode: .v5
     ))
     #expect(loaded.swiftLanguageMode == .v5)
+    #expect(!loaded.sourceBuffer.hasLoadedSnapshot)
+    #expect(try loaded.structs[0].nameSource.text == "Legacy")
+    #expect(try loaded.structs[0].source.snapshot.swiftLanguageMode == .v5)
     #expect(loaded.withSyntax { !$0.hasError })
     #expect(await storage.cache.sourceFile(
       forSource: source,

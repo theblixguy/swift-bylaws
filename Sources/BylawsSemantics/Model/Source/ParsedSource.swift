@@ -1,19 +1,16 @@
-package final class ParsedSource: Sendable {
-  package let whole: SourceSlice
-  package let name: SourceSlice?
-  package let body: SourceSlice?
-  package let calledExpression: SourceSlice?
-  package let memberName: SourceSlice?
+package struct ParsedSource: Sendable {
+  package let buffer: SourceBuffer
+  package let range: Range<Int>
 
-  package init(
-    whole: SourceSlice, name: SourceSlice? = nil, body: SourceSlice? = nil,
-    calledExpression: SourceSlice? = nil, memberName: SourceSlice? = nil
-  ) {
-    self.whole = whole
-    self.name = name
-    self.body = body
-    self.calledExpression = calledExpression
-    self.memberName = memberName
+  package init(buffer: SourceBuffer, range: Range<Int>) {
+    self.buffer = buffer
+    self.range = range
+  }
+
+  package var whole: SourceSlice {
+    get throws {
+      try SourceSlice(snapshot: buffer.snapshot.required(), range: range)
+    }
   }
 }
 

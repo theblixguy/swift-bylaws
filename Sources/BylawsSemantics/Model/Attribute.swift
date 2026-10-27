@@ -6,7 +6,7 @@ public struct Attribute: Sendable, Hashable, Codable, SourceProviding {
     case name, arguments
   }
 
-  package var capturedSource: SourceSlice?
+  package var capturedSource: ParsedSource?
 
   /// The attribute name without the `@` sigil, such as `Test` or `MainActor`.
   public let name: String
@@ -26,16 +26,16 @@ public struct Attribute: Sendable, Hashable, Codable, SourceProviding {
 
   /// The attribute's original source, excluding outer trivia.
   public var source: SourceSlice {
-    get throws { try capturedSource.required() }
+    get throws { try capturedSource.required().whole }
   }
 
   /// The single unlabelled argument, or `nil` for another argument form.
   ///
   /// - Complexity: O(n), where n is the length of the source file.
   public var argument: SourceExpression? {
-    guard let source = capturedSource else { return nil }
-    let tree = source.snapshot.swiftLanguageMode.parse(source.snapshot.text)
-    var node = tree.token(at: .init(utf8Offset: source.range.lowerBound))
+    guard let capturedSource,
+          let source = try? capturedSource.whole else { return nil }
+    var node = source.snapshot.token(at: source.range.lowerBound)
       .map(Syntax.init)
     while let candidate = node {
       if let attribute = candidate.as(AttributeSyntax.self) {
@@ -47,10 +47,8 @@ public struct Attribute: Sendable, Hashable, Codable, SourceProviding {
         return SourceExpression(
           argument.expression,
           source: SourceText(
-            source: source.snapshot.text,
-            swiftLanguageMode: source.snapshot
-              .swiftLanguageMode,
-            filePath: source.filePath
+            buffer: capturedSource.buffer,
+            swiftLanguageMode: source.snapshot.swiftLanguageMode
           ),
           origin: .start(of: source.filePath)
         )

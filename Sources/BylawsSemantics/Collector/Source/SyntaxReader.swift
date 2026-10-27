@@ -10,7 +10,7 @@ struct SyntaxReader {
       text: text.trimmedText(of: node.expression),
       location: location(of: node.expression),
       swiftLanguageMode: text.swiftLanguageMode
-    ).withParsedSource(parsedSource(of: node.expression, name: node.label))
+    ).withParsedSource(parsedSource(of: node.expression))
   }
 
   func call(_ node: FunctionCallExprSyntax) -> FunctionCall {
@@ -18,7 +18,7 @@ struct SyntaxReader {
       calledExpression: text.trimmedText(of: node.calledExpression),
       arguments: node.arguments.map(argument),
       location: location(of: node.calledExpression)
-    ).withParsedSource(callSource(of: node))
+    ).withParsedSource(parsedSource(of: node))
   }
 
   func call(
@@ -30,7 +30,7 @@ struct SyntaxReader {
       calledExpression: "#\(name)",
       arguments: arguments.map(argument),
       location: location(of: node)
-    ).withParsedSource(macroSource(of: node))
+    ).withParsedSource(parsedSource(of: node))
   }
 
   func genericParameters(

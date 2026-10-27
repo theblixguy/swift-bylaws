@@ -24,22 +24,35 @@ public struct SourceExpression: Declaration {
   static func parse(
     _ text: String, at location: DeclarationLocation,
     swiftLanguageMode: SwiftLanguageMode,
-    originalSource: SourceSlice? = nil
+    capturedSource: ParsedSource? = nil
   ) -> Self? {
     let tree = swiftLanguageMode.parse(text)
     guard !tree.hasError, tree.statements.count == 1,
           let expression = tree.statements.first?.item.as(ExprSyntax.self)
     else { return nil }
-    let originalSource = originalSource.flatMap {
-      $0.filePath == location.filePath
-        && $0.range.lowerBound == location.utf8Offset ? $0 : nil
+    let capturedBuffer = capturedSource.flatMap { source -> SourceBuffer? in
+      guard source.buffer.sourcePath == location.filePath,
+            source.range.lowerBound == location.utf8Offset,
+            source.buffer.containsSourceRange(source.range),
+            source.buffer.text(inUTF8Range: source.range).utf8
+              .elementsEqual(text.utf8)
+      else { return nil }
+      return source.buffer
     }
+    let source =
+      if let capturedBuffer {
+        SourceText(
+          source: text, swiftLanguageMode: swiftLanguageMode,
+          capturedBuffer: capturedBuffer
+        )
+      } else {
+        SourceText(
+          source: text, swiftLanguageMode: swiftLanguageMode
+        )
+      }
     return Self(
       expression,
-      source: SourceText(
-        source: text, swiftLanguageMode: swiftLanguageMode,
-        originalSource: originalSource
-      ),
+      source: source,
       origin: location
     )
   }

@@ -1,6 +1,10 @@
 public import BylawsSyntax
 
 extension SourceFile {
+  func syntaxTree() -> SourceFileSyntax {
+    sourceBuffer.snapshot?.syntaxTree() ?? swiftLanguageMode.parse(sourceText)
+  }
+
   /// Runs `body` with a freshly parsed syntax tree for this file.
   public func withSyntax<R>(_ body: (SourceFileSyntax) throws -> R) rethrows
     -> R

@@ -3,7 +3,7 @@ import BylawsSyntax
 extension SourceFile {
   /// Returns the syntax nodes of the requested kinds in source order.
   ///
-  /// The query covers every `#if` branch. Each call parses the file again.
+  /// The query covers every `#if` branch.
   /// - Complexity: O(n), where n is the length of the source file.
   public func syntaxNodes(
     of kind: SourceNode.Kind,
@@ -13,7 +13,7 @@ extension SourceFile {
   }
 
   package func syntaxNodes(of kinds: Set<SourceNode.Kind>) -> [SourceNode] {
-    let tree = swiftLanguageMode.parse(sourceText)
+    let tree = syntaxTree()
     let source = SourceText(
       buffer: sourceBuffer,
       swiftLanguageMode: swiftLanguageMode,

@@ -76,7 +76,7 @@ public struct SourceSlice: Sendable, Hashable, Codable {
     )
   }
 
-  private static func contains(_ range: Range<Int>, in text: String) -> Bool {
+  static func contains(_ range: Range<Int>, in text: String) -> Bool {
     guard range.lowerBound >= 0, range.upperBound <= text.utf8.count else {
       return false
     }

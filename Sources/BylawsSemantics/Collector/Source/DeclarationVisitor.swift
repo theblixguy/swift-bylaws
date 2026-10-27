@@ -136,7 +136,7 @@ final class DeclarationVisitor: SyntaxVisitor {
       documentation: reader.documentation(of: node),
       location: reader.location(of: node.name),
       parsedSource: reader.parsedSource(
-        of: node, name: node.name, body: node.memberBlock
+        of: node
       )
     )
   }
@@ -201,7 +201,7 @@ final class DeclarationVisitor: SyntaxVisitor {
         attributes: ModifierReader.attributes(node.attributes, reader: reader),
         location: reader.location(of: node.extendedType)
       ).withParsedSource(reader.parsedSource(
-        of: node, name: node.extendedType, body: node.memberBlock
+        of: node
       ))
     )
     enterType(name: extendedTypeName, visibility: modifiers.visibility)
@@ -242,9 +242,7 @@ final class DeclarationVisitor: SyntaxVisitor {
         documentation: reader.documentation(of: node),
         location: reader.location(of: node.initKeyword)
       ).withParsedSource(reader.parsedSource(
-        of: node,
-        name: node.initKeyword,
-        body: node.body
+        of: node
       ))
     )
     return .skipChildren
@@ -271,7 +269,7 @@ final class DeclarationVisitor: SyntaxVisitor {
         enclosingTypeName: enclosingTypeName,
         documentation: reader.documentation(of: node),
         location: reader.location(of: node.name)
-      ).withParsedSource(reader.parsedSource(of: node, name: node.name))
+      ).withParsedSource(reader.parsedSource(of: node))
     )
     return .skipChildren
   }
@@ -288,7 +286,7 @@ final class DeclarationVisitor: SyntaxVisitor {
           enclosingTypeName: enclosingTypeName,
           documentation: reader.documentation(of: node),
           location: reader.location(of: element.name)
-        ).withParsedSource(reader.parsedSource(of: element, name: element.name))
+        ).withParsedSource(reader.parsedSource(of: element))
       )
     }
     return .skipChildren
@@ -331,7 +329,7 @@ final class DeclarationVisitor: SyntaxVisitor {
         visibility: modifiers.visibility,
         attributes: ModifierReader.attributes(node.attributes, reader: reader),
         location: reader.location(of: node.path)
-      ).withParsedSource(reader.parsedSource(of: node, name: node.path))
+      ).withParsedSource(reader.parsedSource(of: node))
     )
     return .skipChildren
   }
@@ -372,9 +370,7 @@ final class DeclarationVisitor: SyntaxVisitor {
       documentation: reader.documentation(of: node),
       location: reader.location(of: node.name)
     ).withParsedSource(reader.parsedSource(
-      of: node,
-      name: node.name,
-      body: node.body
+      of: node
     ))
   }
 
@@ -419,7 +415,7 @@ final class DeclarationVisitor: SyntaxVisitor {
         documentation: reader.documentation(of: node),
         location: reader.location(of: pattern.identifier)
       ).withParsedSource(reader.parsedSource(
-        of: binding, name: pattern.identifier, body: binding.accessorBlock
+        of: binding
       ))
     }
   }

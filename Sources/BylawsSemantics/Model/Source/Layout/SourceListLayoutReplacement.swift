@@ -119,7 +119,7 @@ package enum SourceListLayoutReplacement {
     }
     let snapshot = first.snapshot
     let tree = snapshot.parsedTree
-      ?? snapshot.swiftLanguageMode.parse(snapshot.text)
+      ?? snapshot.syntaxTree()
     let items = try slices.map {
       try SourceLayoutReplacement.Item(
         source: $0,

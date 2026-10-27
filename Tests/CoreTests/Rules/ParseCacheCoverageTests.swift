@@ -75,6 +75,7 @@ struct ParseCacheCoverageTests {
 
   private static let rebuiltFieldsByType: [String: Set<String>] = [
     "SourceSlice": ["snapshot"],
+    "ParsedSource": ["buffer"],
   ]
 
   private static let typesWrittenAsOneValue: Set<String> = ["Visibility"]

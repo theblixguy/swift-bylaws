@@ -416,6 +416,10 @@ let package = Package(
       url: "https://github.com/pointfreeco/swift-clocks.git",
       exact: "1.1.1"
     ),
+    .package(
+      url: "https://github.com/pointfreeco/swift-concurrency-extras",
+      exact: "1.4.1"
+    ),
   ],
   targets: [
     .target(
@@ -444,6 +448,9 @@ let package = Package(
       dependencies: [
         "BylawsPaths",
         "BylawsSyntax",
+        .product(
+          name: "ConcurrencyExtras", package: "swift-concurrency-extras"
+        ),
       ],
       swiftSettings: swiftSettings
     ),

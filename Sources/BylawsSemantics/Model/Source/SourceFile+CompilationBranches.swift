@@ -5,8 +5,8 @@ extension SourceFile {
   /// branches.
   ///
   /// Use ``CompilationBranch/contains(_:)`` to find the branches around a
-  /// declaration. Each access parses the file, so save the array in a local
-  /// variable when checking several declarations.
+  /// declaration. Save the array in a local variable when checking several
+  /// declarations.
   public var compilationBranches: [CompilationBranch] {
     let context = SourceContext(
       source: SourceText(
@@ -16,7 +16,7 @@ extension SourceFile {
       origin: .start(of: path)
     )
     let collector = CompilationBranchCollector(context: context)
-    collector.walk(swiftLanguageMode.parse(sourceText))
+    collector.walk(syntaxTree())
     return collector.branches
   }
 }

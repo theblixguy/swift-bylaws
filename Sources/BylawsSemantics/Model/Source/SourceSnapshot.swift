@@ -13,13 +13,23 @@ public struct SourceSnapshot: Sendable, Codable, Hashable {
 
   private let storage: Storage
 
-  var syntaxContext: SourceSyntaxContext? { storage.syntaxContext }
+  var syntaxContext: SourceSyntaxContext? { storage.syntax.cachedContext }
 
   var parsedTree: SourceFileSyntax? { syntaxContext?.tree }
 
+  func syntaxTree() -> SourceFileSyntax { storage.syntax.context.tree }
+
+  func token(at offset: Int) -> TokenSyntax? {
+    storage.syntax.token(at: offset)
+  }
+
   package var lineEnding: String {
     if let syntaxContext { return syntaxContext.lineEnding }
-    return if text.contains("\r\n") {
+    return Self.lineEnding(in: text)
+  }
+
+  static func lineEnding(in text: String) -> String {
+    if text.contains("\r\n") {
       "\r\n"
     } else if text.contains("\r"), !text.contains("\n") {
       "\r"
@@ -53,7 +63,7 @@ public struct SourceSnapshot: Sendable, Codable, Hashable {
     Self(
       filePath: filePath, text: text, swiftLanguageMode: swiftLanguageMode,
       textFingerprint: storage.textFingerprint,
-      syntaxContext: SourceSyntaxContext(tree: tree, source: self)
+      syntaxContext: SourceSyntaxContext(tree: tree, text: text)
     )
   }
 
@@ -109,7 +119,7 @@ public struct SourceSnapshot: Sendable, Codable, Hashable {
     let text: String
     let swiftLanguageMode: SwiftLanguageMode
     let textFingerprint: Int
-    let syntaxContext: SourceSyntaxContext?
+    let syntax: SourceSyntaxCache
 
     init(
       filePath: String, text: String, swiftLanguageMode: SwiftLanguageMode,
@@ -119,7 +129,10 @@ public struct SourceSnapshot: Sendable, Codable, Hashable {
       self.text = text
       self.swiftLanguageMode = swiftLanguageMode
       self.textFingerprint = textFingerprint
-      self.syntaxContext = syntaxContext
+      syntax = SourceSyntaxCache(
+        text: text, swiftLanguageMode: swiftLanguageMode,
+        context: syntaxContext
+      )
     }
   }
 }
@@ -129,9 +142,9 @@ final class SourceSyntaxContext: Sendable {
   let bytes: [UInt8]
   let lineEnding: String
 
-  fileprivate init(tree: SourceFileSyntax, source: SourceSnapshot) {
+  init(tree: SourceFileSyntax, text: String) {
     self.tree = tree
-    bytes = Array(source.text.utf8)
-    lineEnding = source.lineEnding
+    bytes = Array(text.utf8)
+    lineEnding = SourceSnapshot.lineEnding(in: text)
   }
 }
