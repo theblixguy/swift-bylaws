@@ -19,17 +19,9 @@ extension SourceNode {
       case let .functionCallExpr(call):
         return reader.call(call)
       case let .macroExpansionExpr(macro):
-        return reader.call(
-          named: macro.macroName.text,
-          arguments: macro.arguments,
-          at: macro
-        )
+        return reader.call(macro)
       case let .macroExpansionDecl(macro):
-        return reader.call(
-          named: macro.macroName.text,
-          arguments: macro.arguments,
-          at: macro
-        )
+        return reader.call(macro)
       case let .tryExpr(expression):
         node = Syntax(expression.expression)
       case let .awaitExpr(expression):

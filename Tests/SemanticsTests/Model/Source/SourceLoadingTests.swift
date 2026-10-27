@@ -25,7 +25,7 @@ struct SourceLoadingTests {
     #expect(source.snapshot.parsedTree == nil)
   }
 
-  @Test("Named parts load syntax only for requested file")
+  @Test("Names leave syntax unloaded until a body is requested")
   func requestedFile() throws {
     let file = try FileCollector.collect(
       source: "struct Café { func read() {} }", path: "/virtual/Café.swift"
@@ -37,8 +37,9 @@ struct SourceLoadingTests {
     #expect(!other.sourceBuffer.hasLoadedSnapshot)
     let declaration = try #require(file.structs.first)
     let name = try declaration.nameSource
-    let tree = try #require(name.snapshot.parsedTree)
+    #expect(name.snapshot.parsedTree == nil)
     let body = try declaration.bodySource
+    let tree = try #require(body.snapshot.parsedTree)
 
     #expect(name.text == "Café")
     #expect(name.range == 7..<12)

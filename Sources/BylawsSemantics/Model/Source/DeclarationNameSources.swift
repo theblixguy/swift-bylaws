@@ -58,7 +58,7 @@ extension FunctionCall {
   /// The called expression as written.
   public var nameSource: SourceSlice {
     get throws {
-      try parsedSource.required().calledExpression.required(or: .missingPart)
+      try parsedSource.required().name.required(or: .missingPart)
     }
   }
 }

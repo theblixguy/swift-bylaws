@@ -1,15 +1,27 @@
 package struct ParsedSource: Sendable {
   package let buffer: SourceBuffer
   package let range: Range<Int>
+  package let nameRange: Range<Int>?
 
-  package init(buffer: SourceBuffer, range: Range<Int>) {
+  package init(
+    buffer: SourceBuffer, range: Range<Int>, nameRange: Range<Int>? = nil
+  ) {
     self.buffer = buffer
     self.range = range
+    self.nameRange = nameRange
   }
 
   package var whole: SourceSlice {
     get throws {
       try SourceSlice(snapshot: buffer.snapshot.required(), range: range)
+    }
+  }
+
+  package var name: SourceSlice? {
+    get throws {
+      try nameRange.map {
+        try SourceSlice(snapshot: buffer.snapshot.required(), range: $0)
+      }
     }
   }
 }

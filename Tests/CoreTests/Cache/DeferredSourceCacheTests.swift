@@ -1,7 +1,7 @@
-import BylawsSemantics
 import Foundation
 import Testing
 @testable import BylawsCore
+@testable import BylawsSemantics
 
 @Suite("Deferred cached source")
 struct DeferredSourceCacheTests {
@@ -30,7 +30,9 @@ struct DeferredSourceCacheTests {
     #expect(decoded.calls.map(\.memberName) == ["fetch"])
     #expect(!decoded.sourceBuffer.hasLoadedSnapshot)
 
-    #expect(try decoded.structs[0].nameSource.text == "Store")
+    let name = try decoded.structs[0].nameSource
+    #expect(name.text == "Store")
+    #expect(name.snapshot.parsedTree == nil)
     #expect(try decoded.functions[0].bodySource.text == " fetch(value: 1) ")
     #expect(decoded.sourceBuffer.hasLoadedSnapshot)
     let reencoded = CacheEncoder()
@@ -45,6 +47,7 @@ struct DeferredSourceCacheTests {
     let encoder = CacheEncoder()
     encoder.encode("//🦊")
     encoder.encode(range)
+    encoder.encode(Range<Int>?.none)
     let decoder = try CacheDecoder(encoder.bytes, path: "/virtual/App.swift")
     decoder.bindSource(to: .v6)
 
@@ -52,6 +55,64 @@ struct DeferredSourceCacheTests {
       try ParsedSource(from: decoder)
     }
     #expect(!decoder.source.hasLoadedSnapshot)
+  }
+
+  @Test(
+    "Cache rejects name ranges outside declaration or scalar boundaries",
+    arguments: [0..<3, 18..<23, 4..<14, 7..<8, 8..<9, -1..<4, 4..<999, 4..<4]
+  )
+  func rejectsMalformedNameRanges(nameRange: Range<Int>) throws {
+    let encoder = CacheEncoder()
+    encoder.encode("let café = 1\nlet other = 2")
+    encoder.encode(4..<13)
+    encoder.encode(Optional(nameRange))
+    let decoder = try CacheDecoder(encoder.bytes, path: "/virtual/App.swift")
+    decoder.bindSource(to: .v6)
+
+    #expect(throws: CacheDecoder.Malformed.self) {
+      try ParsedSource(from: decoder)
+    }
+    #expect(!decoder.source.hasLoadedSnapshot)
+  }
+
+  @Test("Cached names and callees retain exact source without syntax")
+  func capturedNames() throws {
+    let original = try FileCollector.collect(
+      source: """
+      import Feature.Storage
+      struct Café {
+        var `repeat` = 1
+        func load() { engine.`send`(value: 1); #inspect(2) }
+      }
+      """, path: "/virtual/Café.swift"
+    )
+    let encoder = CacheEncoder()
+    encoder.encode(original)
+    let decoder = try CacheDecoder(encoder.bytes, path: original.path)
+    let decoded = try SourceFile(from: decoder)
+    let names = try [
+      decoded.imports.only().nameSource,
+      decoded.structs.only().nameSource,
+      decoded.properties.only().nameSource,
+      decoded.functions.only().nameSource,
+    ] + decoded.calls.map { try $0.calledExpressionSource }
+
+    #expect(decoder.isAtEnd)
+    #expect(names.map(\.text) == [
+      "Feature.Storage", "Café", "`repeat`", "load", "engine.`send`",
+      "#inspect",
+    ])
+    #expect(names.allSatisfy { $0.snapshot.parsedTree == nil })
+    let renamed = try decoded.properties.only().nameSource
+      .replacement(with: "value")
+    #expect(try renamed.source.file.replacement(applying: [renamed])
+      .replacement == """
+      import Feature.Storage
+      struct Café {
+        var value = 1
+        func load() { engine.`send`(value: 1); #inspect(2) }
+      }
+      """)
   }
 
   @Test("Cached ranges distinguish repeated attributes and bindings")
