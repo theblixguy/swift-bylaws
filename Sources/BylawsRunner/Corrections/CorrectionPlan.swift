@@ -80,9 +80,10 @@ package struct CorrectionPlan {
     var layoutCandidates: [SourceFix.Edit] = []
     for report in reports {
       layoutCandidates += report.violations.layoutCandidates
+      guard let fixes = report.violations.proposedFixes else { continue }
       for (offender, fix) in zip(
         report.violations.offenders,
-        report.violations.fixes
+        fixes
       ) {
         guard let fix else { continue }
         let proposed = SourceFix(

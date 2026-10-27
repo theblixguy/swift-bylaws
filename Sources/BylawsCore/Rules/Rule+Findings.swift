@@ -29,7 +29,8 @@ extension Rule {
         },
         checkedCount: checks.reduce(0) { $0 + $1.checkedCount },
         witnesses: checks.flatMap(\.witnesses),
-        fixes: checks.flatMap(\.fixes),
+        fixes: checks.contains(where: { $0.proposedFixes != nil })
+          ? checks.flatMap(\.fixes) : nil,
         layoutCandidates: checks.flatMap(\.layoutCandidates)
       )
     }

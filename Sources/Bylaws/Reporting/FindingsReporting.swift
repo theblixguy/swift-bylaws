@@ -93,7 +93,9 @@
       in findings: Rule.Findings,
       sourceLocation: SourceLocation
     ) {
-      let fixes = findings.checks.flatMap(\.fixes).compactMap(\.self)
+      let fixes = findings.checks.flatMap { check in
+        check.proposedFixes?.compactMap(\.self) ?? []
+      }
       guard !fixes.isEmpty else { return }
       do {
         let encoder = JSONEncoder()
