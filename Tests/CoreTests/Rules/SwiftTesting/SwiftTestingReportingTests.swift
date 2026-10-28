@@ -180,11 +180,14 @@ struct SwiftTestingReportingTests {
     #expect(try reports(in: project).isEmpty)
   }
 
-  @Test("Collection preserves captured fix without changing source")
-  func sourceFixOutcome() async throws {
+  @Test(
+    "Collection retains corrections only when requested",
+    arguments: [false, true]
+  )
+  func sourceFixOutcome(isCorrection: Bool) async throws {
     let source = "class Screen {}"
     let project = try TemporaryProject(files: ["Screen.swift": source])
-    let session = session(in: project)
+    let session = session(in: project, isCorrection: isCorrection)
     let codebase = Codebase(
       root: .directory(project.rootURL.path), swiftLanguageMode: .v6
     )
@@ -198,11 +201,22 @@ struct SwiftTestingReportingTests {
     }
 
     let report = try #require(reports(in: project).first)
-    let fix = try #require(report.findings.violations.fixes.first ?? nil)
-    #expect(fix.title == "Add final")
-    #expect(fix.edits.count == 1)
-    #expect(fix.edits.first?.replacement == "final ")
-    #expect(fix.edits.first?.source.file.text == source)
+    #expect(report.findings.violations.checkedCount == 1)
+    #expect(report.findings.violations.offenders.map(\.name) == ["Screen"])
+    #expect(report.baselineAccepted == [false])
+    if isCorrection {
+      let fix = try #require(report.findings.violations.fixes.first ?? nil)
+      #expect(fix.title == "Add final")
+      #expect(fix.edits.count == 1)
+      #expect(fix.edits.first?.replacement == "final ")
+      #expect(fix.edits.first?.source.file.text == source)
+    } else {
+      #expect(report.findings.violations.fixes == [nil])
+      #expect(report.findings.violations.layoutCandidates.isEmpty)
+    }
+    #expect(FileManager.default.fileExists(
+      atPath: project.fileURL(for: "snapshots").path
+    ) == isCorrection)
     #expect(try String(
       contentsOf: project.fileURL(for: "Screen.swift"),
       encoding: .utf8
@@ -227,13 +241,16 @@ struct SwiftTestingReportingTests {
     }
   }
 
-  private func session(in project: TemporaryProject)
+  private func session(
+    in project: TemporaryProject, isCorrection: Bool = false
+  )
     -> SwiftTestingRuleSession
   {
     SwiftTestingRuleSession(
       id: UUID().uuidString,
       directory: project.rootURL.path,
-      rootPath: project.rootURL.path
+      rootPath: project.rootURL.path,
+      isCorrection: isCorrection
     )
   }
 

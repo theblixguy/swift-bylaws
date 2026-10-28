@@ -27,79 +27,90 @@ extension LintRunner {
     )
     let collector = SourceCapture.Collector()
     let activeCollector = captureSources ? collector : nil
-    return try await SourceCapture.$collector.withValue(activeCollector) {
-      () async throws -> Collection in
-      let ruleInputs: [SourceCapture.Record] = if captureSources {
-        try await captureRuleInputs(configuration)
-      } else {
-        []
-      }
-      let testRun: SwiftPMTestRun? = if skipTests {
-        nil
-      } else {
-        try await collectTestRules(
-          configuration, testPackagePath: testPackagePath,
-          testFilters: testFilters, directory: directory,
-          isCorrection: captureSources
-        )
-      }
-      if testRun != nil {
-        configuration.changedPaths = []
-        configuration.parseCachePolicy = .disabled
-      }
-      let builds = CorrectionIndexBuilds(directory: directory, testRun: testRun)
-      let builder: ProjectIndexCache.IndexStoreBuilder? =
-        if captureSources, !configuration.sourceOnly {
-          .init { try await builds.buildIfNeeded(atRoot: $0) }
+    let purpose: RuleRunPurpose = if captureSources {
+      .proposeCorrections
+    } else {
+      .checkOnly
+    }
+    return try await RuleRunPurpose.$current.withValue(purpose) {
+      try await SourceCapture.$collector.withValue(activeCollector) {
+        () async throws -> Collection in
+        let ruleInputs: [SourceCapture.Record] = if captureSources {
+          try await captureRuleInputs(configuration)
         } else {
+          []
+        }
+        let testRun: SwiftPMTestRun? = if skipTests {
           nil
-        }
-      return try await ProjectIndexCache.$indexStoreBuilder.withValue(builder) {
-        let loaded = await RuleRunner.load(configuration)
-        if loaded.program.ruleFileStatus != .missing,
-           !loaded.program.errors.isEmpty
-        {
-          return Collection(
-            result: try await RuleRunner.run(configuration, loaded: loaded),
-            captures: ruleInputs + (testRun?.captures ?? []) +
-              (await collector.captured),
-            protectedPaths: Set(loaded.program.ruleSourcePaths ?? []),
-            testReports: []
-          )
-        }
-        let testReports = try SwiftTestingRuleResults.reports(
-          from: testRun, verifying: previousTestReports
-        )
-        let program = if loaded.program.ruleFileStatus == .missing,
-                         !testReports.isEmpty
-        {
-          LoadedRuleProgram(
-            rootPath: loaded.rootPath,
-            program: RuleProgram(loadedRules: [], diagnostics: [])
-          )
         } else {
-          loaded
+          try await collectTestRules(
+            configuration, testPackagePath: testPackagePath,
+            testFilters: testFilters, directory: directory,
+            isCorrection: captureSources
+          )
         }
-        let testRules = try SwiftTestingRuleResults.collect(
-          from: testReports, alongside: program.program.rules
+        if testRun != nil {
+          configuration.changedPaths = []
+          configuration.parseCachePolicy = .disabled
+        }
+        let builds = CorrectionIndexBuilds(
+          directory: directory,
+          testRun: testRun
         )
-        let result = try await RuleRunner.run(
-          configuration, loaded: program, testRules: testRules
-        )
-        let captures = ruleInputs + (testRun?.captures ?? [])
-          + (await collector.captured)
-        var protected = Set(loaded.program.ruleSourcePaths ?? [])
-        protected.formUnion(ruleInputs.flatMap { $0.inputs.map(\.path) })
-        protected.formUnion(testRun?.protectedSourcePaths ?? [])
-        protected.formUnion(testReports.map(\.location.filePath))
-        protected.formUnion(captures.flatMap(\.inputs).map(\.path).filter {
-          ["Package.swift", "Bylaws.swift", "Bylaws.baseline.swift"]
-            .contains(URL(fileURLWithPath: $0).lastPathComponent)
-        })
-        return Collection(
-          result: result, captures: captures, protectedPaths: protected,
-          testReports: testReports
-        )
+        let builder: ProjectIndexCache.IndexStoreBuilder? =
+          if captureSources, !configuration.sourceOnly {
+            .init { try await builds.buildIfNeeded(atRoot: $0) }
+          } else {
+            nil
+          }
+        return try await ProjectIndexCache.$indexStoreBuilder
+          .withValue(builder) {
+            let loaded = await RuleRunner.load(configuration)
+            if loaded.program.ruleFileStatus != .missing,
+               !loaded.program.errors.isEmpty
+            {
+              return Collection(
+                result: try await RuleRunner.run(configuration, loaded: loaded),
+                captures: ruleInputs + (testRun?.captures ?? []) +
+                  (await collector.captured),
+                protectedPaths: Set(loaded.program.ruleSourcePaths ?? []),
+                testReports: []
+              )
+            }
+            let testReports = try SwiftTestingRuleResults.reports(
+              from: testRun, verifying: previousTestReports
+            )
+            let program = if loaded.program.ruleFileStatus == .missing,
+                             !testReports.isEmpty
+            {
+              LoadedRuleProgram(
+                rootPath: loaded.rootPath,
+                program: RuleProgram(loadedRules: [], diagnostics: [])
+              )
+            } else {
+              loaded
+            }
+            let testRules = try SwiftTestingRuleResults.collect(
+              from: testReports, alongside: program.program.rules
+            )
+            let result = try await RuleRunner.run(
+              configuration, loaded: program, testRules: testRules
+            )
+            let captures = ruleInputs + (testRun?.captures ?? [])
+              + (await collector.captured)
+            var protected = Set(loaded.program.ruleSourcePaths ?? [])
+            protected.formUnion(ruleInputs.flatMap { $0.inputs.map(\.path) })
+            protected.formUnion(testRun?.protectedSourcePaths ?? [])
+            protected.formUnion(testReports.map(\.location.filePath))
+            protected.formUnion(captures.flatMap(\.inputs).map(\.path).filter {
+              ["Package.swift", "Bylaws.swift", "Bylaws.baseline.swift"]
+                .contains(URL(fileURLWithPath: $0).lastPathComponent)
+            })
+            return Collection(
+              result: result, captures: captures, protectedPaths: protected,
+              testReports: testReports
+            )
+          }
       }
     }
   }

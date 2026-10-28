@@ -14,6 +14,57 @@
   @Suite("Swift Testing CLI corrections")
   struct SwiftTestingCorrectionProcessTests {
     @Test(
+      "Native check-only skips fix work and preview evaluates it",
+      .timeLimit(.minutes(10))
+    )
+    func correctionPurpose() async throws {
+      let consumer = try SwiftTestingReportConsumer(
+        additionalTests: """
+        @Test func reportsPurpose() async throws {
+          let classes = try await app.classes
+          classes.violations(of: .isFinal)
+            .report(ruleID: "plain", enforcement: .enforced)
+          let declaration = try classes.only()
+          let source = try declaration.source
+          classes.violations(of: Matcher<Class>("contain final") { _ in
+            source.text.contains("final ")
+          }).report(ruleID: "source", enforcement: .enforced)
+          let formatting = try await classes.violations("Use uppercase names") {
+            declaration in
+            try declaration.nameSource.replacement(with: declaration.name.uppercased())
+          }
+          formatting.report(ruleID: "formatting", enforcement: .enforced)
+          let violations = try await app.classes.violations(of: .named("Updated"))
+            .withFix { context in
+              try context.source.slice(999..<1000).replacement(with: "Updated")
+            }
+          violations.report(ruleID: "purpose", enforcement: .enforced)
+        }
+        """
+      )
+      let check = try await run(consumer, function: "reportsPurpose")
+
+      try #require(
+        check.status == .exited(1),
+        "\(check.standardOutput)\n\(check.standardError)"
+      )
+      try expectReport(check, violations: 4, ruleIDs: [
+        "plain", "source", "formatting", "purpose",
+      ])
+      let preview = try await run(
+        consumer, function: "reportsPurpose",
+        arguments: ["--autocorrect", "--dry-run"]
+      )
+
+      #expect(
+        preview.status == .exited(2),
+        "\(preview.standardOutput)\n\(preview.standardError)"
+      )
+      #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8)
+        == "class Screen {}\n")
+    }
+
+    @Test(
       "Native formatting recipes correct together and pass second run",
       .timeLimit(.minutes(10))
     )

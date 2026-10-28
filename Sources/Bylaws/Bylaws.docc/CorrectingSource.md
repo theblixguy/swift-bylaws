@@ -50,14 +50,22 @@ For `0xdead_Beef`, the rule replaces the matching letters and produces
 bytes. Each match identifies the source to replace, so you do not have to
 calculate a range from the diagnostic.
 
-The fix closure runs once for each offender. You can write individual edits,
-arrays of edits, `if` and `for` statements in its result builder. All edits for
-one offender form one correction, including edits in several files. An empty
-result leaves that offender without a correction.
+A normal CLI lint run skips the `withFix` closure. `--autocorrect`, including
+`--autocorrect --dry-run`, prepares its corrections. Direct library calls and
+plain `swift test` runs also prepare corrections. Keep the violation checks
+outside the fix closure so they run in each case.
+
+When corrections are prepared, the fix closure runs once for each offender.
+You can write individual edits, arrays of edits, `if` and `for` statements in
+the result builder. All edits for one offender form one correction, including
+edits in several files. An empty result leaves that offender without a
+correction.
 
 You can also propose corrections directly with
 `selection.violations("Requirement") { element in ... }`. Bylaws reports each
 selected element whose edits change its original source.
+The CLI runs this closure during normal checks because its edits determine
+which elements fail.
 <doc:FormattingSource> shows how to describe a layout with a result builder.
 
 If you want to give the correction a title, use

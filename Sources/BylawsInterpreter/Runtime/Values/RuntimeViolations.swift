@@ -66,4 +66,13 @@ struct RuntimeViolations: Sendable, Equatable {
       layoutCandidates: layoutCandidates
     )
   }
+
+  func removingCorrections() -> Self {
+    guard !layoutCandidates.isEmpty || proposedFixes != nil
+    else { return self }
+    return Self(
+      rule: rule, offenders: offenders, checkedCount: checkedCount,
+      witnesses: witnesses, codebase: codebase
+    )
+  }
 }

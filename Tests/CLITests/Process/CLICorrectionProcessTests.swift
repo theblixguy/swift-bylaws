@@ -37,7 +37,7 @@ struct CLICorrectionProcessTests {
   }
   """
 
-  @Test("Normal lint reports fixes without changing source")
+  @Test("Normal lint reports violations without changing source")
   func lintIsReadOnly() throws {
     let project = try CLIProcessProject(
       source: Self.original,

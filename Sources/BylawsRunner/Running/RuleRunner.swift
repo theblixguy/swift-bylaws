@@ -235,6 +235,7 @@ package enum RuleRunner {
       .map {
         ($0.rule.id, $0.reportableViolations)
       })
+    let proposesCorrections = RuleRunPurpose.current == .proposeCorrections
     for (rule, findings) in zip(selected, allFindings) {
       let violations = findings.violations
       baselineCheck.observe(violations, from: rule.id)
@@ -250,6 +251,11 @@ package enum RuleRunner {
         .filteringOffenders { offender in
           !acceptedByOrigin.contains(offender)
         }
+      let reportable = if proposesCorrections {
+        unaccepted
+      } else {
+        unaccepted.removingCorrections()
+      }
       reports.append(
         RuleReport(
           id: rule.id,
@@ -257,7 +263,7 @@ package enum RuleRunner {
           enforcement: rule.enforcement,
           hint: rule.hint,
           location: rule.location,
-          violations: unaccepted.removingOffenders(
+          violations: reportable.removingOffenders(
             acceptedBy: baselines,
             for: rule.id,
             under: rootPath
