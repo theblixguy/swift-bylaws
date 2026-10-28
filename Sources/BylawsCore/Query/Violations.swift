@@ -15,8 +15,14 @@ public struct Violations<Element: Sendable>: Sendable {
   public let checkedCount: Int
 
   /// The proposed correction for each offender, in the same order.
-  public let fixes: [SourceFix?]
+  ///
+  /// - Complexity: O(n) when no corrections are proposed, where n is the
+  ///   offender count.
+  public var fixes: [SourceFix?] {
+    proposedFixes ?? Array(repeating: nil, count: offenders.count)
+  }
 
+  package let proposedFixes: [SourceFix?]?
   package let witnesses: [DeclarationLocation?]
   package let codebase: Codebase?
   package let layoutCandidates: [SourceFix.Edit]
@@ -44,10 +50,11 @@ public struct Violations<Element: Sendable>: Sendable {
     self.offenders = offenders
     self.checkedCount = checkedCount
     self.witnesses = witnesses
-    self.fixes = fixes ?? Array(repeating: nil, count: offenders.count)
+    precondition(fixes == nil || fixes?.count == offenders.count)
+    proposedFixes = fixes
+      .flatMap { $0.contains(where: { $0 != nil }) ? $0 : nil }
     self.codebase = codebase
     self.layoutCandidates = layoutCandidates
-    precondition(self.fixes.count == offenders.count)
     precondition(witnesses.count == offenders.count)
   }
 
@@ -97,7 +104,7 @@ extension Violations: Equatable where Element: Equatable {
     lhs.rule == rhs.rule
       && lhs.offenders == rhs.offenders
       && lhs.checkedCount == rhs.checkedCount
-      && lhs.fixes == rhs.fixes
+      && lhs.proposedFixes == rhs.proposedFixes
       && lhs.layoutCandidates == rhs.layoutCandidates
   }
 }
@@ -107,7 +114,7 @@ extension Violations: Hashable where Element: Hashable {
     hasher.combine(rule)
     hasher.combine(offenders)
     hasher.combine(checkedCount)
-    hasher.combine(fixes)
+    hasher.combine(proposedFixes)
     hasher.combine(layoutCandidates)
   }
 }
@@ -150,8 +157,8 @@ extension Violations: Codable where Element: Codable {
     try container.encode(rule, forKey: .rule)
     try container.encode(offenders, forKey: .offenders)
     try container.encode(checkedCount, forKey: .checkedCount)
-    if fixes.contains(where: { $0 != nil }) {
-      try container.encode(fixes, forKey: .fixes)
+    if let proposedFixes {
+      try container.encode(proposedFixes, forKey: .fixes)
     }
     if !layoutCandidates.isEmpty {
       for candidate in layoutCandidates {
@@ -226,7 +233,7 @@ extension Violations where Element: Located {
       },
       checkedCount: checkedCount,
       witnesses: Array(repeating: nil, count: offenders.count),
-      fixes: fixes,
+      fixes: proposedFixes,
       codebase: codebase,
       layoutCandidates: layoutCandidates
     )
@@ -243,7 +250,7 @@ extension Violations {
       offenders: indices.map { offenders[$0] },
       checkedCount: checkedCount,
       witnesses: indices.map { witnesses[$0] },
-      fixes: indices.map { fixes[$0] },
+      fixes: proposedFixes.map { fixes in indices.map { fixes[$0] } },
       codebase: codebase,
       layoutCandidates: layoutCandidates
     )

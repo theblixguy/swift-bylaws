@@ -76,7 +76,7 @@ extension SwiftTestingRuleReport: Codable {
     let rule: String
     let offenders: [Offender]
     let checkedCount: Int
-    let fixes: [Fix?]
+    let fixes: [Fix?]?
     let layoutCandidates: [Edit]?
 
     init(
@@ -85,7 +85,7 @@ extension SwiftTestingRuleReport: Codable {
       rule = check.rule
       offenders = check.offenders
       checkedCount = check.checkedCount
-      fixes = try check.fixes.map { fix in
+      fixes = try check.proposedFixes?.map { fix in
         try fix.map { try Fix($0, sources: sources) }
       }
       layoutCandidates = try check.layoutCandidates.isEmpty ? nil
@@ -95,7 +95,7 @@ extension SwiftTestingRuleReport: Codable {
     func decoded(sources: SwiftTestingReportSources) throws
       -> Violations<Offender>
     {
-      guard fixes.count == offenders.count else {
+      guard fixes == nil || fixes?.count == offenders.count else {
         throw SwiftTestingRuleSessionError.malformedReport(
           "The fix count must equal the offender count"
         )
@@ -103,7 +103,7 @@ extension SwiftTestingRuleReport: Codable {
       return try Violations(
         rule: rule, offenders: offenders, checkedCount: checkedCount,
         witnesses: Array(repeating: nil, count: offenders.count),
-        fixes: fixes.map { fix in
+        fixes: fixes?.map { fix in
           try fix.map { try $0.decoded(sources: sources) }
         },
         layoutCandidates: (layoutCandidates ?? []).map(sources.restoreCandidate)

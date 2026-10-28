@@ -6,13 +6,14 @@ struct RuntimeViolations: Sendable, Equatable {
   let offenders: [RuntimeModelValue]
   let checkedCount: Int
   let witnesses: [DeclarationLocation?]
-  let fixes: [SourceFix?]
+  let proposedFixes: [SourceFix?]?
   let codebase: Codebase?
   let layoutCandidates: [SourceFix.Edit]
 
   static func == (lhs: Self, rhs: Self) -> Bool {
     lhs.rule == rhs.rule && lhs.offenders == rhs.offenders
-      && lhs.checkedCount == rhs.checkedCount && lhs.fixes == rhs.fixes
+      && lhs.checkedCount == rhs.checkedCount
+      && lhs.proposedFixes == rhs.proposedFixes
       && lhs.layoutCandidates == rhs.layoutCandidates
   }
 
@@ -30,14 +31,16 @@ struct RuntimeViolations: Sendable, Equatable {
     self.checkedCount = checkedCount
     self.codebase = codebase
     self.layoutCandidates = layoutCandidates
-    self.fixes = fixes ?? Array(repeating: nil, count: offenders.count)
+    precondition(fixes == nil || fixes?.count == offenders.count)
+    proposedFixes = fixes
+      .flatMap { $0.contains(where: { $0 != nil }) ? $0 : nil }
     self.witnesses = witnesses
       ?? Array(repeating: nil, count: offenders.count)
   }
 
   var erased: Violations<Offender> {
     var retained: [Offender] = []
-    var retainedFixes: [SourceFix?] = []
+    var retainedFixes: [SourceFix?]? = proposedFixes.map { _ in [] }
     for index in offenders.indices {
       guard let offender = offenders[index].offender else { continue }
       if let witness = witnesses[index] {
@@ -51,7 +54,7 @@ struct RuntimeViolations: Sendable, Equatable {
       } else {
         retained.append(offender)
       }
-      retainedFixes.append(fixes[index])
+      if let proposedFixes { retainedFixes?.append(proposedFixes[index]) }
     }
     return Violations(
       rule: rule,

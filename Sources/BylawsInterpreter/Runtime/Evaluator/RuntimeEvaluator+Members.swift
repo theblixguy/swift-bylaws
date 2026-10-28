@@ -202,20 +202,20 @@ extension RuntimeEvaluator {
             rule: check.rule,
             offenders: check.offenders.map(RuntimeModelValue.offender),
             checkedCount: check.checkedCount,
-            fixes: check.fixes,
+            fixes: check.proposedFixes,
             codebase: check.codebase,
             layoutCandidates: check.layoutCandidates
           ))
         })
       case .violations:
+        let violations = findings.violations
         return .violations(RuntimeViolations(
-          rule: findings.violations.rule,
-          offenders: findings.violations.offenders
-            .map(RuntimeModelValue.offender),
-          checkedCount: findings.violations.checkedCount,
-          fixes: findings.violations.fixes,
-          codebase: findings.violations.codebase,
-          layoutCandidates: findings.violations.layoutCandidates
+          rule: violations.rule,
+          offenders: violations.offenders.map(RuntimeModelValue.offender),
+          checkedCount: violations.checkedCount,
+          fixes: violations.proposedFixes,
+          codebase: violations.codebase,
+          layoutCandidates: violations.layoutCandidates
         ))
       case .warnings:
         return .array(findings.warnings.map { .model(.check(.warning($0))) })
