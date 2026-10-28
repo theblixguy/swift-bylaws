@@ -76,8 +76,6 @@ public enum IndexStoreLocation {
 
   /// Returns the path of the index library in the active toolchain, or
   /// `nil` when the toolchain holds none.
-  ///
-  /// Bylaws loads the active toolchain's library at run time.
   public static func toolchainLibraryPath() -> String? {
     ToolchainPaths.indexStoreLibraryPath()
   }

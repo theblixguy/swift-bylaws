@@ -9,10 +9,11 @@ You can check declarations, imports and calls before a build. For references
 or conformances resolved by the compiler, use an index query after building
 the relevant targets.
 
-File and codebase queries include global declarations, type members and nested
-types. They do not include local variables, local functions or local types
-declared inside a function body. Body-level calls remain available through the
-enclosing function, initialiser or property.
+Declaration queries such as `classes` and `properties` select global
+declarations, type members and nested types outside function bodies. Use
+`expressions`, `assignments`, `variableBindings` or `syntaxNodes(of:_:)` for
+code inside function bodies, including local declarations. Calls in a body are
+also available through the enclosing function, initialiser or property.
 
 | The rule needs | Use |
 | --- | --- |
@@ -79,10 +80,9 @@ If your app also has local packages, use `.automatic([.swiftPM, .xcode])` so
 Bylaws reads their SwiftPM settings and uses Xcode settings for the remaining
 files.
 
-Reading Xcode project files adds work each time Bylaws collects the source
-files. Bylaws uses `SWIFT_VERSION` when the targets and build configurations
-agree. If the settings use `.xcconfig` files or values Bylaws cannot resolve,
-set `swiftLanguageMode` explicitly instead.
+Bylaws uses `SWIFT_VERSION` when the targets and build configurations agree.
+If the settings use `.xcconfig` files or values Bylaws cannot resolve, set
+`swiftLanguageMode` explicitly instead.
 
 Without an explicit mode or applicable settings, Bylaws uses Swift 6 mode.
 Syntax errors include the selected mode and the parser's message at the file

@@ -18,13 +18,11 @@ import Foundation
 /// visible without failing the run, and new violations fail. A recording run
 /// rewrites the file with what it observed.
 ///
-/// One entry names one declaration that one rule accepts. With
-/// `.annotatesViolations`, a parameterised rule records the declaration for
-/// its case. Same-file violations remain independent when one is fixed.
-///
-/// Without that trait, a rule records only the file. All its violations in the
-/// file share one entry. Prefer parameterised rules with
-/// `.annotatesViolations` when using a baseline.
+/// One entry identifies a rule, a declaration and a file. `Rule.report()` and
+/// `Violations.report()` include the declaration when available. For assertions
+/// on individual declarations, use `.annotatesViolations` on a parameterised
+/// test. Assertions without declaration information share one entry per rule
+/// and file.
 public struct Baseline: Sendable, Hashable {
   /// One accepted violation.
   ///
@@ -32,9 +30,6 @@ public struct Baseline: Sendable, Hashable {
   /// are omitted. Edits above the declaration do not invalidate the entry.
   public struct Entry: Sendable, Hashable, Comparable {
     /// The rule the violation belongs to.
-    ///
-    /// Discovered rules use their IDs as keys. Rules written in code use their
-    /// tests' display names.
     public let rule: Rule.ID
 
     /// The name of the declaration the rule accepts, or an empty string

@@ -22,7 +22,7 @@ extension SourceNode {
     /// A function, initialiser or subscript parameter.
     case functionParameter
 
-    /// A deinitializer declaration.
+    /// A deinitialiser declaration.
     case deinitializerDeclaration
     /// An enum declaration.
     case enumDeclaration
@@ -32,7 +32,7 @@ extension SourceNode {
     case functionDeclaration
     /// An import declaration.
     case importDeclaration
-    /// An initializer declaration.
+    /// An initialiser declaration.
     case initializerDeclaration
     /// A macro declaration.
     case macroDeclaration

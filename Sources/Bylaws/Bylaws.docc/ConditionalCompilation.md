@@ -124,5 +124,5 @@ let rules: [Rule] = [
 ]
 ```
 
-Run a debug build before you check this rule in Swift Testing or the CLI, because
-the index only contains symbols from the configuration which you build for.
+The index contains symbols from the configuration used for the build, so run
+a debug build before checking this rule in Swift Testing or the CLI.

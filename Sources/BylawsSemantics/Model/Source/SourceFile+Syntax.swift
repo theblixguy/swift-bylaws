@@ -5,7 +5,7 @@ extension SourceFile {
     sourceBuffer.snapshot?.syntaxTree() ?? swiftLanguageMode.parse(sourceText)
   }
 
-  /// Runs `body` with a freshly parsed syntax tree for this file.
+  /// Runs `body` with this file's syntax tree.
   public func withSyntax<R>(_ body: (SourceFileSyntax) throws -> R) rethrows
     -> R
   {
@@ -32,8 +32,8 @@ extension SourceFile {
     }
   }
 
-  /// Runs `body` with a session that resolves several declarations from
-  /// one parsed syntax tree.
+  /// Runs `body` with a session for querying the syntax of several declarations
+  /// in this file.
   public func withSyntaxSession<R>(
     _ body: (SourceSyntaxSession) throws -> R
   ) rethrows -> R {
@@ -43,7 +43,7 @@ extension SourceFile {
   }
 }
 
-/// A syntax tree used to resolve several declarations from one source file.
+/// A session for querying the syntax of several declarations in one source file.
 public struct SourceSyntaxSession {
   private let path: String
   private let tree: SourceFileSyntax

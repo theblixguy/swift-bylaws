@@ -4,8 +4,8 @@ extension SourceProviding {
   /// The complete lexical tokens contained in the captured source.
   ///
   /// Tokens exclude trivia, parser-inserted tokens and the end-of-file marker.
-  /// A slice that covers only part of a token omits that token. Neighbour
-  /// projections retain the original file's context beyond the queried slice.
+  /// A slice that covers only part of a token omits that token. A token's
+  /// `previous` and `next` properties can return tokens outside the slice.
   /// - Complexity: O(n), where n is the length of the source file.
   public var tokens: [SourceToken] {
     get throws {
@@ -22,8 +22,8 @@ extension SourceProviding {
   /// The complete trivia pieces contained in the captured source, in source order.
   ///
   /// This includes comments at the end of a file, including a comment-only file.
-  /// A slice that covers part of a trivia piece omits that piece. String and
-  /// regex contents retain their lexical categories rather than becoming comments.
+  /// A slice that covers part of a trivia piece omits that piece. Comment
+  /// delimiters inside string and regex literals remain part of the literal.
   /// - Complexity: O(n), where n is the length of the source file.
   public var trivia: [SourceTrivia] {
     get throws {

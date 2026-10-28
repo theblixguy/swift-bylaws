@@ -34,7 +34,6 @@ struct RulesSyntaxContext {
 }
 
 struct RulesArgumentState {
-  // A repeated label stops the caller reading arguments.
   enum LabelLookup {
     case label(SupportedAPI.ArgumentLabel?)
     case repeated

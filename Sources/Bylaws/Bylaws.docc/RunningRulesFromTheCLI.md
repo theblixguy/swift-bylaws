@@ -137,11 +137,11 @@ the rules affected by those paths and uses cached results for the rest:
 bylaws lint --changed-path Sources/Checkout/CheckoutView.swift
 ```
 
-Include changed generated inputs too, such as a refreshed Bazel graph, because
-a version-control diff might not list them.
+A version-control diff can omit generated inputs, so include changes such as
+a refreshed Bazel graph.
 
-Each affected rule checks all of its inputs again, which means a change in one
-file can reveal a violation in another. Bylaws runs every rule when no result
+Each affected rule checks all of its inputs again, so a change in one file
+can reveal a violation in another. Bylaws runs every rule when no result
 cache exists and always reruns a rule when it cannot track all of its inputs.
 Rules that use compiler-index data also run every time because the index can
 change independently of source files.
@@ -473,9 +473,6 @@ You can copy this directory between CI workers or reuse it after moving a
 checkout. Entries match the source text and Swift language mode, and violations
 use the current checkout's file paths.
 
-If a parsed entry is missing or damaged, Bylaws parses that source file again.
-If saved rule results are damaged, Bylaws runs those rules again.
-
 You can adjust the default disk-cache target of 1,000,000,000 bytes with
 `--cache-size 500MB`, which also enables caching. The option takes whole bytes
 or a case-insensitive `B`, `KB`, `MB`, `GB`, `KiB`, `MiB` or `GiB` suffix,
@@ -483,24 +480,19 @@ with decimal units using powers of 1,000 and binary units using powers of
 1,024. If you want to disable the disk cache while keeping its existing
 entries, pass `--cache-size 0`.
 
-Bylaws normally cleans up the cache at most once a day and removes the oldest
-entries first. The cache can grow beyond the requested size between cleanups,
-so the size setting is a soft target. If you change it, Bylaws runs cleanup the
-next time it loads the cache, even if the previous cleanup was earlier that
-day. The size is based on file lengths, which can differ from allocated disk
-space, and applies only to the disk cache.
+The disk-cache size is a soft target. Cleanup normally runs at most once a
+day, so the cache can grow beyond that size between cleanups. Changing the
+target requests cleanup on the next run. The target counts file lengths,
+which can differ from allocated disk space.
 
-When caching is enabled, Bylaws uses metadata validation to check a file's
-identity, size and precise modification and change times before and after
-loading its cached model. It reads and hashes the source if the metadata has
-changed, an entry is missing or damaged, or a timestamp is recent or ambiguous.
-This can miss a source change if every checked metadata field is preserved.
+The default metadata validation can reuse cached source when a file's
+identity, size and timestamps are unchanged. If a tool changes the contents
+while preserving all of those values, Bylaws can reuse stale data.
 
-If you want to read and hash each source file before accepting a hit, use
-`--cache-validation content`, which also enables caching. You can switch
-between validation modes while reusing the same parsed entries. Cached models
-include their source text, which lets metadata validation skip the source
-read when the file's metadata is unchanged.
+If you want to validate the source contents on every run, use
+`--cache-validation content`. This option also enables caching and reads every
+source file on each run. You can switch validation modes without clearing the
+cache.
 
 In Swift tests, you can set defaults for a suite or test with
 `.parseCache(validation: .content)`. The trait also takes `directory` and `budget`,
@@ -551,13 +543,10 @@ of B, KB, MB, GB, KiB, MiB or GiB. KB, MB and GB use powers of 1000, while
 KiB, MiB and GiB use powers of 1024. If you want to turn off selection reuse,
 pass `--selection-cache-size 0`.
 
-The budget covers the estimated memory used to cache selections across all
-codebases in the run, including the original and filtered arrays, query keys
-and cache entries. Bylaws also needs memory for parsed files and rules that
-are running, so this setting does not limit the process's total memory use.
-When there is no room for a new result, Bylaws removes the least recently used
-cached results first. Rules can use results that are too large to cache, but
-Bylaws may need to calculate them again for another rule.
+The budget covers estimated memory for selections shared across all codebases
+in the run. Parsed files and running rules use additional memory, so this
+setting does not limit total process memory. Rules can use a result that
+exceeds the budget, but Bylaws does not retain it for another rule.
 
 For discovered rules in Swift Testing, add `.selectionCache(budget: 32 * 1024 * 1024)`
 to a suite to share one cache across its tests. You can also share a cache across
@@ -571,10 +560,9 @@ try await SelectionCache.withBudget(32 * 1024 * 1024) {
 }
 ```
 
-Bylaws clears the cache after the closure finishes. You can reuse results
-from `named`, `prefixed`, `suffixed` and `excluding` filters in compiled
-portable queries. Native Swift filter chains and custom closures run as
-usual, and inspection continues to show each filter step.
+Bylaws clears the cache after the closure finishes. The cache reuses `named`,
+`prefixed`, `suffixed` and `excluding` selections in discovered rules. Ordinary
+Swift filter chains and custom closures run as usual.
 
 ## Supported API
 

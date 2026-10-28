@@ -6,8 +6,10 @@ extension Collection where Element: SourceProviding {
   /// The first matching group claims each element. Unmatched elements divide
   /// the input into regions that groups cannot cross. Conditional separators
   /// change matching gaps and preserve all other whitespace. Empty input
-  /// produces no edits. Explicit source emission uses the other overload.
-  /// Grouped regions retain their original indentation.
+  /// produces no edits. Grouped regions retain their original indentation.
+  /// To arrange source elements explicitly, use the ``SourceLayoutBuilder``
+  /// overload.
+  ///
   /// Errors from the layout closure, conditions and comparisons propagate.
   /// - Throws: ``SourceListLayoutError`` for conflicting policies, or the
   ///   source and ownership errors of ``SourceLayoutReplacementError``.

@@ -12,7 +12,7 @@ import Foundation
 /// Initialisation defers file access. Without an explicit cache configuration,
 /// the first query uses the enclosing `.parseCache` trait's defaults or reads
 /// `BYLAWS_DISABLE_PARSE_CACHE` and `BYLAWS_CACHE_PATH`.
-/// Parsed data remains in memory for the process.
+/// Repeated queries use the same source snapshot.
 ///
 /// An unreadable file or directory fails the query with
 /// ``CodebaseError/unreadable(failures:)``. A syntax error fails it with
@@ -159,9 +159,9 @@ public struct Codebase: Sendable, Hashable {
   /// Outside a suite with that trait, the value is `nil`.
   @TaskLocal public static var current: Codebase?
 
-  /// Parses the codebase eagerly.
+  /// Prepares the selected source files for queries.
   ///
-  /// Later accessors return immediately.
+  /// Call this to report read and parse errors before running rules.
   ///
   /// - Throws: ``CodebaseError`` when the root cannot be resolved, the root
   ///   is not a directory, or a source file cannot be read or parsed.

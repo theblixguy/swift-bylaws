@@ -5,8 +5,7 @@ public enum ParseError: Error, Sendable, Hashable {
   /// The file cannot be opened, read or decoded as UTF-8.
   case unreadable(path: String, reason: String)
 
-  /// The file has a syntax error, and the model is missing declarations
-  /// from it.
+  /// The source has a syntax error.
   case didNotParse(diagnostics: [SourceParseDiagnostic])
 }
 

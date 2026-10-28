@@ -56,4 +56,4 @@ until you correct the syntax.
 [Zed]: Zed/README.md
 [Neovim]: Neovim/README.md
 [Emacs]: Emacs/README.md
-[module boundary example]: ../README.md#enforce-a-module-boundary
+[module boundary example]: ../README.md#control-dependencies-between-layers

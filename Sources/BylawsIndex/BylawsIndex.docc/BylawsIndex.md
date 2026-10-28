@@ -49,8 +49,8 @@ with `unitOutputFiles:` in
 Pass the ``/BylawsIndexStore/IndexUnit/outputFile`` values unchanged when
 selecting units.
 
-To read index records without using a `Codebase` or parsing the source, add
-the `BylawsIndexStore` product and import its module instead.
+To query the index independently of a `Codebase`, add the `BylawsIndexStore`
+product and import its module instead.
 
 ## Topics
 

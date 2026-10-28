@@ -514,9 +514,8 @@ bazel run @swift-bylaws//:bylaws -- lint
 
 To check rules during `bazel build`, add a [Bazel lint target]. It checks the
 declared source files, including generated files, and produces a JSON report.
-Bazel caches parsed source groups separately, so a rule change can reuse all of
-them and a source change only reparses its group. You can also [check Bazel
-target dependencies] using an exported graph, without a `Package.swift`.
+You can also [check Bazel target dependencies] using an exported graph, without
+a `Package.swift`.
 
 ### Show violations in an editor
 

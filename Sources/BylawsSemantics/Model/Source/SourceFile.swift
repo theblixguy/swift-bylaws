@@ -1,9 +1,6 @@
 import BylawsPaths
 
 /// One parsed Swift source file and the declarations it contains.
-///
-/// A type declaration reads its members from the same source-ordered
-/// collections exposed by the file. Each member records its enclosing type.
 public struct SourceFile: Named, Located, Hashable {
   /// The absolute path of the file.
   public let path: String
@@ -39,17 +36,17 @@ public struct SourceFile: Named, Located, Hashable {
 
   package let memberStorage: MemberStorage
 
-  /// The free and member functions declared in the file.
+  /// The free and member functions declared in the file, in source order.
   ///
   /// Local functions inside a function body are not included.
   public var functions: [Function] { memberStorage.functions }
 
-  /// The global and member properties declared in the file.
+  /// The global and member properties declared in the file, in source order.
   ///
   /// Local variables inside a function body are not included.
   public var properties: [Property] { memberStorage.properties }
 
-  /// The initialisers declared in the file.
+  /// The initialisers declared in the file, in source order.
   public var initializers: [Initializer] { memberStorage.initializers }
 
   /// The typealiases declared in the file.
