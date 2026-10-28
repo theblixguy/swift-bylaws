@@ -48,7 +48,7 @@ struct ParseCacheMaintenanceTests {
   }
 
   @Test("Trimming removes earlier cache formats", arguments: [
-    "File-abc-v1.bin", "OldProject/File-abc-v8.bin", "batch-v13.pack",
+    "File-abc-v1.bin", "OldProject/File-abc-v8.bin", "batch-v14.pack",
   ])
   func removesSupersededSchemaEntries(name: String) async throws {
     let testCache = try ParseCacheTestStorage()

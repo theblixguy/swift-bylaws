@@ -136,7 +136,7 @@ final class DeclarationVisitor: SyntaxVisitor {
       documentation: reader.documentation(of: node),
       location: reader.location(of: node.name),
       parsedSource: reader.parsedSource(
-        of: node
+        of: node, name: node.name
       )
     )
   }
@@ -201,7 +201,7 @@ final class DeclarationVisitor: SyntaxVisitor {
         attributes: ModifierReader.attributes(node.attributes, reader: reader),
         location: reader.location(of: node.extendedType)
       ).withParsedSource(reader.parsedSource(
-        of: node
+        of: node, name: node.extendedType
       ))
     )
     enterType(name: extendedTypeName, visibility: modifiers.visibility)
@@ -242,7 +242,7 @@ final class DeclarationVisitor: SyntaxVisitor {
         documentation: reader.documentation(of: node),
         location: reader.location(of: node.initKeyword)
       ).withParsedSource(reader.parsedSource(
-        of: node
+        of: node, name: node.initKeyword
       ))
     )
     return .skipChildren
@@ -269,7 +269,7 @@ final class DeclarationVisitor: SyntaxVisitor {
         enclosingTypeName: enclosingTypeName,
         documentation: reader.documentation(of: node),
         location: reader.location(of: node.name)
-      ).withParsedSource(reader.parsedSource(of: node))
+      ).withParsedSource(reader.parsedSource(of: node, name: node.name))
     )
     return .skipChildren
   }
@@ -286,7 +286,7 @@ final class DeclarationVisitor: SyntaxVisitor {
           enclosingTypeName: enclosingTypeName,
           documentation: reader.documentation(of: node),
           location: reader.location(of: element.name)
-        ).withParsedSource(reader.parsedSource(of: element))
+        ).withParsedSource(reader.parsedSource(of: element, name: element.name))
       )
     }
     return .skipChildren
@@ -308,14 +308,14 @@ final class DeclarationVisitor: SyntaxVisitor {
   override func visit(_ node: MacroExpansionDeclSyntax)
     -> SyntaxVisitorContinueKind
   {
-    recordMacro(named: node.macroName.text, arguments: node.arguments, at: node)
+    macroExpansions.append(reader.call(node))
     return .skipChildren
   }
 
   override func visit(_ node: MacroExpansionExprSyntax)
     -> SyntaxVisitorContinueKind
   {
-    recordMacro(named: node.macroName.text, arguments: node.arguments, at: node)
+    macroExpansions.append(reader.call(node))
     return .skipChildren
   }
 
@@ -329,7 +329,7 @@ final class DeclarationVisitor: SyntaxVisitor {
         visibility: modifiers.visibility,
         attributes: ModifierReader.attributes(node.attributes, reader: reader),
         location: reader.location(of: node.path)
-      ).withParsedSource(reader.parsedSource(of: node))
+      ).withParsedSource(reader.parsedSource(of: node, name: node.path))
     )
     return .skipChildren
   }
@@ -370,7 +370,7 @@ final class DeclarationVisitor: SyntaxVisitor {
       documentation: reader.documentation(of: node),
       location: reader.location(of: node.name)
     ).withParsedSource(reader.parsedSource(
-      of: node
+      of: node, name: node.name
     ))
   }
 
@@ -415,21 +415,9 @@ final class DeclarationVisitor: SyntaxVisitor {
         documentation: reader.documentation(of: node),
         location: reader.location(of: pattern.identifier)
       ).withParsedSource(reader.parsedSource(
-        of: binding
+        of: binding, name: pattern
       ))
     }
-  }
-
-  private func recordMacro(
-    named name: String,
-    arguments: LabeledExprListSyntax,
-    at node: some SyntaxProtocol
-  ) {
-    macroExpansions.append(reader.call(
-      named: name,
-      arguments: arguments,
-      at: node
-    ))
   }
 
   private func enterType(name: String, visibility: Visibility) {

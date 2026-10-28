@@ -1,11 +1,7 @@
 import BylawsSyntax
 
 extension ParsedSource {
-  package var name: SourceSlice? { get throws { try part(.name) } }
   package var body: SourceSlice? { get throws { try part(.body) } }
-  package var calledExpression: SourceSlice? {
-    get throws { try part(.calledExpression) }
-  }
 
   package var memberName: SourceSlice? {
     get throws { try part(.memberName) }
@@ -13,7 +9,7 @@ extension ParsedSource {
 
   package var label: SourceSlice? { get throws { try part(.label) } }
 
-  private enum Part { case name, body, calledExpression, memberName, label }
+  private enum Part { case body, memberName, label }
 
   private func part(_ part: Part) throws -> SourceSlice? {
     let snapshot = try buffer.snapshot.required()
@@ -27,10 +23,6 @@ extension ParsedSource {
       }
       if trimmedRange(of: node) == range {
         switch part {
-        case .name:
-          if let name = name(in: node) {
-            return try slice(of: name, in: snapshot)
-          }
         case .body:
           if let body = body(in: node) {
             return try SourceSlice(
@@ -39,21 +31,14 @@ extension ParsedSource {
                 ..< body.closing.positionAfterSkippingLeadingTrivia.utf8Offset
             )
           }
-        case .calledExpression, .memberName:
+        case .memberName:
           if let call = node.as(FunctionCallExprSyntax.self) {
-            let expression: Syntax? = if part == .calledExpression {
-              Syntax(call.calledExpression)
-            } else { referenceName(in: call.calledExpression).map(Syntax.init) }
-            return try expression.map { try slice(of: $0, in: snapshot) }
+            return try referenceName(in: call.calledExpression).map {
+              try slice(of: $0, in: snapshot)
+            }
           }
           if let macro = macroName(in: node) {
-            return try part == .memberName
-              ? slice(of: macro.name, in: snapshot)
-              : SourceSlice(
-                snapshot: snapshot,
-                range: macro.pound.positionAfterSkippingLeadingTrivia.utf8Offset
-                  ..< macro.name.endPositionBeforeTrailingTrivia.utf8Offset
-              )
+            return try slice(of: macro, in: snapshot)
           }
         case .label: break
         }
@@ -61,26 +46,6 @@ extension ParsedSource {
       candidate = node.parent
     }
     return nil
-  }
-
-  private func name(in node: Syntax) -> Syntax? {
-    switch node.as(SyntaxEnum.self) {
-    case let .functionDecl(value): Syntax(value.name)
-    case let .initializerDecl(value): Syntax(value.initKeyword)
-    case let .classDecl(value): Syntax(value.name)
-    case let .actorDecl(value): Syntax(value.name)
-    case let .structDecl(value): Syntax(value.name)
-    case let .enumDecl(value): Syntax(value.name)
-    case let .protocolDecl(value): Syntax(value.name)
-    case let .extensionDecl(value): Syntax(value.extendedType)
-    case let .typeAliasDecl(value): Syntax(value.name)
-    case let .importDecl(value): Syntax(value.path)
-    case let .enumCaseElement(value): Syntax(value.name)
-    case let .patternBinding(value): Syntax(value.pattern)
-    case let .optionalBindingCondition(value): Syntax(value.pattern)
-    case let .functionCallExpr(value): Syntax(value.calledExpression)
-    default: nil
-    }
   }
 
   private func body(in node: Syntax)
@@ -125,14 +90,12 @@ extension ParsedSource {
     }
   }
 
-  private func macroName(in node: Syntax)
-    -> (pound: TokenSyntax, name: TokenSyntax)?
-  {
+  private func macroName(in node: Syntax) -> TokenSyntax? {
     if let macro = node.as(MacroExpansionExprSyntax.self) {
-      return (macro.pound, macro.macroName)
+      return macro.macroName
     }
     if let macro = node.as(MacroExpansionDeclSyntax.self) {
-      return (macro.pound, macro.macroName)
+      return macro.macroName
     }
     return nil
   }

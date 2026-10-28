@@ -18,19 +18,19 @@ struct SyntaxReader {
       calledExpression: text.trimmedText(of: node.calledExpression),
       arguments: node.arguments.map(argument),
       location: location(of: node.calledExpression)
-    ).withParsedSource(parsedSource(of: node))
+    ).withParsedSource(parsedSource(of: node, name: node.calledExpression))
   }
 
-  func call(
-    named name: String,
-    arguments: LabeledExprListSyntax,
-    at node: some SyntaxProtocol
-  ) -> FunctionCall {
+  func call(_ node: some FreestandingMacroExpansionSyntax) -> FunctionCall {
     FunctionCall(
-      calledExpression: "#\(name)",
-      arguments: arguments.map(argument),
+      calledExpression: "#\(node.macroName.text)",
+      arguments: node.arguments.map(argument),
       location: location(of: node)
-    ).withParsedSource(parsedSource(of: node))
+    ).withParsedSource(parsedSource(
+      of: node,
+      nameRange: node.pound.positionAfterSkippingLeadingTrivia.utf8Offset
+        ..< node.macroName.endPositionBeforeTrailingTrivia.utf8Offset
+    ))
   }
 
   func genericParameters(

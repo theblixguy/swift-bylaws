@@ -120,7 +120,7 @@ extension FunctionCall {
   /// The called expression, excluding arguments and outer trivia.
   public var calledExpressionSource: SourceSlice {
     get throws {
-      try parsedSource.required().calledExpression.required(or: .missingPart)
+      try parsedSource.required().name.required(or: .missingPart)
     }
   }
 

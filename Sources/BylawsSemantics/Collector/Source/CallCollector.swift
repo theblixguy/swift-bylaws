@@ -23,13 +23,7 @@ final class CallCollector: LexicalRegionVisitor {
   override func visit(_ node: MacroExpansionExprSyntax)
     -> SyntaxVisitorContinueKind
   {
-    calls.append(
-      reader.call(
-        named: node.macroName.text,
-        arguments: node.arguments,
-        at: node
-      )
-    )
+    calls.append(reader.call(node))
     return .visitChildren
   }
 }
