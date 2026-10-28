@@ -23,6 +23,7 @@ package enum SourceLayoutRenderer {
     package var tabWidth: Int
     package var leadingWhitespace: String
     package var trailingWhitespace: String
+    package var trailingText: String
     package var hasSourceBefore: Bool
     package var hasSourceAfter: Bool
     package var closingIndentation: String?
@@ -38,6 +39,7 @@ package enum SourceLayoutRenderer {
       tabWidth: Int = 8,
       leadingWhitespace: String = "",
       trailingWhitespace: String = "",
+      trailingText: String = "",
       hasSourceBefore: Bool = false,
       hasSourceAfter: Bool = false,
       closingIndentation: String? = nil
@@ -52,6 +54,7 @@ package enum SourceLayoutRenderer {
       self.tabWidth = max(tabWidth, 1)
       self.leadingWhitespace = leadingWhitespace
       self.trailingWhitespace = trailingWhitespace
+      self.trailingText = trailingText
       self.hasSourceBefore = hasSourceBefore
       self.hasSourceAfter = hasSourceAfter
       self.closingIndentation = closingIndentation
@@ -182,10 +185,23 @@ package enum SourceLayoutRenderer {
     }
 
     mutating func render(_ events: [Event]) throws -> String {
-      for event in events {
+      let lastContent = events.lastIndex {
+        switch $0 {
+        case .deferred, .line, .lineBoundary: true
+        default: false
+        }
+      }
+      let trailingWhitespace = context.trailingWhitespace
+        .prefix { !$0.isSourceLayoutNewline }
+      let trailingText = String(trailingWhitespace)
+        + (trailingWhitespace.count == context.trailingWhitespace.count
+          ? context.trailingText : "")
+      for (index, event) in events.enumerated() {
         switch event {
         case let .deferred(make):
-          _ = try appendDeferred(make)
+          _ = try appendDeferred(
+            make, trailingText: index == lastContent ? trailingText : ""
+          )
         case let .line(events):
           try appendLine(events)
         case let .boundary(boundary):
@@ -263,16 +279,19 @@ package enum SourceLayoutRenderer {
     }
 
     private mutating func appendDeferred(
-      _ make: (Placement) throws -> String
+      _ make: (Placement) throws -> String,
+      trailingText: String = ""
     ) throws -> Bool {
-      let predicted = placement
+      var predicted = placement
+      predicted.trailingText = trailingText
       let preview = try make(predicted)
       guard !preview.isEmpty else { return false }
       let boundary = resolvedBoundary(before: preview)
       let actual = if hasContent, let boundary, boundary != .soft {
         Placement(
           column: endColumn(of: indentation, startingAt: 0),
-          indentation: indentation, lineIndentation: indentation
+          indentation: indentation, lineIndentation: indentation,
+          trailingText: trailingText
         )
       } else { predicted }
       let value = if actual.column == predicted.column,

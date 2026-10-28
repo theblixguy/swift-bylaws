@@ -230,6 +230,75 @@ struct SourceLayoutCompositionTests {
   }
 
   @Test(
+    "Unchanged outer layout preserves enclosing suffix for nested width",
+    arguments: [false, true], [
+      (36, "let r = outer(inner(\n  1,\n  2\n)).longSuffix"),
+      (37, "let r = outer(inner(1, 2)).longSuffix"),
+    ]
+  )
+  func unchangedOuterSuffix(
+    candidate: Bool, testCase: (maximumWidth: Int, expected: String)
+  ) throws {
+    let file = try FileCollector.collect(
+      source: "let r = outer(inner(1, 2)).longSuffix", path: "/App.swift"
+    )
+    let outer = try #require(file.calls.first { $0.name == "outer" })
+    let inner = try #require(file.calls.first { $0.name == "inner" })
+    let outerLayout = try outer.arguments.replacement { outer.arguments }
+    let innerLayout = try inner.arguments
+      .replacement(whenLineExceeds: testCase.maximumWidth) {
+        for argument in inner.arguments {
+          Newline()
+          argument
+        }
+        Newline()
+      }
+    let result = if candidate {
+      try file.source.replacement(
+        applying: [innerLayout], layoutCandidates: [outerLayout]
+      )
+    } else {
+      try file.source.replacement(applying: [outerLayout, innerLayout])
+    }
+
+    #expect(result.replacement == testCase.expected)
+  }
+
+  @Test(
+    "Outer line boundaries exclude enclosing suffix from nested width",
+    arguments: [false, true]
+  )
+  func outerLineSuffix(line: Bool) throws {
+    let file = try FileCollector.collect(
+      source: "let r = outer(inner(1, 2)).longSuffix", path: "/App.swift"
+    )
+    let outer = try #require(file.calls.first { $0.name == "outer" })
+    let inner = try #require(file.calls.first { $0.name == "inner" })
+    let outerLayout = try outer.arguments.replacement {
+      if line {
+        Line { outer.arguments }
+      } else {
+        Newline()
+        outer.arguments
+        Newline()
+      }
+    }
+    let innerLayout = try inner.arguments.replacement(whenLineExceeds: 20) {
+      for argument in inner.arguments {
+        Newline()
+        argument
+      }
+      Newline()
+    }
+    let result = try file.source.replacement(
+      applying: [outerLayout, innerLayout]
+    )
+
+    #expect(result.replacement ==
+      "let r = outer(\n  inner(1, 2)\n).longSuffix")
+  }
+
+  @Test(
     "Short multiline calls retain exact bytes",
     arguments: ["\n", "\r\n", "\r"]
   )
