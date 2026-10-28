@@ -1,5 +1,5 @@
-enum FormattingMock {
-  static let statements = """
+package enum FormattingMock {
+  package static let statements = """
   func submit() async throws {
     let request = try makeRequest()
     await log(request)
@@ -8,7 +8,7 @@ enum FormattingMock {
 
   """
 
-  static let spacedStatements = """
+  package static let spacedStatements = """
   func submit() async throws {
     let request = try makeRequest()
 
@@ -19,7 +19,7 @@ enum FormattingMock {
 
   """
 
-  static let properties = #"""
+  package static let properties = #"""
   struct ReaderPanel {
     let onClose: () -> Void
     @State private var query = ""
@@ -31,7 +31,7 @@ enum FormattingMock {
   }
   """# + "\n"
 
-  static let groupedProperties = #"""
+  package static let groupedProperties = #"""
   struct ReaderPanel {
     @Environment(\.locale) private var locale
     @Environment(\.isEnabled) private var isEnabled
@@ -45,13 +45,13 @@ enum FormattingMock {
   }
   """# + "\n"
 
-  static let call = #"""
+  package static let call = #"""
   func finished() {
     logger.write(.info, "Download finished", category: "Transfer", metadata: [.init(key: "bytes", value: transfer.byteCount)])
   }
   """# + "\n"
 
-  static let multilineCall = #"""
+  package static let multilineCall = #"""
   func finished() {
     logger.write(
       .info, "Download finished",
@@ -63,7 +63,7 @@ enum FormattingMock {
   }
   """# + "\n"
 
-  static let combined = #"""
+  package static let combined = #"""
   #if canImport(SwiftUI)
   import SwiftUI
 
@@ -85,7 +85,7 @@ enum FormattingMock {
   func writeArchive(_ message: String) throws {}
   """# + "\n"
 
-  static let formattedCombined = #"""
+  package static let formattedCombined = #"""
   #if canImport(SwiftUI)
   import SwiftUI
 

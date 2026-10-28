@@ -121,15 +121,18 @@ extension SourceCapture {
       }
       var paths = Set(sourcePaths)
       if swiftPM {
-        var visitedDirectories: Set<LexicalFilePath> = []
+        let rootPath = root.string
+        let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+        var visitedDirectories: Set<String> = []
         for path in sourcePaths {
-          var directory = LexicalFilePath(path).removingLastComponent()
+          var directory = (path as NSString).deletingLastPathComponent
           while visitedDirectories.insert(directory).inserted,
-                root.contains(directory)
+                directory == rootPath || directory.hasPrefix(prefix)
           {
-            paths.insert(directory.appending("Package.swift").string)
-            if directory == root { break }
-            directory = directory.removingLastComponent()
+            let separator = directory.hasSuffix("/") ? "" : "/"
+            paths.insert(directory + separator + "Package.swift")
+            if directory == rootPath { break }
+            directory = (directory as NSString).deletingLastPathComponent
           }
         }
         paths.insert(root.appending("Package.swift").string)

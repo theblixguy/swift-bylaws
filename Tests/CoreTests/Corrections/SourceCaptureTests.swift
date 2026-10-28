@@ -8,13 +8,23 @@ struct SourceCaptureTests {
   @Test("Shared source ancestors retain missing manifests")
   func missingManifests() async throws {
     let project = try TemporaryProject(files: [
+      "Root.swift": "struct Root {}",
       "Sources/App/One.swift": "struct One {}",
       "Sources/App/Two.swift": "struct Two {}",
       "Sources/App/Nested/Three.swift": "struct Three {}",
+      "Sources/Écran/Four.swift": "struct Four {}",
     ])
-    let capture = try await SourceCapture.capture(scope(in: project))
+    let capture = try await SourceCapture.capture(.init(
+      rootPath: project.rootURL.path + "/Sources/..",
+      selection: .sourceFiles(
+        including: ["**"], excluding: ["**/Package.swift"],
+        swiftPM: true, xcode: false
+      )
+    ))
     let missing = Set(capture.inputs.filter { $0.digest == nil }.map(\.path))
-    for directory in ["", "Sources", "Sources/App", "Sources/App/Nested"] {
+    for directory in [
+      "", "Sources", "Sources/App", "Sources/App/Nested", "Sources/Écran",
+    ] {
       let root = directory.isEmpty ? project.rootURL : project.rootURL
         .appendingPathComponent(directory)
       let manifest = root.appendingPathComponent("Package.swift").path

@@ -148,15 +148,15 @@ jobs:
       - name: Run tests
         env:
           BYLAWS_REQUIRE_INDEX_STORE: "1"
-        run: swift test --skip-build --skip 'CLITests|ProcessTests|LSPTests'
+        run: swift test --skip-build --skip '^(ProcessTests|LSPTests)[./]'
       - name: Run language server tests
         env:
           BYLAWS_REQUIRE_INDEX_STORE: "1"
-        run: swift test --skip-build --filter LSPTests
-      - name: Run CLI and process tests
+        run: swift test --skip-build --filter '^LSPTests[./]'
+      - name: Run process tests
         env:
           BYLAWS_REQUIRE_INDEX_STORE: "1"
-        run: swift test --skip-build --no-parallel --filter 'CLITests|ProcessTests'
+        run: swift test --skip-build --filter '^ProcessTests[./]'
       - parallel:
           - name: Test SwiftSyntax artifact tool
             if: needs.changes.outputs.consumers == 'true'
@@ -218,15 +218,15 @@ jobs:
       - name: Run tests
         env:
           BYLAWS_REQUIRE_INDEX_STORE: "1"
-        run: swift test --skip-build --skip 'CLITests|ProcessTests|LSPTests'
+        run: swift test --skip-build --skip '^(ProcessTests|LSPTests)[./]'
       - name: Run language server tests
         env:
           BYLAWS_REQUIRE_INDEX_STORE: "1"
-        run: swift test --skip-build --filter LSPTests
-      - name: Run CLI and process tests
+        run: swift test --skip-build --filter '^LSPTests[./]'
+      - name: Run process tests
         env:
           BYLAWS_REQUIRE_INDEX_STORE: "1"
-        run: swift test --skip-build --no-parallel --filter 'CLITests|ProcessTests'
+        run: swift test --skip-build --filter '^ProcessTests[./]'
       - name: Check Bylaws' own rules
         if: matrix.swift == '6.2'
         run: swift run --skip-build bylaws lint --skip-tests --format github

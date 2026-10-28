@@ -6,14 +6,15 @@
   import Foundation
   import Testing
 
-  @Suite("SwiftPM rule reporting")
+  @Suite("SwiftPM rule reporting", .reuseSwiftTestingBuild)
   struct SwiftPMReportingProcessTests {
     @Test(
       "Enforced child report retains fix, empty outcome and unrelated failure",
       .timeLimit(.minutes(10))
     )
     func reportingLifecycle() async throws {
-      let consumer = try SwiftTestingReportConsumer(enforcement: .enforced)
+      let consumer =
+        try await SwiftTestingReportConsumer(enforcement: .enforced)
       let original = Data("class Screen {}\n".utf8)
       let firstSession = session(in: consumer, phase: "first")
 

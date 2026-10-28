@@ -58,12 +58,6 @@ package struct CorrectionPlan {
     }
   }
 
-  private struct Target {
-    let path: String
-    let resolvedPath: String
-    let original: Data
-  }
-
   package static func prepare(
     reports: [RuleReport],
     rootPath: String,
@@ -73,6 +67,9 @@ package struct CorrectionPlan {
     let root = LexicalFilePath(rootPath)
     let scope = reportPaths.isEmpty
       ? nil : ReportPathScope(paths: reportPaths, rootPath: rootPath)
+    var validation = TargetValidation(
+      root: root, scope: scope, protectedPaths: protectedPaths
+    )
     var proposals: [Proposal] = []
     var diagnostics: [Diagnostic] = []
     var targetsBySourcePath: [String: Result<Target, any Error>] = [:]
@@ -99,10 +96,7 @@ package struct CorrectionPlan {
             let path = edit.source.filePath
             if targetsBySourcePath[path] == nil {
               targetsBySourcePath[path] = Result {
-                try validateTarget(
-                  path, root: root, scope: scope,
-                  protectedPaths: protectedPaths
-                )
+                try validation.target(at: path)
               }
             }
             guard let target = try targetsBySourcePath[path]?.get(),
@@ -228,54 +222,6 @@ package struct CorrectionPlan {
     return Change(
       path: target.path, resolvedPath: target.resolvedPath,
       original: target.original, replacement: replacement
-    )
-  }
-
-  private static func validateTarget(
-    _ path: String,
-    root: LexicalFilePath,
-    scope: ReportPathScope?,
-    protectedPaths: Set<String>
-  ) throws -> Target {
-    let candidate = LexicalFilePath(path)
-    // Foundation can shorten macOS paths that SwiftPM reports in physical form.
-    guard let resolvedRoot = root.resolvingSymbolicLinks(),
-          candidate.string == path,
-          let relative = candidate.relative(to: root)
-          ?? candidate.relative(to: resolvedRoot),
-          let physicalPath = candidate.resolvingSymbolicLinks(),
-          physicalPath == resolvedRoot.appending(relative.string),
-          path.hasSuffix(".swift")
-    else {
-      throw CaptureError(
-        "the correction must target a regular Swift file under '\(root.string)'"
-      )
-    }
-    guard !protectedPaths.contains(where: {
-      LexicalFilePath($0).resolvingSymbolicLinks() == physicalPath
-    }) else {
-      throw CaptureError(
-        "the correction targets active rule or configuration source at '\(path)'"
-      )
-    }
-    guard scope?.contains(path: path) != false else {
-      throw CaptureError(
-        "the correction targets '\(path)' outside --report-path"
-      )
-    }
-    let attributes = try FileManager.default.attributesOfItem(atPath: path)
-    guard attributes[.type] as? FileAttributeType == .typeRegular,
-          (attributes[.referenceCount] as? NSNumber)?.intValue == 1,
-          FileManager.default.isWritableFile(atPath: path)
-    else {
-      throw CaptureError(
-        "the correction target must be a writable regular file at '\(path)'"
-      )
-    }
-    return Target(
-      path: root.appending(relative.string).string,
-      resolvedPath: physicalPath.string,
-      original: try Data(contentsOf: URL(fileURLWithPath: path))
     )
   }
 

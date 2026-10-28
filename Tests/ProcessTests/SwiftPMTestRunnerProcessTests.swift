@@ -5,7 +5,7 @@ import Subprocess
 import Testing
 @testable import BylawsRunner
 
-@Suite("SwiftPM test runner")
+@Suite("SwiftPM test runner", .processLimit)
 struct SwiftPMTestRunnerProcessTests {
   @Test(
     "Child environment clears correction state and retains unrelated values"

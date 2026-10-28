@@ -5,14 +5,14 @@
   import Foundation
   import Testing
 
-  @Suite("SwiftPM report integrity")
+  @Suite("SwiftPM report integrity", .reuseSwiftTestingBuild)
   struct SwiftPMReportIntegrityProcessTests {
     @Test(
       "Child output corruption blocks collection and identifies malformed file",
       .timeLimit(.minutes(10))
     )
     func corruptedOutput() async throws {
-      let consumer = try SwiftTestingReportConsumer(
+      let consumer = try await SwiftTestingReportConsumer(
         enforcement: .enforced,
         additionalTests: Self.corruptingTests
       )

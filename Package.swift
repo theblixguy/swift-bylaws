@@ -631,6 +631,20 @@ let package = Package(
       swiftSettings: swiftSettings
     ),
     .testTarget(
+      name: "ProcessTests",
+      dependencies: [
+        "bylaws-cli",
+        "BylawsCore",
+        "BylawsInterpreter",
+        "BylawsRunner",
+        "BylawsSemantics",
+        "BylawsTestSupport",
+        .product(name: "Subprocess", package: "swift-subprocess"),
+        .product(name: "SystemPackage", package: "swift-system"),
+      ],
+      swiftSettings: swiftSettings
+    ),
+    .testTarget(
       name: "CoreTests",
       dependencies: [
         "Bylaws",
