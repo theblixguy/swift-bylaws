@@ -52,20 +52,22 @@
       let manager = FileManager.default
       for file in try manager.contentsOfDirectory(
         at: project.rootURL, includingPropertiesForKeys: nil
-      ) where file.lastPathComponent != ".build"
-        && file.lastPathComponent != "Package.swift"
-      {
-        try manager.removeItem(at: file)
-      }
-      let build = project.rootURL.appendingPathComponent(".build")
-      guard manager.fileExists(atPath: build.path) else { return }
-      guard try build.resourceValues(forKeys: [.isDirectoryKey])
-        .isDirectory == true
-      else { throw POSIXError(.ENOTDIR) }
-      for file in try manager.contentsOfDirectory(
-        at: build, includingPropertiesForKeys: nil
-      ) where file.lastPathComponent.hasPrefix("bylaws") {
-        try manager.removeItem(at: file)
+      ) {
+        switch file.lastPathComponent {
+        case "Package.swift":
+          break
+        case ".build":
+          guard try file.resourceValues(forKeys: [.isDirectoryKey])
+            .isDirectory == true
+          else { throw POSIXError(.ENOTDIR) }
+          for output in try manager.contentsOfDirectory(
+            at: file, includingPropertiesForKeys: nil
+          ) where output.lastPathComponent.hasPrefix("bylaws") {
+            try manager.removeItem(at: output)
+          }
+        default:
+          try manager.removeItem(at: file)
+        }
       }
     }
   }
