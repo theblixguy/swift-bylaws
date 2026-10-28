@@ -4,8 +4,8 @@ Use Bazel's configured dependency graph to check relationships between targets.
 
 ## Export the graph
 
-Generate the export with Bazel 8 or later, because earlier versions can omit
-configuration data for dependencies.
+Use Bazel 8 or later for the export. Earlier versions can omit configuration
+data for dependencies.
 
 You can check Bazel targets and their dependencies without a `Package.swift`.
 Start by exporting the graph for your app, then run the rules after the export

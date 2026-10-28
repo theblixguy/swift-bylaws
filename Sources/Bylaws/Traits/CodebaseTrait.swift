@@ -30,7 +30,7 @@
   }
 
   extension Trait where Self == CodebaseTrait {
-    /// Parses `codebase` and binds it as the suite's current codebase.
+    /// Sets the codebase to prepare and use throughout the suite.
     public static func codebase(_ codebase: Codebase) -> Self {
       Self(codebase: codebase)
     }

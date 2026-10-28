@@ -106,7 +106,7 @@ and accessors.
 ## Configure caches for tests
 
 You can choose disk-cache settings for a suite with `.parseCache`. For example,
-this suite reads and hashes each source file before reusing its cached parse:
+this suite checks each source file's contents before reusing cached data:
 
 ```swift
 @Suite(.codebase(.app), .parseCache(validation: .content))
@@ -128,10 +128,8 @@ the disk cache for one test, add `.parseCache(budget: 0)` to its `@Test` attribu
 
 A trait with a non-zero budget enables caching even for temporary projects
 and overrides `BYLAWS_DISABLE_PARSE_CACHE`. An explicit `Codebase(parseCache:)`
-configuration takes precedence over the trait. Bylaws resolves the settings
-when you query the codebase, so stored and static codebases can use them too.
-The order of `.codebase` and `.parseCache` in the suite attribute makes no
-difference to preparation.
+configuration takes precedence over the trait. Trait settings also apply to
+stored and static codebases.
 
 For discovered rules, `.selectionCache(budget: 32 * 1024 * 1024)` gives the
 suite one shared budget for retained query selections. You can omit `budget`

@@ -68,8 +68,6 @@ package enum IndexStoreDirectory {
     }
   }
 
-  // The read closure throws Foundation errors alone. Those render
-  // through localizedDescription.
   private static func readingFileSystem<Value>(
     at path: String,
     orMissing missing: Value,

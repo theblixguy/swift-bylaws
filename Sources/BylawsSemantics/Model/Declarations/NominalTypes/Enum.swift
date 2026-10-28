@@ -1,6 +1,6 @@
 /// An `enum` declaration, as written in one source file.
 public struct Enum: NominalTypeDeclaration, NominalTypeStorageMutating {
-  /// The data the declaration shares with the other nominal kinds.
+  /// The data recorded for this declaration.
   public package(set) var storage: NominalTypeStorage
 
   /// Whether the enum is marked `indirect`.

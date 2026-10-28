@@ -39,9 +39,8 @@ public enum FileCollector {
 
   /// Parses `source` at a virtual `path` without reading from disk.
   ///
-  /// - Throws: ``ParseError/didNotParse(diagnostics:)`` when the parser recovers
-  ///   from a syntax error. A recovered tree can omit declarations and make
-  ///   a rule pass incorrectly.
+  /// - Throws: ``ParseError/didNotParse(diagnostics:)`` when the source has a
+  ///   syntax error.
   public static func collect(
     source: String,
     path: String,

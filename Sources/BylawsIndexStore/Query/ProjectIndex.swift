@@ -1,6 +1,6 @@
 import Foundation
 
-/// An in-memory index of compiler-resolved symbols across modules.
+/// An index of compiler-resolved symbols across modules.
 public struct ProjectIndex: Sendable {
   private let occurrenceStorage: IndexOccurrences
 
@@ -18,9 +18,7 @@ public struct ProjectIndex: Sendable {
   ///
   /// - Parameters:
   ///   - store: The store to read.
-  ///   - modules: The modules to read, or `nil` for all of them. Selecting
-  ///     modules skips standard-library and dependency-framework units, which
-  ///     make up most stores.
+  ///   - modules: The modules to read, or `nil` for all of them.
   ///   - unitOutputFiles: The opaque output identities of the units in the
   ///     current build, or `nil` when the store belongs to one build
   ///     configuration. Read these values from ``IndexUnit/outputFile`` or

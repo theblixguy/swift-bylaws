@@ -8,9 +8,9 @@ extension Rule {
   /// project:
   ///
   /// ```swift
-  /// @Test(.annotatesViolations, arguments: try await Rule.discovered())
+  /// @Test("Code follows project rules", arguments: try await Rule.discovered())
   /// func holds(_ rule: Rule) async throws {
-  ///   try await #expect(rule.violations().isEmpty)
+  ///   try await rule.report()
   /// }
   /// ```
   ///

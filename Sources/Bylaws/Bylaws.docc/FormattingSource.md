@@ -283,4 +283,4 @@ validation does not establish semantic equivalence.
 Portable layout closures are synchronous and can throw. Their comparisons,
 conditions and helpers use the portable Swift subset. Swift Testing rules can
 use the full language. The correction checks in <doc:CorrectingSource> apply
-to both surfaces.
+to both rule forms.

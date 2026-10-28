@@ -23,8 +23,8 @@ You can also share rules through a Swift package and test them against small
 code examples. When the rules belong to a test target, you also get compiler
 type checks and editor support for completion and refactoring.
 
-You can run the same rules from the command line if they use the CLI's
-[supported Swift subset].
+The CLI can read portable rules written in its [supported Swift subset] and
+run Swift Testing rules in SwiftPM test targets.
 
 ## Can rules enforce MVVM, MVP or another architecture?
 
@@ -104,8 +104,8 @@ Xcode project target.
 
 ## Why does the plugin need `--allow-writing-to-package-directory`?
 
-The command plugin needs permission to save a baseline beside your rules when
-you ask it to record violations. The flag grants that permission for the run.
+The command plugin needs permission to save baselines and apply source
+corrections when you request them. The flag grants that permission for the run.
 
 ## We have hundreds of violations today. How do we adopt a rule?
 
@@ -173,10 +173,15 @@ CI.
 
 ## Can a rule fix the code it flags?
 
-Bylaws reports a violation and its source location so you can decide how to fix
-it. For example, a disallowed import might call for moving a type to another
-layer or passing a dependency through a protocol, which is a design choice that
-you have to make yourself.
+Yes. You can define source corrections in both `Bylaws.swift` and Swift Testing
+rules. Run `bylaws lint --autocorrect --dry-run` to review the changes, then
+`bylaws lint --autocorrect` to apply them and rerun the rules. The
+[source correction guide] covers text edits, formatting and changes across
+files.
+
+A rule needs a defined correction before Bylaws can apply it. A disallowed
+import, for example, might call for moving a type or introducing a protocol,
+so the rule can report the violation for you to resolve.
 
 ## Where can I ask for help?
 
@@ -202,3 +207,5 @@ ran and a reproducer for the rules you used.
   https://theblixguy.github.io/swift-bylaws/documentation/bylaws/whatbylawsreads
 [Running rules from the CLI]:
   https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesfromthecli
+[source correction guide]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/correctingsource

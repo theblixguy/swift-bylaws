@@ -1,6 +1,6 @@
 /// An `actor` declaration, as written in one source file.
 public struct Actor: NominalTypeDeclaration, NominalTypeStorageMutating {
-  /// The data the declaration shares with the other nominal kinds.
+  /// The data recorded for this declaration.
   public package(set) var storage: NominalTypeStorage
 
   package init(storage: NominalTypeStorage) {

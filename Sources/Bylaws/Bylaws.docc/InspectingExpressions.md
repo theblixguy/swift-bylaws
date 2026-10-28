@@ -34,9 +34,7 @@ branch, including code for other build configurations.
 
 ## Inspect a call argument
 
-You can inspect a call argument through its `expression` property. Each access
-parses the argument, so save the expression in a local variable when you want
-to check several of its properties.
+You can inspect a call argument through its `expression` property.
 
 Use `stringValue`, `booleanValue`, `integerValue` or `floatingPointValue` to
 read a literal's value. For example, `booleanValue` returns `false` for the
@@ -108,7 +106,7 @@ and accessors.
 
 You can get this context through `codebase.expressions` or `file.expressions`.
 An expression from `call.arguments` has only the declarations inside that
-argument because it is parsed separately from the file.
+argument.
 
 Use <doc:AdvancedRules> when you need statements or other Swift syntax beyond
 these properties.

@@ -79,7 +79,7 @@ extension NominalTypeStorage: SourceTextProviding {}
 public protocol NominalTypeDeclaration: TypeDeclaration, Documented,
   SourceProviding
 {
-  /// The data the declaration shares with the other nominal kinds.
+  /// The data recorded for this declaration.
   var storage: NominalTypeStorage { get }
 }
 

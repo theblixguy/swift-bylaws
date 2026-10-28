@@ -163,9 +163,9 @@ to `Layering(...)` instead.
 ## Run these rules from the CLI
 
 The CLI supports combined rule bodies, member matchers, Boolean key-path
-checks, `RuleResults`, rule-list builders and layer-list builders. Put these
-rules in a `[Rule]` binding, as in the examples above. Standalone `Rule` and
-`Override` declarations take one query per rule body.
+checks, `RuleResults`, rule-list builders and layer-list builders. You can
+combine checks in standalone `Rule` and `Override` declarations or in rules
+stored in a `[Rule]` binding.
 
 In a portable `for` loop, bind each element of an array, set or selection to
 one name. Custom builders, `for await`, pattern-matching loops and availability

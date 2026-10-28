@@ -13,15 +13,17 @@ extension Collection where Element: SourceProviding {
   ///
   /// The layout must emit every input element exactly once. A replacement
   /// retains each input element and regenerates list separators. An embedded
-  /// edit can change part of one element. Comments with
-  /// unclear ownership and conditional-compilation boundaries stop the fix.
+  /// edit can change part of one element. The fix stops at
+  /// conditional-compilation boundaries or when a comment's ownership is unclear.
+  ///
   /// Space indentation comes from source outside the replaced list, with two
   /// spaces used when none can be inferred. Tabs use one tab per level.
   /// Wrapping defaults to 100 characters.
+  ///
   /// A non-nil `whenLineExceeds` value must be positive. The layout applies
   /// when a complete source line touched by the list exceeds that width.
-  /// With `nil`, it applies unconditionally. A nested layout uses its new
-  /// position in the containing layout for the width check.
+  /// The default `nil` applies the layout unconditionally. A nested layout uses
+  /// its new position in the containing layout for the width check.
   /// - Throws: ``SourceError`` when captured source cannot be read,
   ///   ``SourceLayoutReplacementError`` for unsupported input or source
   ///   ownership, or ``SourceLayoutError`` for a layout that cannot be rendered.

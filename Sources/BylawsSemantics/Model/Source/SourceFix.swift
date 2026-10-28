@@ -109,7 +109,7 @@ public struct SourceFix: Sendable, Hashable, Codable {
       case source, replacement, layout
     }
 
-    /// Decodes a replacement and checks its captured layout ranges.
+    /// Decodes a replacement and validates its source ranges.
     public init(from decoder: any Decoder) throws {
       let values = try decoder.container(keyedBy: CodingKeys.self)
       let source = try values.decode(SourceSlice.self, forKey: .source)
@@ -125,7 +125,7 @@ public struct SourceFix: Sendable, Hashable, Codable {
       try SourceLayoutComposition.validate(self)
     }
 
-    /// Encodes the replacement and its captured layout.
+    /// Encodes a source replacement.
     public func encode(to encoder: any Encoder) throws {
       try SourceLayoutComposition.validate(self)
       var values = encoder.container(keyedBy: CodingKeys.self)

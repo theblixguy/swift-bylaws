@@ -6,7 +6,7 @@ Write rules that order source elements, set spacing and wrap nested arguments.
 
 Each recipe includes a complete `Bylaws.swift` rule and a Swift Testing rule.
 Use one version at a time. Both produce corrections for `bylaws lint
---autocorrect`, and an already-correct layout produces no violation.
+--autocorrect`. Source that matches the layout produces no violation.
 
 You can combine property grouping, statement spacing and call argument
 layouts, including inside nested calls and closures. Choose one policy for
@@ -357,8 +357,8 @@ width-limited layout. It applies only to calls named `send`.
 `Indent` adds one level to the list's inferred indentation. With the default
 two-space level, the example below uses four spaces for arguments. `Break`
 supplies an optional break that becomes a space when the content fits.
-Ordinary argument lists already supply these break positions, so the explicit
-breaks show how to compose a layout rather than a step every rule must take.
+Argument lists supply these break positions by default. This example adds
+`Break` explicitly to show how you can use it in a stored layout.
 
 ### Bylaws.swift
 
@@ -635,8 +635,8 @@ func conditionWidth() async throws {
 
 The list API also covers generic parameters and arguments, generic
 requirements, inherited types, closure parameters and captures, tuple elements
-and switch lists. Select a list kind, read its `elements` and define the
-layout. A list keeps its own punctuation and ownership rules.
+and switch lists. Select a list kind and read its `elements` to define a
+layout. The builder adds the required separators.
 
 Layouts preserve the selected elements. A rule that adds an argument, removes
 an accessor, changes a literal or rewrites an operator needs a source
