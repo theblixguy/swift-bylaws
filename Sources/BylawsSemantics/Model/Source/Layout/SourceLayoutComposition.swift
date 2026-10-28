@@ -40,6 +40,7 @@ package enum SourceLayoutComposition {
     lazy var bytes = snapshot.syntaxContext?.bytes ?? Array(snapshot.text.utf8)
     lazy var lineEnding = snapshot.lineEnding
     private var parsedTree: SourceFileSyntax?
+    var preparedLayouts: [ComposedEdit: SourceLayoutPrepared] = [:]
 
     var tree: SourceFileSyntax {
       if let parsedTree { return parsedTree }
@@ -100,89 +101,56 @@ package enum SourceLayoutComposition {
       edits: [SourceFix.Edit], candidates: [SourceFix.Edit] = [],
       validating: Bool = true
     ) throws -> [SourceFix.Edit] {
-      for candidate in candidates {
-        guard candidate.layout != nil,
-              candidate.source.text.utf8
-                .elementsEqual(candidate.replacement.utf8)
-        else { throw Failure.changedCandidate }
-        if validating { try validate(candidate) }
-      }
-      let active = Set(edits)
-      let candidateSet = Set(candidates)
-      let changesLines = try contentEdits(in: edits).contains {
-        $0.source.text.contains(where: SourceLayoutText.isNewline)
-          || $0.replacement.contains(where: SourceLayoutText.isNewline)
-      }
-      let context = Array(candidateSet).filter { candidate in
-        !active.contains(candidate)
-          && (edits.contains { intersects(
-            candidate.source.range,
-            $0.source.range
-          ) }
-            || candidate.layout?.lineWidthLimit != nil
-            &&
-            (changesLines || edits
-              .contains { sharesLine(candidate, with: $0) }))
-      }
-      let input = (edits + context).sorted {
-        if $0.source.range.lowerBound != $1.source.range.lowerBound {
-          return $0.source.range.lowerBound < $1.source.range.lowerBound
-        }
-        return $0.source.range.upperBound > $1.source.range.upperBound
-      }
-      var children = [[Int]](repeating: [], count: input.count)
-      var roots: [Int] = []
-      var stack: [Int] = []
-      for index in input.indices {
-        let edit = input[index]
-        guard edit.source.snapshot == snapshot else {
-          throw SourceError.differentSnapshots
-        }
-        if validating, !candidateSet.contains(edit) { try validate(edit) }
-        while let parent = stack.last,
-              !intersects(input[parent].source.range, edit.source.range)
-        {
-          stack.removeLast()
-        }
-        if let parent = stack.last {
-          let outer = input[parent]
-          guard outer.source.range != edit.source.range,
-                contains(outer.source.range, edit.source.range),
-                let plan = outer.layout,
-                try owns(edit, plan: plan)
-          else { throw SourceError.overlappingEdits }
-          children[parent].append(index)
-        } else {
-          roots.append(index)
-        }
-        stack.append(index)
-      }
-      func combined(_ index: Int) throws -> SourceFix.Edit {
-        let edit = input[index]
-        guard let plan = edit.layout,
-              !children[index].isEmpty else { return edit }
-        let nested = try children[index]
-          .map { SourceLayoutPlan.CapturedEdit(try combined($0)) }
-        let combinedPlan = SourceLayoutPlan(
-          elements: plan.elements, node: plan.node,
-          allowsPartialList: plan.allowsPartialList,
-          baseIndentation: plan.baseIndentation, targetRange: plan.targetRange,
-          trimmed: plan.trimmed, lineWidthLimit: plan.lineWidthLimit,
-          nested: plan.nested + nested
-        )
-        let pending = SourceFix.Edit(
-          source: edit.source, replacement: edit.replacement,
-          layout: combinedPlan
-        )
-        return SourceFix.Edit(
-          source: edit.source, replacement: try render(pending),
-          layout: combinedPlan
-        )
-      }
-      return try roots.map(combined)
+      try composeTree(
+        edits: edits,
+        candidates: candidates,
+        validating: validating
+      )
+      .map(materialize)
     }
 
-    private func sharesLine(
+    private func materialize(_ node: ComposedEdit) throws -> SourceFix.Edit {
+      let edit = node.edit
+      guard let plan = edit.layout, !node.children.isEmpty else { return edit }
+      let nested = try node.children.map {
+        SourceLayoutPlan.CapturedEdit(try materialize($0))
+      }
+      let combinedPlan = SourceLayoutPlan(
+        elements: plan.elements, node: plan.node,
+        allowsPartialList: plan.allowsPartialList,
+        baseIndentation: plan.baseIndentation, targetRange: plan.targetRange,
+        trimmed: plan.trimmed, lineWidthLimit: plan.lineWidthLimit,
+        nested: plan.nested + nested
+      )
+      let prepared = try prepare(edit, adding: node.children)
+      return SourceFix.Edit(
+        source: edit.source,
+        replacement: try SourceLayoutRenderer.render(prepared),
+        layout: combinedPlan
+      )
+    }
+
+    func render(
+      _ edit: SourceFix.Edit,
+      at placement: SourceLayoutRenderer.Placement? = nil
+    ) throws -> String {
+      guard edit.layout != nil else { return edit.replacement }
+      return try SourceLayoutRenderer.render(prepare(edit), at: placement)
+    }
+
+    func content(
+      _ source: SourceSlice, applying edits: [SourceFix.Edit],
+      at placement: SourceLayoutRenderer.Placement,
+      followedBy following: SourceLayoutContinuation = .end
+    ) throws -> String {
+      let content = try prepareContent(source, applying: edits)
+      return try SourceLayoutRenderer.render(
+        SourceLayoutDocument(events: [.content(content)]),
+        at: placement, followedBy: following
+      )
+    }
+
+    func sharesLine(
       _ candidate: SourceFix.Edit,
       with edit: SourceFix.Edit
     ) -> Bool {
@@ -217,14 +185,14 @@ package enum SourceLayoutComposition {
     }
   }
 
-  private static func contains(
+  static func contains(
     _ outer: Range<Int>,
     _ inner: Range<Int>
   ) -> Bool {
     outer.lowerBound <= inner.lowerBound && outer.upperBound >= inner.upperBound
   }
 
-  private static func intersects(_ lhs: Range<Int>, _ rhs: Range<Int>) -> Bool {
+  static func intersects(_ lhs: Range<Int>, _ rhs: Range<Int>) -> Bool {
     lhs.overlaps(rhs)
       || lhs.isEmpty && rhs.contains(lhs.lowerBound)
       || rhs.isEmpty && lhs.contains(rhs.lowerBound)

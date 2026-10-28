@@ -42,9 +42,9 @@ extension SourceSlice {
       at: SourceLayoutRenderer.Placement(
         column: context.column(before: range.lowerBound),
         indentation: context.indentation(before: range.lowerBound),
-        lineIndentation: context.indentation(before: range.lowerBound),
-        trailingText: SourceLayoutText.lineSuffix(after: self)
-      )
+        lineIndentation: context.indentation(before: range.lowerBound)
+      ),
+      followedBy: .init(text: SourceLayoutText.lineSuffix(after: self))
     ))
   }
 
