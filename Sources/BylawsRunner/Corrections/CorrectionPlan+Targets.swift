@@ -13,7 +13,9 @@ extension CorrectionPlan {
     private let root: LexicalFilePath
     private let scope: ReportPathScope?
     private let protectedPaths: Set<String>
-    private var resolvedProtectedPaths: Set<LexicalFilePath>?
+    private lazy var resolvedProtectedPaths = Set(protectedPaths.compactMap {
+      LexicalFilePath($0).resolvingSymbolicLinks()
+    })
 
     init(
       root: LexicalFilePath, scope: ReportPathScope?,
@@ -39,12 +41,7 @@ extension CorrectionPlan {
           "the correction must target a regular Swift file under '\(root.string)'"
         )
       }
-      if resolvedProtectedPaths == nil {
-        resolvedProtectedPaths = Set(protectedPaths.compactMap {
-          LexicalFilePath($0).resolvingSymbolicLinks()
-        })
-      }
-      guard resolvedProtectedPaths?.contains(physicalPath) != true else {
+      guard !resolvedProtectedPaths.contains(physicalPath) else {
         throw CaptureError(
           "the correction targets active rule or configuration source at '\(path)'"
         )

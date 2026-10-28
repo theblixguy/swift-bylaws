@@ -5,6 +5,21 @@
 
   @Suite("Swift Testing consumer builds")
   struct SwiftTestingConsumerPoolTests {
+    @Test(
+      "Parameterized consumers receive separate test inputs",
+      .reuseSwiftTestingBuild, arguments: [0, 1, 2]
+    )
+    func parameterizedConsumers(_ value: Int) async throws {
+      let consumer = try await SwiftTestingReportConsumer()
+      let source = "class Screen\(value) {}\n"
+      try consumer.writeSource(source)
+
+      #expect(consumer.root.deletingLastPathComponent().lastPathComponent
+        .hasPrefix("bylaws-consumers-"))
+      #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8)
+        == source)
+    }
+
     @Test("Build trait scopes consumer inputs", .reuseSwiftTestingBuild)
     func scopedConsumer() async throws {
       let consumer = try await SwiftTestingReportConsumer()

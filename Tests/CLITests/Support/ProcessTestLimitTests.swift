@@ -34,16 +34,6 @@
       }
     }
 
-    @Test("Nested scope shares caller capacity")
-    func nestedScopes() async throws {
-      let limit = ProcessTestLimit(maximumConcurrentScopes: 1)
-      try await confirmation("Nested scope runs") { entered in
-        try await limit.withScope {
-          try await limit.withScope { entered() }
-        }
-      }
-    }
-
     @Test("Cancelled caller skips scope body")
     func cancelledCaller() async throws {
       let limit = ProcessTestLimit(maximumConcurrentScopes: 1)

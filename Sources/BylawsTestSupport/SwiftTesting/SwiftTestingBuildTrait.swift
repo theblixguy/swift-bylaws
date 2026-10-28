@@ -20,7 +20,12 @@
         try await ProcessTestLimit.shared.withScope(performing: function)
         return
       }
-      try await ProcessTestLimit.shared.withScope {
+      if test.isParameterized {
+        try await ProcessTestLimit.shared.withScope {
+          try await SwiftTestingConsumerPool.shared
+            .withScope(performing: function)
+        }
+      } else {
         try await SwiftTestingConsumerPool.shared
           .withScope(performing: function)
       }

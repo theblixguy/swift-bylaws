@@ -3,7 +3,6 @@
 
   package actor ProcessTestLimit {
     static let shared = ProcessTestLimit(maximumConcurrentScopes: 2)
-    @TaskLocal private static var activeLimits: Set<ObjectIdentifier> = []
 
     private struct Waiter {
       let id: UUID
@@ -25,20 +24,10 @@
     package func withScope(
       performing function: @concurrent @Sendable () async throws -> Void
     ) async throws {
-      let identity = ObjectIdentifier(self)
-      if Self.activeLimits.contains(identity) {
-        try Task.checkCancellation()
-        try await function()
-        return
-      }
       try await acquire()
       defer { release() }
-      try await Self.$activeLimits.withValue(
-        Self.activeLimits.union([identity])
-      ) {
-        try Task.checkCancellation()
-        try await function()
-      }
+      try Task.checkCancellation()
+      try await function()
     }
 
     private func acquire() async throws {
