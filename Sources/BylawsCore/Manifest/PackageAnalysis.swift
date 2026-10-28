@@ -26,15 +26,15 @@ struct PackageAnalysis: Sendable {
       !target.unresolvedValues.contains { $0.field.hasSuffix(".path") }
     }
 
+    // Byte comparisons preserve path identity for different Unicode spellings.
+    let files = parsedCodebase.filesAsWritten.map {
+      (file: $0, path: Array(LexicalFilePath($0.path).string.utf8))
+    }
     var filesByTarget: [String: [SourceFile]] = [:]
     for target in targets {
-      let directory = root.appending(target.sourceDirectory)
-      let candidates = parsedCodebase.filesAsWritten.filter {
-        directory.contains(LexicalFilePath($0.path))
-      }
       filesByTarget[target.name] = Self.selectedFiles(
-        among: candidates,
-        relativeTo: directory,
+        among: files,
+        relativeTo: Array(root.appending(target.sourceDirectory).string.utf8),
         for: target
       )
     }
@@ -174,30 +174,43 @@ struct PackageAnalysis: Sendable {
   }
 
   private static func selectedFiles(
-    among files: [SourceFile],
-    relativeTo directory: LexicalFilePath,
+    among files: [(file: SourceFile, path: [UInt8])],
+    relativeTo directory: [UInt8],
     for target: PackageManifest.Target
   ) -> [SourceFile] {
-    let excluded = target.excludedPaths.knownValues
-    let included: [String]? = switch target.sources {
-    case .automatic: nil
-    case let .explicit(paths): paths.knownValues
+    let excluded = target.excludedPaths.knownValues.map {
+      Array(LexicalFilePath($0).string.utf8)
     }
-    return files.filter { file in
-      guard let relativePath = LexicalFilePath(file.path)
-        .relative(to: directory)?.string, !excluded.contains(where: {
-          path(relativePath, belongsTo: $0)
-        }) else { return false }
-      guard let included else { return true }
-      return included.contains { path(relativePath, belongsTo: $0) }
+    let included: [[UInt8]]? = switch target.sources {
+    case .automatic: nil
+    case let .explicit(paths):
+      paths.knownValues.map { Array(LexicalFilePath($0).string.utf8) }
+    }
+    return files.compactMap { file, path in
+      guard let relativePath = relativePath(path[...], under: directory),
+            !excluded.contains(where: {
+              Self.relativePath(relativePath, under: $0) != nil
+            })
+      else { return nil }
+      if let included, !included.contains(where: {
+        Self.relativePath(relativePath, under: $0) != nil
+      }) { return nil }
+      return file
     }
   }
 
-  private static func path(
-    _ file: String,
-    belongsTo selection: String
-  ) -> Bool {
-    LexicalFilePath(selection).contains(LexicalFilePath(file))
+  private static func relativePath(
+    _ path: ArraySlice<UInt8>,
+    under directory: [UInt8]
+  ) -> ArraySlice<UInt8>? {
+    guard !directory.isEmpty else { return path }
+    guard path.starts(with: directory) else { return nil }
+    let suffix = path.dropFirst(directory.count)
+    guard !suffix.isEmpty, directory.last != UInt8(ascii: "/") else {
+      return suffix
+    }
+    guard suffix.first == UInt8(ascii: "/") else { return nil }
+    return suffix.dropFirst()
   }
 }
 
