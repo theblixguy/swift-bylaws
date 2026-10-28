@@ -59,6 +59,9 @@
       }
       let build = project.rootURL.appendingPathComponent(".build")
       guard manager.fileExists(atPath: build.path) else { return }
+      guard try build.resourceValues(forKeys: [.isDirectoryKey])
+        .isDirectory == true
+      else { throw POSIXError(.ENOTDIR) }
       for file in try manager.contentsOfDirectory(
         at: build, includingPropertiesForKeys: nil
       ) where file.lastPathComponent.hasPrefix("bylaws") {
