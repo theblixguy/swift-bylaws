@@ -53,7 +53,7 @@ public struct FunctionCall: Declaration, Codable {
       guard let location else { return nil }
       return SourceExpression.parse(
         text, at: location, swiftLanguageMode: swiftLanguageMode,
-        originalSource: parsedSource?.whole
+        capturedSource: parsedSource
       )
     }
   }

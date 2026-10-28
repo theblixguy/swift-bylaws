@@ -43,7 +43,7 @@ package enum SourceLayoutComposition {
 
     var tree: SourceFileSyntax {
       if let parsedTree { return parsedTree }
-      let parsed = snapshot.swiftLanguageMode.parse(snapshot.text)
+      let parsed = snapshot.syntaxTree()
       parsedTree = parsed
       return parsed
     }

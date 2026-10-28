@@ -56,9 +56,7 @@ package final class CacheDecoder {
   package func bindSource(to swiftLanguageMode: SwiftLanguageMode) {
     source = SourceBuffer(
       source.text, lineCount: source.lineCount,
-      snapshot: SourceSnapshot(
-        filePath: path, text: source.text, swiftLanguageMode: swiftLanguageMode
-      )
+      filePath: path, swiftLanguageMode: swiftLanguageMode
     )
   }
 

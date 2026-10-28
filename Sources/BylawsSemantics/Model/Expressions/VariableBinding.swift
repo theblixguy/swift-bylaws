@@ -2,8 +2,8 @@ import BylawsSyntax
 
 /// A variable declaration or optional binding, including local bindings.
 public struct VariableBinding: Declaration {
-  private let originalSource: SourceSlice?
-  private let originalName: SourceSlice?
+  private let originalSource: ParsedSource?
+  private let originalName: ParsedSource?
   /// The binding pattern, such as `token` or `(key, value)`.
   public let name: String
 
@@ -29,8 +29,8 @@ public struct VariableBinding: Declaration {
     syntax: some SyntaxProtocol, source: SourceText, origin: DeclarationLocation
   ) {
     let context = SourceContext(source: source, origin: origin)
-    originalSource = try? context.sourceSlice(of: syntax)
-    originalName = try? context.sourceSlice(of: pattern)
+    originalSource = context.parsedSource(of: syntax)
+    originalName = context.parsedSource(of: pattern)
     name = source.trimmedText(of: pattern)
     self.initialValue = initialValue.map {
       SourceExpression($0, source: source, origin: origin)
@@ -43,11 +43,11 @@ public struct VariableBinding: Declaration {
 
   /// The binding's source, excluding outer trivia.
   public var source: SourceSlice {
-    get throws { try originalSource.required() }
+    get throws { try originalSource.required().whole }
   }
 
   /// The binding pattern's source, excluding outer trivia.
   public var nameSource: SourceSlice {
-    get throws { try originalName.required() }
+    get throws { try originalName.required().whole }
   }
 }

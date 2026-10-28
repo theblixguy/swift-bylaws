@@ -6,6 +6,7 @@ import Foundation
 let benchmarks = { @Sendable in
   registerCorrectionBenchmarks()
   registerConditionalLayoutBenchmarks()
+  registerSourceLoadingBenchmarks()
 
   let smallSource = """
   import Foundation

@@ -19,7 +19,7 @@ public struct SourceSpacing: Sendable {
     if usesDeclarationSource || provider is FunctionCall.Argument
       || provider is SourceExpression.Argument
     {
-      let tree = source.snapshot.swiftLanguageMode.parse(source.snapshot.text)
+      let tree = source.snapshot.syntaxTree()
       do {
         let item = try SourceLayoutReplacement.Item(
           source: source, tree: tree, validatesTrailingTrivia: false
@@ -124,7 +124,7 @@ extension SourceSlice {
 
 extension SourceSlice {
   private var hasPrecedingLineComment: Bool {
-    let tree = snapshot.swiftLanguageMode.parse(snapshot.text)
+    let tree = snapshot.syntaxTree()
     func containsComment(_ trivia: Trivia, startingAt start: Int) -> Bool {
       var offset = start
       for piece in trivia {

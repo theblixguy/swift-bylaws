@@ -78,7 +78,7 @@ struct ModifierReader {
         name: attribute.attributeName.trimmedDescription,
         arguments: attribute.arguments?.trimmedDescription
       )
-      result.capturedSource = try? reader.sourceSlice(of: attribute)
+      result.capturedSource = reader.parsedSource(of: attribute)
       return result
     }
   }

@@ -2,7 +2,7 @@ import BylawsSyntax
 
 /// An assignment using `=` or a standard compound-assignment operator.
 public struct SourceAssignment: Declaration {
-  private let originalSource: SourceSlice?
+  private let originalSource: ParsedSource?
   /// The expression on the left of the assignment operator.
   public let target: SourceExpression
 
@@ -43,7 +43,7 @@ public struct SourceAssignment: Declaration {
       return nil
     }
     target = expression.child(elements[0])
-    originalSource = try? expression.source
+    originalSource = expression.context.parsedSource(of: expression.syntax)
     self.operatorName = operatorName
     enclosingDeclarations = expression.enclosingDeclarations
     compilationBranches = expression.compilationBranches
@@ -57,12 +57,7 @@ public struct SourceAssignment: Declaration {
         source: SourceText(
           source: right.description,
           swiftLanguageMode: expression.sourceTextContext.swiftLanguageMode,
-          originalSource: try? SourceSlice(
-            snapshot: expression.source.snapshot,
-            range: expression.location(at: elements[2].position).utf8Offset
-              .required()..<expression.location(at: sequence.endPosition)
-              .utf8Offset.required()
-          )
+          capturedBuffer: expression.sourceTextContext.capturedBuffer
         ),
         origin: expression.location(at: elements[2].position),
         inheritedDeclarations: enclosingDeclarations,
@@ -73,7 +68,7 @@ public struct SourceAssignment: Declaration {
 
   /// The assignment's source, excluding outer trivia.
   public var source: SourceSlice {
-    get throws { try originalSource.required() }
+    get throws { try originalSource.required().whole }
   }
 
   private static let compoundOperators: Set<String> = [

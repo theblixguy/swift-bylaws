@@ -98,7 +98,7 @@ extension FunctionCall.Argument {
 
   /// The argument label, or `nil` for an unlabelled argument.
   public var labelSource: SourceSlice? {
-    get throws { try parsedSource.required().name }
+    get throws { try parsedSource.required().label }
   }
 }
 

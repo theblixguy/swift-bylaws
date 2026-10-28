@@ -5,7 +5,7 @@ extension SourceFile {
   /// closures.
   ///
   /// The query covers every `#if` branch and lists each expression before
-  /// the expressions inside it. Each access parses the file again.
+  /// the expressions inside it.
   /// - Complexity: O(n), where n is the length of the source file.
   public var expressions: [SourceExpression] {
     let source = SourceText(
@@ -13,7 +13,7 @@ extension SourceFile {
       swiftLanguageMode: swiftLanguageMode
     )
     let collector = ExpressionCollector(source: source, path: path)
-    collector.walk(swiftLanguageMode.parse(sourceText))
+    collector.walk(syntaxTree())
     return collector.expressions
   }
 }

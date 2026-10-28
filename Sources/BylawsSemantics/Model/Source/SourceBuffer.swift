@@ -1,12 +1,36 @@
+import ConcurrencyExtras
+
 package final class SourceBuffer: Sendable {
   package let text: String
   package let lineCount: Int
-  package let snapshot: SourceSnapshot?
+  private let filePath: String?
+  private let swiftLanguageMode: SwiftLanguageMode
+  private let cachedSnapshot: LockIsolated<SourceSnapshot?>
+
+  var sourcePath: String? { filePath }
+
+  package var snapshot: SourceSnapshot? {
+    guard let filePath else { return nil }
+    return cachedSnapshot.withValue { cachedSnapshot in
+      if let cachedSnapshot { return cachedSnapshot }
+      let snapshot = SourceSnapshot(
+        filePath: filePath, text: text, swiftLanguageMode: swiftLanguageMode
+      )
+      cachedSnapshot = snapshot
+      return snapshot
+    }
+  }
+
+  package var hasLoadedSnapshot: Bool {
+    cachedSnapshot.value != nil
+  }
 
   package init(_ text: String) {
     self.text = text
     lineCount = Self.lineCount(in: text)
-    snapshot = nil
+    filePath = nil
+    swiftLanguageMode = .v6
+    cachedSnapshot = LockIsolated(nil)
   }
 
   package init(
@@ -14,11 +38,28 @@ package final class SourceBuffer: Sendable {
   ) {
     self.text = text
     self.lineCount = lineCount
-    self.snapshot = snapshot
+    filePath = snapshot?.filePath
+    swiftLanguageMode = snapshot?.swiftLanguageMode ?? .v6
+    cachedSnapshot = LockIsolated(snapshot)
+  }
+
+  package init(
+    _ text: String, lineCount: Int, filePath: String?,
+    swiftLanguageMode: SwiftLanguageMode
+  ) {
+    self.text = text
+    self.lineCount = lineCount
+    self.filePath = filePath
+    self.swiftLanguageMode = swiftLanguageMode
+    cachedSnapshot = LockIsolated(nil)
   }
 
   package func contains(_ range: Range<Int>) -> Bool {
     range.lowerBound >= 0 && range.upperBound <= text.utf8.count
+  }
+
+  package func containsSourceRange(_ range: Range<Int>) -> Bool {
+    SourceSlice.contains(range, in: text)
   }
 
   package func text(inUTF8Range range: Range<Int>) -> String {

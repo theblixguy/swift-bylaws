@@ -12,7 +12,7 @@ final class SourceLexicalContext: Sendable {
   let trivia: [SourceTrivia]
 
   init(snapshot: SourceSnapshot) throws {
-    let tree = snapshot.swiftLanguageMode.parse(snapshot.text)
+    let tree = snapshot.syntaxTree()
     var tokens: [Token] = []
     var trivia: [SourceTrivia] = []
     for token in tree.tokens(viewMode: .sourceAccurate) {

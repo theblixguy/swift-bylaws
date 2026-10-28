@@ -65,8 +65,7 @@ package enum SourceLayoutReplacement {
     guard slices.allSatisfy({ $0.snapshot == first.snapshot }) else {
       throw SourceLayoutReplacementError.differentSnapshots
     }
-    let tree = parsedTree ?? first.snapshot.parsedTree
-      ?? first.snapshot.swiftLanguageMode.parse(first.snapshot.text)
+    let tree = parsedTree ?? first.snapshot.syntaxTree()
     let bytes = sourceContext?.bytes ?? first.snapshot.syntaxContext?.bytes
       ?? Array(first.snapshot.text.utf8)
     let items = try slices.map { try Item(source: $0, tree: tree) }

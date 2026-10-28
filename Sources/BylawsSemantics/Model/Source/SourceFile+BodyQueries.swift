@@ -4,27 +4,27 @@ extension SourceFile {
   /// The assignments in the file, including those inside local functions and
   /// closures.
   ///
-  /// The query includes every `#if` branch and parses the file on each access.
+  /// The query includes every `#if` branch.
   public var assignments: [SourceAssignment] {
     let source = SourceText(
       buffer: sourceBuffer,
       swiftLanguageMode: swiftLanguageMode
     )
     let collector = AssignmentCollector(source: source, path: path)
-    collector.walk(swiftLanguageMode.parse(sourceText))
+    collector.walk(syntaxTree())
     return collector.assignments
   }
 
   /// The variable declarations and optional bindings at every scope.
   ///
-  /// The query includes every `#if` branch and parses the file on each access.
+  /// The query includes every `#if` branch.
   public var variableBindings: [VariableBinding] {
     let source = SourceText(
       buffer: sourceBuffer,
       swiftLanguageMode: swiftLanguageMode
     )
     let collector = BindingCollector(source: source, path: path)
-    collector.walk(swiftLanguageMode.parse(sourceText))
+    collector.walk(syntaxTree())
     return collector.bindings
   }
 }
