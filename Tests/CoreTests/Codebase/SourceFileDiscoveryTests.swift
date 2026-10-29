@@ -1,3 +1,4 @@
+import BylawsPaths
 import BylawsTestSupport
 import Foundation
 import Testing
@@ -27,6 +28,29 @@ struct SourceFileDiscoveryTests {
       project.fileURL(for: "Sources/Feature/Café.swift").path,
       project.fileURL(for: "Sources/File..swift").path,
     ].sorted())
+    #expect(Set(result.relativeParentDirectories) == [
+      LexicalFilePath("Sources/Feature"), LexicalFilePath("Sources"),
+    ])
+  }
+
+  @Test("Selected files share parent directories and retain root files")
+  func selectedParents() async throws {
+    let project = try TemporaryProject(files: [
+      "Root.swift": "struct Root {}",
+      "Sources/App/One.swift": "struct One {}",
+      "Sources/App/Two.swift": "struct Two {}",
+      "Sources/Hidden/Other.swift": "struct Other {}",
+    ])
+    let result = await SourceFileDiscovery.paths(
+      under: project.rootURL.path,
+      including: [], excluding: ["**/Hidden/**"]
+    )
+
+    #expect(result.failures.isEmpty)
+    #expect(result.paths.count == 3)
+    #expect(result.relativeParentDirectories == [
+      LexicalFilePath(""), LexicalFilePath("Sources/App"),
+    ])
   }
 
   @Test(

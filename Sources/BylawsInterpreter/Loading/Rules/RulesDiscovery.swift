@@ -92,7 +92,7 @@ enum RulesDiscovery {
   ) async -> (directories: [String], unopenableDirectories: [String]) {
     var directories: [String] = []
     let unopenable = await DirectoryWalker
-      .walk(rootPath) { relativePath, entry in
+      .walk(rootPath) { relativePath, _, entry in
         let bytes = relativePath.utf8
         let separator = bytes.lastIndex(of: UInt8(ascii: "/"))
         let nameStart = separator.map { bytes.index(after: $0) }

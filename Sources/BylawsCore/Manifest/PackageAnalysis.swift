@@ -26,15 +26,14 @@ struct PackageAnalysis: Sendable {
       !target.unresolvedValues.contains { $0.field.hasSuffix(".path") }
     }
 
-    // Byte comparisons preserve path identity for different Unicode spellings.
     let files = parsedCodebase.filesAsWritten.map {
-      (file: $0, path: Array(LexicalFilePath($0.path).string.utf8))
+      (file: $0, path: LexicalFilePath($0.path))
     }
     var filesByTarget: [String: [SourceFile]] = [:]
     for target in targets {
       filesByTarget[target.name] = Self.selectedFiles(
         among: files,
-        relativeTo: Array(root.appending(target.sourceDirectory).string.utf8),
+        relativeTo: root.appending(target.sourceDirectory),
         for: target
       )
     }
@@ -174,43 +173,30 @@ struct PackageAnalysis: Sendable {
   }
 
   private static func selectedFiles(
-    among files: [(file: SourceFile, path: [UInt8])],
-    relativeTo directory: [UInt8],
+    among files: [(file: SourceFile, path: LexicalFilePath)],
+    relativeTo directory: LexicalFilePath,
     for target: PackageManifest.Target
   ) -> [SourceFile] {
     let excluded = target.excludedPaths.knownValues.map {
-      Array(LexicalFilePath($0).string.utf8)
+      LexicalFilePath($0)
     }
-    let included: [[UInt8]]? = switch target.sources {
+    let included: [LexicalFilePath]? = switch target.sources {
     case .automatic: nil
     case let .explicit(paths):
-      paths.knownValues.map { Array(LexicalFilePath($0).string.utf8) }
+      paths.knownValues.map { LexicalFilePath($0) }
     }
     return files.compactMap { file, path in
-      guard let relativePath = relativePath(path[...], under: directory),
+      guard directory.contains(path),
+            let relativePath = path.relative(to: directory),
             !excluded.contains(where: {
-              Self.relativePath(relativePath, under: $0) != nil
+              $0.contains(relativePath)
             })
       else { return nil }
       if let included, !included.contains(where: {
-        Self.relativePath(relativePath, under: $0) != nil
+        $0.contains(relativePath)
       }) { return nil }
       return file
     }
-  }
-
-  private static func relativePath(
-    _ path: ArraySlice<UInt8>,
-    under directory: [UInt8]
-  ) -> ArraySlice<UInt8>? {
-    guard !directory.isEmpty else { return path }
-    guard path.starts(with: directory) else { return nil }
-    let suffix = path.dropFirst(directory.count)
-    guard !suffix.isEmpty, directory.last != UInt8(ascii: "/") else {
-      return suffix
-    }
-    guard suffix.first == UInt8(ascii: "/") else { return nil }
-    return suffix.dropFirst()
   }
 }
 

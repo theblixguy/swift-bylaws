@@ -22,14 +22,20 @@ struct SourceCaptureTests {
       )
     ))
     let missing = Set(capture.inputs.filter { $0.digest == nil }.map(\.path))
+    var expectedMissing = Set([
+      "Package.resolved",
+      ".swiftpm/configuration/mirrors.json",
+      ".swiftpm/configuration/registries.json",
+    ].map { project.fileURL(for: $0).path })
     for directory in [
       "", "Sources", "Sources/App", "Sources/App/Nested", "Sources/Écran",
     ] {
       let root = directory.isEmpty ? project.rootURL : project.rootURL
         .appendingPathComponent(directory)
       let manifest = root.appendingPathComponent("Package.swift").path
-      #expect(missing.contains(manifest))
+      expectedMissing.insert(manifest)
     }
+    #expect(missing == expectedMissing)
     #expect(Set(capture.inputs.map(\.path)).count == capture.inputs.count)
     try await SourceCapture.validate(Array(repeating: capture, count: 20))
 

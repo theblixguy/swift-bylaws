@@ -73,7 +73,7 @@ enum CodebaseBuilder {
         )
       )
     }
-    let (diskPaths, unopenableDirectories) = await SourceFileDiscovery.paths(
+    let (diskPaths, _, unopenableDirectories) = await SourceFileDiscovery.paths(
       under: rootPath, including: codebase.including,
       excluding: codebase.excluding
     )

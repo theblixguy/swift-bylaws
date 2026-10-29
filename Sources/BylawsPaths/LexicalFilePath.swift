@@ -9,17 +9,35 @@ import SystemPackage
 
 package struct LexicalFilePath: Sendable, Hashable {
   private let path: FilePath
+  private let components: FilePath.ComponentView
 
   package init(_ path: String) {
-    self.path = FilePath(path).lexicallyNormalized()
+    self.init(FilePath(path))
   }
 
   package init(_ path: String, relativeTo directory: Self) {
-    self.path = directory.path.pushing(FilePath(path)).lexicallyNormalized()
+    self.init(directory.path.pushing(FilePath(path)))
   }
 
   private init(_ path: FilePath) {
-    self.path = path
+    let components = path.components
+    // FilePath.isLexicallyNormal repeats debug checks on the component view.
+    if components.allSatisfy({ $0.kind == .regular }) {
+      self.path = path
+      self.components = components
+    } else {
+      let normalised = path.lexicallyNormalized()
+      self.path = normalised
+      self.components = normalised.components
+    }
+  }
+
+  package static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.path == rhs.path
+  }
+
+  package func hash(into hasher: inout Hasher) {
+    hasher.combine(path)
   }
 
   package static var currentDirectory: Self {
@@ -35,15 +53,16 @@ package struct LexicalFilePath: Sendable, Hashable {
   }
 
   package func appending(_ path: String) -> Self {
-    Self(self.path.appending(path).lexicallyNormalized())
+    Self(self.path.appending(path))
   }
 
   package func contains(_ candidate: Self) -> Bool {
-    candidate.path.starts(with: path)
+    path.isEmpty || (path.root == candidate.path.root
+      && candidate.components.starts(with: components))
   }
 
   package func contains(component name: String) -> Bool {
-    path.components.contains { $0.string == name }
+    components.contains { $0.string == name }
   }
 
   package func relative(to directory: Self) -> Self? {

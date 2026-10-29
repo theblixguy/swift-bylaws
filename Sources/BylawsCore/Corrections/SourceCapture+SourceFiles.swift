@@ -111,28 +111,26 @@ extension SourceCapture {
       return (Array(Set(paths)).sorted(), nil)
     case let .sourceFiles(including, excluding, swiftPM, xcode):
       let root = LexicalFilePath(scope.rootPath)
-      let (sourcePaths, failures) = await SourceFileDiscovery.paths(
-        under: scope.rootPath,
-        including: including.map { Glob($0) },
-        excluding: excluding.map { Glob($0) }
-      )
+      let (sourcePaths, relativeParents, failures) = await SourceFileDiscovery
+        .paths(
+          under: scope.rootPath,
+          including: including.map { Glob($0) },
+          excluding: excluding.map { Glob($0) }
+        )
       guard failures.isEmpty else {
         throw CodebaseError.unreadable(failures: failures)
       }
       var paths = Set(sourcePaths)
       if swiftPM {
-        let rootPath = root.string
-        let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
-        var visitedDirectories: Set<String> = []
-        for path in sourcePaths {
-          var directory = (path as NSString).deletingLastPathComponent
-          while visitedDirectories.insert(directory).inserted,
-                directory == rootPath || directory.hasPrefix(prefix)
-          {
-            let separator = directory.hasSuffix("/") ? "" : "/"
-            paths.insert(directory + separator + "Package.swift")
-            if directory == rootPath { break }
-            directory = (directory as NSString).deletingLastPathComponent
+        let relativeRoot = LexicalFilePath("")
+        var visitedDirectories: Set<LexicalFilePath> = []
+        for parent in relativeParents {
+          var directory = parent
+          while visitedDirectories.insert(directory).inserted {
+            let manifest = directory.appending("Package.swift")
+            paths.insert(root.appending(manifest.string).string)
+            if directory == relativeRoot { break }
+            directory = directory.removingLastComponent()
           }
         }
         paths.insert(root.appending("Package.swift").string)
