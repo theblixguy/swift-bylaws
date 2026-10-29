@@ -115,7 +115,8 @@ extension SourceCapture {
         .paths(
           under: scope.rootPath,
           including: including.map { Glob($0) },
-          excluding: excluding.map { Glob($0) }
+          excluding: excluding.map { Glob($0) },
+          collectParentDirectories: swiftPM
         )
       guard failures.isEmpty else {
         throw CodebaseError.unreadable(failures: failures)

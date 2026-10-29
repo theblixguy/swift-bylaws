@@ -3,7 +3,8 @@ import SystemPackage
 
 enum SourceFileDiscovery {
   static func paths(
-    under rootPath: String, including: [Glob], excluding: [Glob]
+    under rootPath: String, including: [Glob], excluding: [Glob],
+    collectParentDirectories: Bool = false
   ) async -> (
     paths: [String], relativeParentDirectories: [LexicalFilePath],
     failures: [CodebaseError.ReadFailure]
@@ -28,7 +29,7 @@ enum SourceFileDiscovery {
               !excluding.contains(where: { $0.matches(path) })
         else { return .descend }
         paths.append(prefix + relative)
-        if seenParents.insert(parent).inserted {
+        if collectParentDirectories, seenParents.insert(parent).inserted {
           parents.append(LexicalFilePath(parent.string))
         }
         return .descend

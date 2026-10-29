@@ -20,7 +20,8 @@ struct SourceFileDiscoveryTests {
 
     let result = await SourceFileDiscovery.paths(
       under: project.rootURL.path + suffix,
-      including: ["Sources/**"], excluding: ["**/Excluded/**"]
+      including: ["Sources/**"], excluding: ["**/Excluded/**"],
+      collectParentDirectories: true
     )
 
     #expect(result.failures.isEmpty)
@@ -33,8 +34,11 @@ struct SourceFileDiscoveryTests {
     ])
   }
 
-  @Test("Selected files share parent directories and retain root files")
-  func selectedParents() async throws {
+  @Test(
+    "Selected files collect parent directories on request",
+    arguments: [false, true]
+  )
+  func selectedParents(collectingParents: Bool) async throws {
     let project = try TemporaryProject(files: [
       "Root.swift": "struct Root {}",
       "Sources/App/One.swift": "struct One {}",
@@ -43,14 +47,20 @@ struct SourceFileDiscoveryTests {
     ])
     let result = await SourceFileDiscovery.paths(
       under: project.rootURL.path,
-      including: [], excluding: ["**/Hidden/**"]
+      including: [], excluding: ["**/Hidden/**"],
+      collectParentDirectories: collectingParents
     )
 
     #expect(result.failures.isEmpty)
-    #expect(result.paths.count == 3)
-    #expect(result.relativeParentDirectories == [
+    #expect(result.paths.sorted() == [
+      project.fileURL(for: "Root.swift").path,
+      project.fileURL(for: "Sources/App/One.swift").path,
+      project.fileURL(for: "Sources/App/Two.swift").path,
+    ].sorted())
+    let expected = collectingParents ? [
       LexicalFilePath(""), LexicalFilePath("Sources/App"),
-    ])
+    ] : []
+    #expect(result.relativeParentDirectories == expected)
   }
 
   @Test(
