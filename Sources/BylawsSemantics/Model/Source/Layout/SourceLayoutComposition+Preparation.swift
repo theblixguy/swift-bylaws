@@ -16,9 +16,35 @@ extension SourceLayoutComposition.Session {
   ) throws
     -> SourceLayoutPrepared
   {
-    guard let plan = edit.layout else { throw SourceError.syntaxMismatch }
+    guard edit.layout != nil else { throw SourceError.syntaxMismatch }
     let key = ComposedEdit(edit: edit, children: children)
+    if children.isEmpty { return try prepareLayout(key) }
     if let prepared = preparedLayouts[key] { return prepared }
+    var pending: [(key: ComposedEdit, childrenScheduled: Bool)] = [(key, false)]
+    while let frame = pending.popLast() {
+      guard frame.key.edit.layout != nil,
+            preparedLayouts[frame.key] == nil else { continue }
+      if frame.childrenScheduled {
+        _ = try prepareLayout(frame.key)
+      } else {
+        pending.append((frame.key, true))
+        for child in frame.key.children.reversed()
+          where child.edit.layout != nil
+        {
+          pending.append((child, false))
+        }
+      }
+    }
+    return try prepareLayout(key)
+  }
+
+  private func prepareLayout(_ key: ComposedEdit) throws
+    -> SourceLayoutPrepared
+  {
+    if let prepared = preparedLayouts[key] { return prepared }
+    let edit = key.edit
+    let children = key.children
+    guard let plan = edit.layout else { throw SourceError.syntaxMismatch }
     let elements = try plan.elements.map {
       try SourceSlice(snapshot: snapshot, range: $0)
     }
@@ -59,9 +85,22 @@ extension SourceLayoutComposition.Session {
   )
     throws -> SourceLayoutContent
   {
-    let roots = try composeTree(
-      edits: edits + children.flatMap(\.flattenedEdits), validating: false
-    )
+    if edits.isEmpty, children.isEmpty {
+      return SourceLayoutContent(
+        source: source,
+        originalIndentation: SourceLayoutText.indentation(
+          in: bytes, before: source.range.lowerBound
+        ),
+        baseline: source.text, changes: []
+      )
+    }
+    let roots = if edits.isEmpty {
+      children
+    } else {
+      try composeTree(
+        edits: edits + children.flatMap(\.flattenedEdits), validating: false
+      )
+    }
     guard roots.allSatisfy({
       $0.edit.source.range.lowerBound >= source.range.lowerBound
         && $0.edit.source.range.upperBound <= source.range.upperBound

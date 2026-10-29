@@ -20,21 +20,6 @@ package enum SourceLayoutComposition {
     try Session(snapshot: edit.source.snapshot).validate(edit)
   }
 
-  package static func compose(
-    edits: [SourceFix.Edit], candidates: [SourceFix.Edit] = []
-  ) throws -> [SourceFix.Edit] {
-    let groups = Dictionary(grouping: edits, by: { $0.source.snapshot })
-    return try groups.keys.sorted { $0.filePath < $1.filePath }.flatMap {
-      snapshot in
-      let session = Session(snapshot: snapshot)
-      let context = candidates.filter { $0.source.snapshot == snapshot }
-      return try session.compose(
-        edits: groups[snapshot] ?? [],
-        candidates: context
-      )
-    }
-  }
-
   package final class Session {
     let snapshot: SourceSnapshot
     lazy var bytes = snapshot.syntaxContext?.bytes ?? Array(snapshot.text.utf8)
@@ -97,39 +82,6 @@ package enum SourceLayoutComposition {
       }
     }
 
-    func compose(
-      edits: [SourceFix.Edit], candidates: [SourceFix.Edit] = [],
-      validating: Bool = true
-    ) throws -> [SourceFix.Edit] {
-      try composeTree(
-        edits: edits,
-        candidates: candidates,
-        validating: validating
-      )
-      .map(materialize)
-    }
-
-    private func materialize(_ node: ComposedEdit) throws -> SourceFix.Edit {
-      let edit = node.edit
-      guard let plan = edit.layout, !node.children.isEmpty else { return edit }
-      let nested = try node.children.map {
-        SourceLayoutPlan.CapturedEdit(try materialize($0))
-      }
-      let combinedPlan = SourceLayoutPlan(
-        elements: plan.elements, node: plan.node,
-        allowsPartialList: plan.allowsPartialList,
-        baseIndentation: plan.baseIndentation, targetRange: plan.targetRange,
-        trimmed: plan.trimmed, lineWidthLimit: plan.lineWidthLimit,
-        nested: plan.nested + nested
-      )
-      let prepared = try prepare(edit, adding: node.children)
-      return SourceFix.Edit(
-        source: edit.source,
-        replacement: try SourceLayoutRenderer.render(prepared),
-        layout: combinedPlan
-      )
-    }
-
     func render(
       _ edit: SourceFix.Edit,
       at placement: SourceLayoutRenderer.Placement? = nil
@@ -140,12 +92,15 @@ package enum SourceLayoutComposition {
 
     func content(
       _ source: SourceSlice, applying edits: [SourceFix.Edit],
+      adding children: [ComposedEdit] = [],
       at placement: SourceLayoutRenderer.Placement,
       followedBy following: SourceLayoutContinuation = .end
     ) throws -> String {
-      let content = try prepareContent(source, applying: edits)
+      let content = try prepareContent(
+        source, applying: edits, adding: children
+      )
       return try SourceLayoutRenderer.render(
-        SourceLayoutDocument(events: [.content(content)]),
+        content.document(indentation: placement.indentation),
         at: placement, followedBy: following
       )
     }

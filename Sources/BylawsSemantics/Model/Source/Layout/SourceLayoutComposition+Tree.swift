@@ -4,7 +4,44 @@ extension SourceLayoutComposition.Session {
     let children: [ComposedEdit]
 
     var flattenedEdits: [SourceFix.Edit] {
-      [edit] + children.flatMap(\.flattenedEdits)
+      guard !children.isEmpty else { return [edit] }
+      var result: [SourceFix.Edit] = []
+      var pending = [self]
+      while let node = pending.popLast() {
+        result.append(node.edit)
+        pending.append(contentsOf: node.children.reversed())
+      }
+      return result
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+      guard lhs.edit == rhs.edit,
+            lhs.children.count == rhs.children.count else { return false }
+      guard !lhs.children.isEmpty else { return true }
+      var pending = lhs.children.indices.map { (
+        lhs.children[$0],
+        rhs.children[$0]
+      ) }
+      while let (left, right) = pending.popLast() {
+        guard left.edit == right.edit,
+              left.children.count == right.children.count else { return false }
+        for index in left.children.indices {
+          pending.append((left.children[index], right.children[index]))
+        }
+      }
+      return true
+    }
+
+    func hash(into hasher: inout Hasher) {
+      hasher.combine(edit)
+      hasher.combine(children.count)
+      guard !children.isEmpty else { return }
+      var pending = Array(children.reversed())
+      while let node = pending.popLast() {
+        hasher.combine(node.edit)
+        hasher.combine(node.children.count)
+        pending.append(contentsOf: node.children.reversed())
+      }
     }
   }
 
@@ -75,9 +112,12 @@ extension SourceLayoutComposition.Session {
       }
       stack.append(index)
     }
-    func composed(_ index: Int) -> ComposedEdit {
-      ComposedEdit(edit: input[index], children: children[index].map(composed))
+    var composed = input.map { ComposedEdit(edit: $0, children: []) }
+    for index in input.indices.reversed() where !children[index].isEmpty {
+      composed[index] = ComposedEdit(
+        edit: input[index], children: children[index].map { composed[$0] }
+      )
     }
-    return roots.map(composed)
+    return roots.map { composed[$0] }
   }
 }

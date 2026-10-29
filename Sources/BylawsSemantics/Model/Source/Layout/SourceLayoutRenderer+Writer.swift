@@ -20,18 +20,28 @@ extension SourceLayoutRenderer {
     var startsWithLine = false
     var endsWithLine = false
 
-    init(context: Context) {
+    private enum Resume {
+      case preview(Event, Placement, SourceLayoutContinuation)
+      case placed(Boundary?)
+      case line(Boundary?, startsWithLine: Bool, endsWithLine: Bool)
+    }
+
+    private let events: [Event]
+    private let terminal: SourceLayoutContinuation
+    private var index = 0
+    private var resume: Resume?
+
+    init(
+      document: SourceLayoutDocument, context: Context,
+      followedBy following: SourceLayoutContinuation
+    ) {
       self.context = context
+      events = document.events
       cursor = SourceLayoutCursor(
         column: context.initialColumn, indentation: context.initialIndentation,
         tabWidth: context.tabWidth
       )
       indentations = [context.baseIndentation]
-    }
-
-    mutating func render(
-      _ events: [Event], followedBy following: SourceLayoutContinuation
-    ) throws -> String {
       let lastContent = events.last {
         switch $0 {
         case .lineBoundary: true
@@ -44,20 +54,60 @@ extension SourceLayoutRenderer {
         ? context
         .lineEnding + (context.closingIndentation ?? context.baseIndentation)
         : context.trailingWhitespace
-      let terminal = SourceLayoutContinuation.events(
-        [.text(trailing)][...],
-        following
-      )
-      for (index, event) in events.enumerated() {
-        let remaining = SourceLayoutContinuation.scope(
-          events[(index + 1)...],
-          terminal
-        )
+      terminal = .events([.text(trailing)][...], following)
+    }
+
+    mutating func advance(after value: String?) throws -> Step {
+      if let value, let resume {
+        self.resume = nil
+        if let request = try accept(value, after: resume) {
+          return .render(request)
+        }
+      }
+      while index < events.count {
+        let event = events[index]
+        index += 1
         switch event {
         case .text, .content, .element, .layout:
-          _ = try appendContent(event, followedBy: remaining)
+          let predicted = placement
+          if let value = try SourceLayoutRenderer.literal(
+            event,
+            indentation: predicted.indentation
+          ) {
+            if !value.isEmpty {
+              appendContent(value, boundary: resolvedBoundary(before: value))
+            }
+            continue
+          }
+          let remaining = SourceLayoutContinuation.scope(
+            events[index...],
+            terminal
+          )
+          let request = try SourceLayoutRenderer.request(
+            event, at: predicted, followedBy: remaining,
+            tabWidth: context.tabWidth
+          )
+          let state = Resume.preview(event, predicted, remaining)
+          if case let .text(value) = request {
+            if let request = try accept(value, after: state) {
+              return .render(request)
+            }
+          } else {
+            resume = state
+            return .render(request)
+          }
         case let .line(children):
-          try appendLine(children)
+          resume = .line(
+            pending,
+            startsWithLine: startsWithLine,
+            endsWithLine: endsWithLine
+          )
+          requestLine()
+          return .render(.line(
+            children,
+            at: placement,
+            tabWidth: context.tabWidth
+          ))
         case let .boundary(boundary):
           pending = max(pending ?? boundary, boundary)
         case .lineBoundary:
@@ -85,14 +135,14 @@ extension SourceLayoutRenderer {
           widths.removeLast()
         }
       }
-      guard hasContent else { return emptyReplacement }
+      guard hasContent else { return .complete(emptyReplacement) }
       if endsWithLine, context.hasSourceAfter {
         text += context
           .lineEnding + (context.closingIndentation ?? context.baseIndentation)
       } else {
         text += context.trailingWhitespace
       }
-      return text
+      return .complete(text)
     }
 
     private var emptyReplacement: String {
@@ -132,69 +182,62 @@ extension SourceLayoutRenderer {
       )
     }
 
-    private mutating func appendContent(
-      _ event: Event, followedBy following: SourceLayoutContinuation
-    ) throws -> Bool {
-      let predicted = placement
-      let preview = try SourceLayoutRenderer.resolve(
-        event, at: predicted, followedBy: following, tabWidth: context.tabWidth
-      )
-      guard !preview.isEmpty else { return false }
-      let boundary = resolvedBoundary(before: preview)
-      let actual = if hasContent, let boundary, boundary != .soft {
-        Placement(
-          column: endColumn(of: indentation, startingAt: 0),
-          indentation: indentation, lineIndentation: indentation
-        )
-      } else { predicted }
-      let value = if actual.column == predicted.column,
-                     actual.lineIndentation == predicted.lineIndentation
-      {
-        preview
-      } else {
-        try SourceLayoutRenderer.resolve(
-          event,
-          at: actual,
-          followedBy: following,
-          tabWidth: context.tabWidth
-        )
+    private mutating func accept(
+      _ value: String,
+      after state: Resume
+    ) throws -> Request? {
+      switch state {
+      case let .preview(event, predicted, following):
+        guard !value.isEmpty else { return nil }
+        let boundary = resolvedBoundary(before: value)
+        let actual = if hasContent, let boundary, boundary != .soft {
+          Placement(
+            column: endColumn(of: indentation, startingAt: 0),
+            indentation: indentation, lineIndentation: indentation
+          )
+        } else { predicted }
+        if actual.column != predicted.column || actual
+          .lineIndentation != predicted.lineIndentation
+        {
+          let request = try SourceLayoutRenderer.request(
+            event, at: actual, followedBy: following, tabWidth: context.tabWidth
+          )
+          if case let .text(value) = request {
+            appendContent(value, boundary: boundary)
+          } else {
+            resume = .placed(boundary)
+            return request
+          }
+        } else { appendContent(value, boundary: boundary) }
+      case let .placed(boundary):
+        appendContent(value, boundary: boundary)
+      case let .line(previousPending, previousStart, previousEnd):
+        if value.isEmpty {
+          pending = previousPending
+          startsWithLine = previousStart
+          endsWithLine = previousEnd
+        } else {
+          flushBoundary(resolvedBoundary(before: value))
+          append(value)
+          hasContent = true
+          requestLine()
+        }
       }
-      guard !value.isEmpty else { return false }
+      return nil
+    }
+
+    private mutating func appendContent(_ value: String, boundary: Boundary?) {
+      guard !value.isEmpty else { return }
       flushBoundary(boundary)
       append(value)
       hasContent = true
       endsWithLine = false
-      return true
     }
 
     private mutating func requestLine() {
       pending = max(pending ?? .newline, .newline)
       if !hasContent { startsWithLine = true }
       endsWithLine = true
-    }
-
-    private mutating func appendLine(_ events: [Event]) throws {
-      let previousPending = pending
-      let previousStart = startsWithLine
-      let previousEnd = endsWithLine
-      requestLine()
-      let predicted = placement
-      let value = try SourceLayoutRenderer.line(
-        events,
-        at: predicted,
-        tabWidth: context.tabWidth
-      )
-      if value.isEmpty {
-        pending = previousPending
-        startsWithLine = previousStart
-        endsWithLine = previousEnd
-      } else {
-        let boundary = resolvedBoundary(before: value)
-        flushBoundary(boundary)
-        append(value)
-        hasContent = true
-        requestLine()
-      }
     }
 
     private var columnAfterPendingBoundary: Int {

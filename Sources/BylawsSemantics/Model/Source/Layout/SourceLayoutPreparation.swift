@@ -21,8 +21,8 @@ extension SourceLayoutReplacement {
       throw SourceLayoutReplacementError.differentSnapshots
     }
     let tree = parsedTree ?? first.snapshot.syntaxTree()
-    let bytes = sourceContext?.bytes ?? first.snapshot.syntaxContext?.bytes
-      ?? Array(first.snapshot.text.utf8)
+    let bytes = sourceContext?.bytes ?? session?.bytes ?? first.snapshot
+      .syntaxContext?.bytes ?? Array(first.snapshot.text.utf8)
     let items = try slices.map { try Item(source: $0, tree: tree) }
     let sourceList = try List(
       items: items,
@@ -158,13 +158,17 @@ extension SourceLayoutReplacement {
       let attached = children.filter {
         item.contentRange.contains($0.edit.source.range)
       }
-      let content = try session.prepareContent(
-        source,
-        applying: edits,
-        adding: attached
-      )
       let separator = sourceList.hasCommas
         && (item.node.id != lastID || sourceList.hasTrailingComma) ? "," : ""
+      if edits.isEmpty, attached.isEmpty {
+        let text = source.text
+        if !text.contains(where: SourceLayoutText.isNewline) {
+          return SourceLayoutDocument(events: [.text(text + separator)])
+        }
+      }
+      let content = try session.prepareContent(
+        source, applying: edits, adding: attached
+      )
       return SourceLayoutDocument(events: [.element(
         content,
         separator: separator
@@ -186,15 +190,17 @@ extension SourceLayoutReplacement {
         return try document(item, edit: edit)
       }
     )
+    let originalColumn = source.range.lowerBound == sourceList
+      .leadingContentStart ? context.initialColumn : sourceContext
+      .column(before: source.range.lowerBound)
     return SourceLayoutPrepared(
       source: source, capture: plan, content: content,
       lookaheadText: lookaheadText, document: document,
       context: context,
       originalPlacement: .init(
-        column: sourceContext.column(before: source.range.lowerBound),
-        indentation: sourceContext.indentation(before: source.range.lowerBound),
-        lineIndentation: sourceContext
-          .indentation(before: source.range.lowerBound)
+        column: originalColumn,
+        indentation: content.originalIndentation,
+        lineIndentation: content.originalIndentation
       ),
       indentsContents: sourceList.indentationBase == .contents
         || sourceList.indentationBase == nil && sourceList.isDelimited,

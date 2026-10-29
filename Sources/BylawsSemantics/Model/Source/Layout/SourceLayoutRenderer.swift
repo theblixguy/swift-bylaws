@@ -65,15 +65,21 @@ package enum SourceLayoutRenderer {
     func content(_ source: SourceSlice, edit: SourceFix.Edit? = nil)
       -> SourceLayoutDocument
     {
+      let text = edit?.replacement ?? source.text
+      if !text.contains(where: SourceLayoutText.isNewline) {
+        return SourceLayoutDocument(events: [.text(text)])
+      }
       let changes: [SourceLayoutContent.Change] = edit.map {
         [.init(range: $0.source.range, value: .text($0.replacement))]
       } ?? []
       let content = SourceLayoutContent(
         source: source,
         originalIndentation: SourceLayoutText.indentation(
-          in: Array(source.snapshot.text.utf8), before: source.range.lowerBound
+          in: source.snapshot.syntaxContext?
+            .bytes ?? Array(source.snapshot.text.utf8),
+          before: source.range.lowerBound
         ),
-        baseline: edit?.replacement ?? source.text, changes: changes
+        baseline: text, changes: changes
       )
       return SourceLayoutDocument(events: [.content(content)])
     }
@@ -92,8 +98,9 @@ package enum SourceLayoutRenderer {
   ) throws -> String {
     guard context.defaultWidth > 0
     else { throw SourceLayoutError.widthMustBePositive }
-    var writer = Writer(context: context)
-    return try writer.render(document.events, followedBy: following)
+    return try render(.document(
+      document, context: context, following: following, trimmed: false
+    ))
   }
 
   static func render(
@@ -118,6 +125,15 @@ package enum SourceLayoutRenderer {
     followedBy following: SourceLayoutContinuation? = nil,
     tabWidth: Int = 8
   ) throws -> String {
+    try render(request(
+      prepared, at: placement, followedBy: following, tabWidth: tabWidth
+    ))
+  }
+
+  private static func request(
+    _ prepared: SourceLayoutPrepared, at placement: Placement?,
+    followedBy following: SourceLayoutContinuation?, tabWidth: Int
+  ) throws -> Request {
     let position = placement ?? prepared.originalPlacement
     let following = following ?? .init(text: SourceLayoutText.lineSuffix(
       after: prepared.source
@@ -127,89 +143,92 @@ package enum SourceLayoutRenderer {
       lineIndentation: position.lineIndentation,
       originalText: position.originalText
     )
-    let useOriginal: Bool
     if let maximumWidth = prepared.maximumWidth {
-      let text = try prepared.content.measuredText(
-        indentation: unchanged.indentation
-      )
-      useOriginal = !exceeds(
-        maximumWidth, text: text, startingAt: unchanged.column,
-        followedBy: following, tabWidth: tabWidth
-      )
-    } else { useOriginal = false }
-    let result: String
-    if useOriginal {
-      result = try render(
-        SourceLayoutDocument(events: [.content(prepared.content)]),
-        at: unchanged, followedBy: following, tabWidth: tabWidth
-      )
-    } else {
-      var context = placement.map {
-        prepared.projectedContext(at: $0, tabWidth: tabWidth)
-      } ?? prepared.context
-      context.tabWidth = tabWidth
-      result = try render(
-        prepared.document,
-        context: context,
-        followedBy: following
-      )
+      let text = try prepared.content
+        .measuredText(indentation: unchanged.indentation)
+      if !following.exceeds(
+        maximumWidth, after: text, startingAt: unchanged.column,
+        tabWidth: tabWidth
+      ) {
+        if prepared.content.changes.isEmpty {
+          return .text(prepared.trimmed ? SourceLayoutPrepared
+            .trim(text) : text)
+        }
+        return try .document(
+          prepared.content.document(indentation: unchanged.indentation),
+          context: context(at: unchanged, tabWidth: tabWidth),
+          following: following, trimmed: prepared.trimmed
+        )
+      }
     }
-    return prepared.trimmed ? SourceLayoutPrepared.trim(result) : result
+    var context = placement.map {
+      prepared.projectedContext(at: $0, tabWidth: tabWidth)
+    } ?? prepared.context
+    context.tabWidth = tabWidth
+    return .document(
+      prepared.document, context: context, following: following,
+      trimmed: prepared.trimmed
+    )
   }
 
-  private static func exceeds(
-    _ maximumWidth: Int, text: String, startingAt column: Int,
-    followedBy following: SourceLayoutContinuation, tabWidth: Int
-  ) -> Bool {
-    guard !text.isEmpty else { return false }
-    let text = text.last.map(SourceLayoutText.isNewline) == true
-      ? text : text + following.firstLine()
-    return text.split(
-      omittingEmptySubsequences: false,
-      whereSeparator: SourceLayoutText.isNewline
+  private static func context(
+    at placement: Placement,
+    tabWidth: Int
+  ) -> Context {
+    Context(
+      initialColumn: placement.column,
+      initialIndentation: placement.lineIndentation,
+      baseIndentation: placement.indentation, tabWidth: tabWidth
     )
-    .enumerated().contains { index, line in
-      SourceTextWidth.exceeds(
-        maximumWidth, in: line, startingAt: index == 0 ? column : 0,
-        tabWidth: tabWidth
-      )
-    }
   }
 
   typealias Boundary = SourceLayoutDocument.Boundary
   typealias Event = SourceLayoutDocument.Event
 
-  static func resolve(
+  static func literal(_ event: Event, indentation: String) throws -> String? {
+    switch event {
+    case let .text(text): text
+    case let .content(content) where content.changes.isEmpty:
+      try content.measuredText(indentation: indentation)
+    case let .element(content, separator) where content.changes.isEmpty:
+      try content.measuredText(indentation: indentation) + separator
+    default: nil
+    }
+  }
+
+  static func request(
     _ event: Event, at placement: Placement,
     followedBy following: SourceLayoutContinuation, tabWidth: Int
-  ) throws -> String {
+  ) throws -> Request {
     switch event {
-    case let .text(text): return text
+    case let .text(text): return .text(text)
     case let .content(content):
-      return try render(
+      if content.changes.isEmpty {
+        return try .text(content
+          .measuredText(indentation: placement.indentation))
+      }
+      return try .document(
         content.document(indentation: placement.indentation),
-        at: placement,
-        followedBy: following,
-        tabWidth: tabWidth
+        context: context(at: placement, tabWidth: tabWidth),
+        following: following, trimmed: false
       )
     case let .element(content, separator):
+      if content.changes.isEmpty {
+        return try .text(content
+          .measuredText(indentation: placement.indentation) + separator)
+      }
       var document = try content.document(indentation: placement.indentation)
       document = SourceLayoutDocument(events: document
         .events + [.text(separator)])
-      return try render(
-        document,
-        at: placement,
-        followedBy: following,
-        tabWidth: tabWidth
+      return .document(
+        document, context: context(at: placement, tabWidth: tabWidth),
+        following: following, trimmed: false
       )
     case let .layout(layout, originalText):
       var position = placement
       position.originalText = originalText
-      return try render(
-        layout,
-        at: position,
-        followedBy: following,
-        tabWidth: tabWidth
+      return try request(
+        layout, at: position, followedBy: following, tabWidth: tabWidth
       )
     case .line, .boundary, .lineBoundary, .indent, .align, .endIndentation,
          .wrap, .endWrap: throw SourceError.syntaxMismatch

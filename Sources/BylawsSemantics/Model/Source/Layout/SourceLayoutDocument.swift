@@ -7,11 +7,12 @@ struct SourceLayoutDocument {
     static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
   }
 
-  indirect enum Event {
+  enum Event {
     case text(String)
-    case content(SourceLayoutContent)
-    case element(SourceLayoutContent, separator: String)
-    case layout(SourceLayoutPrepared, originalText: String?)
+    // Indirection keeps text and boundary events small.
+    indirect case content(SourceLayoutContent)
+    indirect case element(SourceLayoutContent, separator: String)
+    indirect case layout(SourceLayoutPrepared, originalText: String?)
     case line([Event])
     case boundary(Boundary)
     case lineBoundary

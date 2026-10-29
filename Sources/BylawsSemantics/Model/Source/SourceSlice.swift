@@ -13,6 +13,7 @@ public struct SourceSlice: Sendable, Hashable, Codable {
     let bytes = snapshot.text.utf8
     let start = bytes.index(bytes.startIndex, offsetBy: range.lowerBound)
     let end = bytes.index(bytes.startIndex, offsetBy: range.upperBound)
+    if start == bytes.startIndex, end == bytes.endIndex { return snapshot.text }
     return String(decoding: bytes[start..<end], as: UTF8.self)
   }
 
