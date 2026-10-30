@@ -43,46 +43,87 @@ struct SourceLayoutDocument {
   init(
     _ node: SourceLayout.Node,
     separator: SourceLayoutRenderer.Separator,
-    source: (any SourceProviding) throws -> Self,
-    edit: (SourceFix.Edit) throws -> Self
+    source: (any SourceProviding) throws -> Event,
+    edit: (SourceFix.Edit) throws -> Event
   ) throws {
     func lower(
       _ node: SourceLayout.Node,
-      separator: SourceLayoutRenderer
-        .Separator
-    ) throws -> [Event] {
+      separator: SourceLayoutRenderer.Separator,
+      into events: inout [Event]
+    ) throws -> Bool {
       switch node {
-      case let .source(provider): return try source(provider).events
-      case let .edit(value): return try edit(value).events
+      case let .source(provider):
+        let event = try source(provider)
+        events.append(event)
+        return event.hasText
+      case let .edit(value):
+        let event = try edit(value)
+        events.append(event)
+        return event.hasText
       case let .sequence(children):
-        var result: [Event] = []
+        let start = events.count
+        var hasText = false
         for child in children {
-          let events = try lower(child, separator: separator)
-          guard !events.isEmpty else { continue }
-          if !result.isEmpty {
-            result.append(.boundary(separator == .space ? .soft : .newline))
+          let previousEnd = events.count
+          if previousEnd > start {
+            events.append(.boundary(separator == .space ? .soft : .newline))
           }
-          result += events
+          let childStart = events.count
+          let childHasText = try lower(
+            child, separator: separator, into: &events
+          )
+          hasText = hasText || childHasText
+          if events.count == childStart, childStart > previousEnd {
+            events.removeLast()
+          }
         }
-        return result
+        return hasText
       case let .line(child):
-        let events = try lower(child, separator: .space)
-        return events.contains(where: \.hasText) ? [.line(events)] : []
-      case .blankLine: return [.boundary(.blankLine)]
-      case .newline: return [.lineBoundary]
-      case .softBreak: return [.boundary(.soft)]
+        var contents: [Event] = []
+        guard try lower(child, separator: .space, into: &contents) else {
+          return false
+        }
+        events.append(.line(contents))
+        return true
+      case .blankLine:
+        events.append(.boundary(.blankLine))
+        return false
+      case .newline:
+        events.append(.lineBoundary)
+        return false
+      case .softBreak:
+        events.append(.boundary(.soft))
+        return false
       case let .indent(child), let .align(child):
-        let events = try lower(child, separator: separator)
-        guard events.contains(where: \.hasText) else { return events }
-        let start: Event = if case .indent = node { .indent } else { .align }
-        return [start] + events + [.endIndentation]
+        let start = events.count
+        let opening: Event = if case .indent = node { .indent } else { .align }
+        events.append(opening)
+        let hasText = try lower(child, separator: separator, into: &events)
+        if hasText {
+          events.append(.endIndentation)
+        } else if events.count == start + 1 {
+          events.removeLast()
+        } else {
+          events.remove(at: start)
+        }
+        return hasText
       case let .wrap(width, child):
         if let width, width <= 0 { throw SourceLayoutError.widthMustBePositive }
-        let events = try lower(child, separator: .space)
-        guard events.contains(where: \.hasText) else { return events }
-        return [.wrap(width)] + events + [.endWrap]
+        let start = events.count
+        events.append(.wrap(width))
+        let hasText = try lower(child, separator: .space, into: &events)
+        if hasText {
+          events.append(.endWrap)
+        } else if events.count == start + 1 {
+          events.removeLast()
+        } else {
+          events.remove(at: start)
+        }
+        return hasText
       }
     }
-    events = try lower(node, separator: separator)
+    var events: [Event] = []
+    _ = try lower(node, separator: separator, into: &events)
+    self.events = events
   }
 }
