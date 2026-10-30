@@ -147,8 +147,8 @@ extension SourceLayoutReplacement {
       )).replacement
     }
     let lastID = output.last?.node.id
-    func document(_ item: Item, edit: SourceFix.Edit? = nil) throws
-      -> SourceLayoutDocument
+    func event(for item: Item, edit: SourceFix.Edit? = nil) throws
+      -> SourceLayoutDocument.Event
     {
       let source = try SourceSlice(
         snapshot: first.snapshot, range: item.contentRange
@@ -163,16 +163,16 @@ extension SourceLayoutReplacement {
       if edits.isEmpty, attached.isEmpty {
         let text = source.text
         if !text.contains(where: SourceLayoutText.isNewline) {
-          return SourceLayoutDocument(events: [.text(text + separator)])
+          return .text(text + separator)
         }
       }
       let content = try session.prepareContent(
         source, applying: edits, adding: attached
       )
-      return SourceLayoutDocument(events: [.element(
+      return .element(
         content,
         separator: separator
-      )])
+      )
     }
     let document = try SourceLayoutDocument(
       layout.node, separator: context.defaultSeparator,
@@ -181,13 +181,13 @@ extension SourceLayoutReplacement {
         guard let item = itemsByRange[slice.range] else {
           throw SourceLayoutReplacementError.foreignElement
         }
-        return try document(item)
+        return try event(for: item)
       },
       edit: { edit in
         guard let item = items.first(where: {
           $0.contentRange.contains(edit.source.range)
         }) else { throw SourceLayoutReplacementError.foreignElement }
-        return try document(item, edit: edit)
+        return try event(for: item, edit: edit)
       }
     )
     let originalColumn = source.range.lowerBound == sourceList

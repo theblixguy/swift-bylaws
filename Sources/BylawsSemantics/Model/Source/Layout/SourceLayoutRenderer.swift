@@ -63,11 +63,11 @@ package enum SourceLayoutRenderer {
     guard context.defaultWidth > 0
     else { throw SourceLayoutError.widthMustBePositive }
     func content(_ source: SourceSlice, edit: SourceFix.Edit? = nil)
-      -> SourceLayoutDocument
+      -> SourceLayoutDocument.Event
     {
       let text = edit?.replacement ?? source.text
       if !text.contains(where: SourceLayoutText.isNewline) {
-        return SourceLayoutDocument(events: [.text(text)])
+        return .text(text)
       }
       let changes: [SourceLayoutContent.Change] = edit.map {
         [.init(range: $0.source.range, value: .text($0.replacement))]
@@ -81,7 +81,7 @@ package enum SourceLayoutRenderer {
         ),
         baseline: text, changes: changes
       )
-      return SourceLayoutDocument(events: [.content(content)])
+      return .content(content)
     }
     let document = try SourceLayoutDocument(
       layout.node, separator: context.defaultSeparator,

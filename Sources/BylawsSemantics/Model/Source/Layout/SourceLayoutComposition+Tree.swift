@@ -49,6 +49,11 @@ extension SourceLayoutComposition.Session {
     edits: [SourceFix.Edit], candidates: [SourceFix.Edit] = [],
     validating: Bool = true
   ) throws -> [ComposedEdit] {
+    if validating {
+      preparedLayouts.reserveCapacity(candidates.count + edits.count(where: {
+        $0.layout != nil
+      }))
+    }
     for candidate in candidates {
       guard candidate.layout != nil,
             candidate.source.text.utf8
