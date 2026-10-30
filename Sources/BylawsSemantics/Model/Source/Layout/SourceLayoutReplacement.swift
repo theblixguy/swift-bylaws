@@ -168,6 +168,8 @@ package enum SourceLayoutReplacement {
       snapshot: first.snapshot,
       range: sourceList.range
     )
+    context.trailingText = placement?.trailingText ?? SourceLayoutText
+      .lineSuffix(after: source)
     let plan = try SourceLayoutPlan(
       elements: slices.map(\.range),
       node: SourceLayoutPlan.freeze(layout, snapshot: first.snapshot),
@@ -236,7 +238,7 @@ package enum SourceLayoutReplacement {
       let separator = sourceList.hasCommas
         && (item.node.id != lastID || sourceList.hasTrailingComma) ? "," : ""
       var placement = placement
-      placement.trailingText = separator
+      placement.trailingText = separator + placement.trailingText
       return try session
         .content(content, applying: children, at: placement) + separator
     }
