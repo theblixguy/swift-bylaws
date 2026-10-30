@@ -119,9 +119,8 @@ struct LayoutCandidateTests {
     let active = try first.source.slice(1..<10).replacement(with: "Worker")
 
     let error = try #require(throws: SourceLayoutComposition.Failure.self) {
-      try SourceLayoutComposition.compose(
-        edits: [active],
-        candidates: [changed]
+      try active.source.file.replacement(
+        applying: [active], layoutCandidates: [changed]
       )
     }
     #expect(error
