@@ -11,14 +11,14 @@
     import SystemPackage
   #endif
 
-  @Suite("Swift Testing CLI corrections")
+  @Suite("Swift Testing CLI corrections", .reuseSwiftTestingBuild)
   struct SwiftTestingCorrectionProcessTests {
     @Test(
       "Native check-only skips fix work and preview evaluates it",
       .timeLimit(.minutes(10))
     )
     func correctionPurpose() async throws {
-      let consumer = try SwiftTestingReportConsumer(
+      let consumer = try await SwiftTestingReportConsumer(
         additionalTests: """
         @Test func reportsPurpose() async throws {
           let classes = try await app.classes
@@ -69,72 +69,43 @@
       .timeLimit(.minutes(10))
     )
     func cookbookFormattingLifecycle() async throws {
-      let first = try #require(CorrectionCookbookMock.formattingCases.first)
-      let consumer = try SwiftTestingReportConsumer(
-        additionalTests: first.swiftTestingSource()
+      let batch = try CorrectionCookbookBatch(CorrectionCookbookMock
+        .formattingCases)
+      let consumer = try await SwiftTestingReportConsumer(additionalTests: batch
+        .source)
+      try batch.writeSources(in: consumer)
+      let functions = batch.functions.joined(separator: "|")
+
+      let correction = try await run(
+        consumer, function: functions, arguments: ["--autocorrect"]
       )
-      let testFile = consumer.root
-        .appendingPathComponent("Tests/RuleTests/Rules.swift")
-      let originalTests = try String(contentsOf: testFile, encoding: .utf8)
-      var previousPaths: Set<String> = []
-      for mock in CorrectionCookbookMock.formattingCases {
-        let functions = try mock.swiftTestingFunctions().joined(separator: "|")
-        let configuredTests = originalTests.replacing(
-          "maximumWidth: Int? = nil",
-          with: "maximumWidth: Int? = \(mock.maximumWidth.map(String.init) ?? "nil")"
-        )
-        if try String(contentsOf: testFile, encoding: .utf8) !=
-          configuredTests
-        {
-          try configuredTests.write(
-            to: testFile,
-            atomically: true,
-            encoding: .utf8
-          )
-        }
-        for path in previousPaths.subtracting(mock.sources.keys) {
-          try FileManager.default
-            .removeItem(at: consumer.root.appendingPathComponent(path))
-        }
-        for (path, source) in mock.sources {
-          let file = consumer.root.appendingPathComponent(path)
-          try FileManager.default.createDirectory(
-            at: file.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-          )
-          try source.write(to: file, atomically: true, encoding: .utf8)
-        }
-        previousPaths = Set(mock.sources.keys)
 
-        let correction = try await run(
-          consumer, function: functions, arguments: ["--autocorrect"]
-        )
-
-        try #require(
-          correction.status == .exited(0),
-          "\(mock.testDescription)\n\(correction.standardOutput)\n\(correction.standardError)"
-        )
-        try expectReport(correction, violations: 0, ruleIDs: mock.ruleIDs)
-        #expect(correction.standardError.contains("Corrected 1 file:"))
-        for (path, expected) in mock.expected {
+      try #require(
+        correction.status == .exited(0),
+        "\(correction.standardOutput)\n\(correction.standardError)"
+      )
+      try expectReport(correction, violations: 0, ruleIDs: batch.ruleIDs)
+      #expect(correction.standardError.contains("Corrected 3 files:"))
+      for recipe in batch.recipes {
+        for (path, expected) in recipe.mock.expected {
           #expect(try String(
-            contentsOf: consumer.root.appendingPathComponent(path),
-            encoding: .utf8
-          ) == expected, "\(mock.testDescription)")
+            contentsOf: recipe.file(path, in: consumer), encoding: .utf8
+          ) == expected, "\(recipe.mock.testDescription)")
         }
+      }
 
-        let repeated = try await run(consumer, function: functions)
+      let repeated = try await run(consumer, function: functions)
 
-        try #require(
-          repeated.status == .exited(0),
-          "\(mock.testDescription)\n\(repeated.standardOutput)\n\(repeated.standardError)"
-        )
-        try expectReport(repeated, violations: 0, ruleIDs: mock.ruleIDs)
-        for (path, expected) in mock.expected {
+      try #require(
+        repeated.status == .exited(0),
+        "\(repeated.standardOutput)\n\(repeated.standardError)"
+      )
+      try expectReport(repeated, violations: 0, ruleIDs: batch.ruleIDs)
+      for recipe in batch.recipes {
+        for (path, expected) in recipe.mock.expected {
           #expect(try String(
-            contentsOf: consumer.root.appendingPathComponent(path),
-            encoding: .utf8
-          ) == expected, "\(mock.testDescription)")
+            contentsOf: recipe.file(path, in: consumer), encoding: .utf8
+          ) == expected, "\(recipe.mock.testDescription)")
         }
       }
       #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8)
@@ -146,7 +117,7 @@
       .timeLimit(.minutes(10))
     )
     func indexedCorrection() async throws {
-      let consumer = try SwiftTestingReportConsumer(
+      let consumer = try await SwiftTestingReportConsumer(
         additionalProducts: ["BylawsIndex"],
         additionalTests: """
         import BylawsIndex
@@ -189,7 +160,8 @@
       .timeLimit(.minutes(10))
     )
     func correctionLifecycle() async throws {
-      let consumer = try SwiftTestingReportConsumer(enforcement: .enforced)
+      let consumer =
+        try await SwiftTestingReportConsumer(enforcement: .enforced)
       let original = Data("class Screen {}\n".utf8)
       let corrected = Data("class Updated {}\n".utf8)
 
@@ -252,7 +224,7 @@
       .timeLimit(.minutes(10))
     )
     func missingVerificationReport() async throws {
-      let consumer = try SwiftTestingReportConsumer(
+      let consumer = try await SwiftTestingReportConsumer(
         enforcement: .enforced,
         additionalTests: """
         @Test func reportsOnlyFailure() async throws {
@@ -296,14 +268,14 @@
     }
 
     @Test(
-      "Formatting rule previews applies and verifies combined layouts",
+      "Formatting and layout rules preview apply and verify together",
       .timeLimit(.minutes(10))
     )
     func formattingLifecycle() async throws {
       let directory = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .deletingLastPathComponent()
-        .appendingPathComponent("Corrections/Formatting")
+        .appendingPathComponent("CLITests/Corrections/Formatting")
       let helpers = try [
         "StatementSpacingRewriter.swift",
         "PropertyGroupingRewriter.swift",
@@ -316,17 +288,48 @@
         )
       }.joined(separator: "\n")
       let consumer =
-        try SwiftTestingReportConsumer(additionalTests: helpers + """
+        try await SwiftTestingReportConsumer(additionalTests: helpers + """
 
         @Test("Source follows layout")
         func reportsFormatting() async throws {
-          let violations = try await FormattingRule.violations(in: app)
+          let formatting = Codebase(
+            root: .automatic(above: #filePath),
+            including: ["Sources/App/Formatting.swift"], swiftLanguageMode: .v6
+          )
+          let violations = try await FormattingRule.violations(in: formatting)
           violations.report(ruleID: "formatting", enforcement: .enforced)
         }
+
+        @Test("Class attributes use separate declaration line")
+        func reportsLayout() async throws {
+          let layout = Codebase(
+            root: .automatic(above: #filePath),
+            including: ["Sources/App/Screen.swift"], swiftLanguageMode: .v6
+          )
+          let violations = try await layout.classes.violations("Order attributes on one line") { declaration in
+            if !declaration.attributes.isEmpty {
+              try declaration.attributes.replacement {
+                Line {
+                  declaration.attributes.sorted { $0.name > $1.name }
+                }
+              }
+            }
+          }
+          violations.report(ruleID: "attribute-layout", enforcement: .enforced)
+        }
         """)
-      try consumer.writeSource(FormattingMock.combined)
+      let formattingFile = consumer.root
+        .appendingPathComponent("Sources/App/Formatting.swift")
+      try FormattingMock.combined.write(
+        to: formattingFile, atomically: true, encoding: .utf8
+      )
+      let original = "@MainActor\n@available(*, deprecated) class Screen {}\n"
+      let expected = "@available(*, deprecated) @MainActor\nclass Screen {}\n"
+      try consumer.writeSource(original)
+      let functions = "reportsFormatting|reportsLayout"
+      let ruleIDs = ["formatting", "attribute-layout"]
       let preview = try await run(
-        consumer, function: "reportsFormatting",
+        consumer, function: functions,
         arguments: ["--autocorrect", "--dry-run"]
       )
 
@@ -334,70 +337,34 @@
         preview.status == .exited(1),
         "stdout:\n\(preview.standardOutput)\nstderr:\n\(preview.standardError)"
       )
-      try expectReport(preview, violations: 1, ruleIDs: ["formatting"])
+      try expectReport(preview, violations: 2, ruleIDs: ruleIDs)
+      let report = try #require(JSONSerialization.jsonObject(
+        with: Data(preview.standardOutput.utf8)
+      ) as? [String: Any])
+      let events = try #require(report["events"] as? [[String: Any]])
+      let violationRules = events
+        .filter { $0["kind"] as? String == "violation" }
+        .compactMap { $0["ruleID"] as? String }
+      #expect(violationRules.sorted() == ruleIDs.sorted())
       #expect(preview.standardError.contains("@Environment"))
-      #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8)
+      #expect(try String(contentsOf: formattingFile, encoding: .utf8)
         == FormattingMock.combined)
+      #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8)
+        == original)
 
       let correction = try await run(
-        consumer, function: "reportsFormatting", arguments: ["--autocorrect"]
+        consumer, function: functions, arguments: ["--autocorrect"]
       )
 
       try #require(
         correction.status == .exited(0),
         "stdout:\n\(correction.standardOutput)\nstderr:\n\(correction.standardError)"
       )
-      try expectReport(correction, violations: 0, ruleIDs: ["formatting"])
-      #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8)
+      try expectReport(correction, violations: 0, ruleIDs: ruleIDs)
+      #expect(try String(contentsOf: formattingFile, encoding: .utf8)
         == FormattingMock.formattedCombined)
-    }
-
-    @Test(
-      "Layout builder previews applies and verifies a native rule",
-      .timeLimit(.minutes(10))
-    )
-    func layoutBuilderLifecycle() async throws {
-      let consumer = try SwiftTestingReportConsumer(additionalTests: """
-      @Test("Class attributes use separate declaration line")
-      func reportsLayout() async throws {
-        let violations = try await app.classes.violations("Order attributes on one line") { declaration in
-          if !declaration.attributes.isEmpty {
-            try declaration.attributes.replacement {
-              Line {
-                declaration.attributes.sorted { $0.name > $1.name }
-              }
-            }
-          }
-        }
-        violations.report(ruleID: "attribute-layout", enforcement: .enforced)
-      }
-      """)
-      let original = "@MainActor\n@available(*, deprecated) class Screen {}\n"
-      let expected = "@available(*, deprecated) @MainActor\nclass Screen {}\n"
-      try consumer.writeSource(original)
-
-      let preview = try await run(
-        consumer, function: "reportsLayout",
-        arguments: ["--autocorrect", "--dry-run"]
-      )
-      try #require(
-        preview.status == .exited(1),
-        "\(preview.standardOutput)\n\(preview.standardError)"
-      )
-      try expectReport(preview, violations: 1, ruleIDs: ["attribute-layout"])
-      #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8) ==
-        original)
-
-      let correction = try await run(
-        consumer, function: "reportsLayout", arguments: ["--autocorrect"]
-      )
-      try #require(
-        correction.status == .exited(0),
-        "\(correction.standardOutput)\n\(correction.standardError)"
-      )
-      try expectReport(correction, violations: 0, ruleIDs: ["attribute-layout"])
-      #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8) ==
-        expected)
+      #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8)
+        == expected)
     }
 
     private func expectReport(

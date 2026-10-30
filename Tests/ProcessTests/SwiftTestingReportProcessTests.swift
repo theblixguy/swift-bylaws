@@ -5,14 +5,14 @@
   import Foundation
   import Testing
 
-  @Suite("Swift Testing report process")
+  @Suite("Swift Testing report process", .reuseSwiftTestingBuild)
   struct SwiftTestingReportProcessTests {
     @Test(
       "Ordinary attachments and collected reports preserve exact correction",
       .timeLimit(.minutes(10))
     )
     func reportingLifecycle() async throws {
-      let consumer = try SwiftTestingReportConsumer()
+      let consumer = try await SwiftTestingReportConsumer()
       let original = Data("class Screen {}\n".utf8)
       let ordinary = try await consumer.run("reportsFix", phase: "ordinary")
       _ = try ordinary.completedTestID(named: "reportsFix")

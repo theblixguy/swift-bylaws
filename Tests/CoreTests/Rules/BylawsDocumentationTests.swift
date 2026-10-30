@@ -380,8 +380,9 @@ struct BylawsDocumentationTests {
   private static func inheritsPropertyDocumentation(_ property: Property)
     -> Bool
   {
-    inheritedPropertyDocumentation.contains { group in
-      group.fileName == property.location.fileName
+    let fileName = property.location.fileName
+    return inheritedPropertyDocumentation.contains { group in
+      group.fileName == fileName
         && group.enclosingTypeName == property.enclosingTypeName
         && group.names.contains(property.name)
     }

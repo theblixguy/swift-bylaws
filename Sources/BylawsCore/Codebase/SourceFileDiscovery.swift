@@ -1,13 +1,20 @@
 import BylawsPaths
+import SystemPackage
 
 enum SourceFileDiscovery {
   static func paths(
-    under rootPath: String, including: [Glob], excluding: [Glob]
-  ) async -> (paths: [String], failures: [CodebaseError.ReadFailure]) {
+    under rootPath: String, including: [Glob], excluding: [Glob],
+    collectParentDirectories: Bool = false
+  ) async -> (
+    paths: [String], relativeParentDirectories: [LexicalFilePath],
+    failures: [CodebaseError.ReadFailure]
+  ) {
     let root = LexicalFilePath(rootPath).string
     let prefix = root.hasSuffix("/") ? root : root + "/"
     var paths: [String] = []
-    let failures = await DirectoryWalker.walk(root) { relative, entry in
+    var parents: [LexicalFilePath] = []
+    var seenParents: Set<FilePath> = []
+    let failures = await DirectoryWalker.walk(root) { relative, parent, entry in
       let path = Glob.Path(relative)
       switch entry {
       case .directory:
@@ -22,11 +29,15 @@ enum SourceFileDiscovery {
               !excluding.contains(where: { $0.matches(path) })
         else { return .descend }
         paths.append(prefix + relative)
+        if collectParentDirectories, seenParents.insert(parent).inserted {
+          parents.append(LexicalFilePath(parent.string))
+        }
         return .descend
       }
     }
     return (
       paths,
+      parents,
       failures.map { failure in
         CodebaseError.ReadFailure(
           path: failure.relativePath.isEmpty ? root : prefix + failure

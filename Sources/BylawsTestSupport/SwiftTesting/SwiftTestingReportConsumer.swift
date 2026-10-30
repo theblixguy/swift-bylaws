@@ -17,7 +17,7 @@
       enforcement: Enforcement = .advisory,
       additionalProducts: [String] = [],
       additionalTests: String = ""
-    ) throws {
+    ) async throws {
       let repository = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .deletingLastPathComponent()
@@ -27,7 +27,9 @@
       let products = (["Bylaws"] + additionalProducts).map {
         ".product(name: \(String(reflecting: $0)), package: \(String(reflecting: repository.lastPathComponent.lowercased())))"
       }.joined(separator: ",\n              ")
-      project = try TemporaryProject(files: [
+      project = try await SwiftTestingConsumerScope.current?.takeProject()
+        ?? TemporaryProject(files: [:])
+      let files = [
         "Package.swift": """
         // swift-tools-version: 6.2
         import PackageDescription
@@ -77,7 +79,16 @@
           violations.report(ruleID: "rename-class", enforcement: .\(enforcement.rawValue))
         }
         """ + "\n" + additionalTests,
-      ])
+      ]
+      for (path, contents) in files {
+        let file = project.fileURL(for: path)
+        if path == "Package.swift",
+           (try? String(contentsOf: file, encoding: .utf8)) == contents
+        {
+          continue
+        }
+        try project.write(contents, to: path)
+      }
     }
 
     package func writeSource(_ source: String) throws {

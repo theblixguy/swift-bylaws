@@ -6,7 +6,7 @@
   import Subprocess
   import Testing
 
-  @Suite("Compiled correction cookbook")
+  @Suite("Compiled correction cookbook", .reuseSwiftTestingBuild)
   struct CorrectionCookbookProcessTests {
     @Test("Portable formatting recipes correct together and pass second run")
     func portableFormattingLifecycle() throws {
@@ -82,7 +82,7 @@
     func nativeRecipes() async throws {
       let root = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent().deletingLastPathComponent()
-        .deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent()
       var blocks: [String] = []
       for article in ["CorrectingSourceCookbook", "FormattingCookbook"] {
         let path = root.appendingPathComponent(
@@ -101,11 +101,15 @@
         }
       }
       try #require(functions.count == 13)
-      let consumer = try SwiftTestingReportConsumer(
-        additionalTests: blocks.joined(separator: "\n\n")
+      let batch = try CorrectionCookbookBatch(
+        CorrectionCookbookMock.cases + CorrectionCookbookMock.formattingCases
+      )
+      let consumer = try await SwiftTestingReportConsumer(
+        additionalTests: blocks.joined(separator: "\n\n") + "\n\n" + batch
+          .source
       )
       let result = try await consumer.run(
-        functions.joined(separator: "|"), phase: "cookbook"
+        functions.map { "\($0)\\(" }.joined(separator: "|"), phase: "cookbook"
       )
       try #require(result.status == .exited(0), "\(result.output)")
       let records = try result.records()
@@ -119,53 +123,30 @@
         #expect(completed.contains { $0.contains(function) }, "\(function)")
       }
 
-      let testFile = consumer.root
-        .appendingPathComponent("Tests/RuleTests/Rules.swift")
-      let originalTests = try String(contentsOf: testFile, encoding: .utf8)
-      let cases = CorrectionCookbookMock.cases + CorrectionCookbookMock
-        .formattingCases
-      for (index, mock) in cases.enumerated() {
-        let functions = try mock.swiftTestingFunctions()
-        let configuredTests = originalTests.replacing(
-          "maximumWidth: Int? = nil",
-          with: "maximumWidth: Int? = \(mock.maximumWidth.map(String.init) ?? "nil")"
-        )
-        if try String(contentsOf: testFile, encoding: .utf8) !=
-          configuredTests
-        {
-          try configuredTests.write(
-            to: testFile,
-            atomically: true,
-            encoding: .utf8
-          )
-        }
-        for (path, source) in mock.sources {
-          let file = consumer.root.appendingPathComponent(path)
-          try FileManager.default.createDirectory(
-            at: file.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-          )
-          try source.write(to: file, atomically: true, encoding: .utf8)
-        }
-        let initial = try await collectedReports(
-          consumer, functions: functions, ruleIDs: mock.ruleIDs,
-          phase: "recipe-\(index)-before"
-        )
+      try batch.writeSources(in: consumer)
+      let initialReports = try await collectedReports(
+        consumer, functions: batch.functions, ruleIDs: batch.ruleIDs,
+        phase: "recipes-before"
+      )
+      for recipe in batch.recipes {
+        let mock = recipe.mock
+        let initial = initialReports
+          .filter { recipe.ruleIDs.contains($0.ruleID.rawValue) }
+        try #require(initial.count == recipe.ruleIDs.count)
         try #require(initial.allSatisfy { !$0.findings.violations.isEmpty })
         let edits = initial.flatMap(\.findings.violations.fixes)
           .compactMap(\.self).flatMap(\.edits)
         let candidates = initial.flatMap(\.findings.violations.layoutCandidates)
         try #require(!edits.isEmpty)
         let paths = Set(mock.expected.keys.map {
-          consumer.root.appendingPathComponent($0).resolvingSymlinksInPath()
+          recipe.file($0, in: consumer).resolvingSymlinksInPath()
         })
         #expect(Set(edits.map {
           URL(fileURLWithPath: $0.source.filePath).resolvingSymlinksInPath()
         }).isSubset(of: paths))
         for (path, expected) in mock.expected {
           let original = try #require(mock.sources[path])
-          let file = consumer.root.appendingPathComponent(path)
-            .resolvingSymlinksInPath()
+          let file = recipe.file(path, in: consumer).resolvingSymlinksInPath()
           let fileEdits = edits.filter {
             URL(fileURLWithPath: $0.source.filePath).resolvingSymlinksInPath()
               == file
@@ -191,23 +172,25 @@
           )
           try actual.write(to: file, atomically: true, encoding: .utf8)
         }
-        let verified = try await collectedReports(
-          consumer, functions: functions, ruleIDs: mock.ruleIDs,
-          phase: "recipe-\(index)-after"
+      }
+      let verified = try await collectedReports(
+        consumer, functions: batch.functions, ruleIDs: batch.ruleIDs,
+        phase: "recipes-after"
+      )
+      for report in verified {
+        #expect(report.findings.violations.isEmpty, "\(report.ruleID)")
+        #expect(
+          report.findings.violations.fixes.compactMap(\.self).isEmpty,
+          "\(report.ruleID)"
         )
-        for report in verified {
-          #expect(report.findings.violations.isEmpty, "\(report.ruleID)")
-          #expect(
-            report.findings.violations.fixes.compactMap(\.self).isEmpty,
-            "\(report.ruleID)"
-          )
-        }
-        #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8)
-          == SwiftTestingReportConsumer.source)
-        for path in mock.sources.keys {
-          try FileManager.default.removeItem(
-            at: consumer.root.appendingPathComponent(path)
-          )
+      }
+      #expect(try String(contentsOf: consumer.sourceFile, encoding: .utf8)
+        == SwiftTestingReportConsumer.source)
+      for recipe in batch.recipes {
+        for (path, expected) in recipe.mock.expected {
+          #expect(try String(
+            contentsOf: recipe.file(path, in: consumer), encoding: .utf8
+          ) == expected, "\(recipe.mock.testDescription)")
         }
       }
     }

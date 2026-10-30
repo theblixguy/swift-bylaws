@@ -111,24 +111,26 @@ extension SourceCapture {
       return (Array(Set(paths)).sorted(), nil)
     case let .sourceFiles(including, excluding, swiftPM, xcode):
       let root = LexicalFilePath(scope.rootPath)
-      let (sourcePaths, failures) = await SourceFileDiscovery.paths(
-        under: scope.rootPath,
-        including: including.map { Glob($0) },
-        excluding: excluding.map { Glob($0) }
-      )
+      let (sourcePaths, relativeParents, failures) = await SourceFileDiscovery
+        .paths(
+          under: scope.rootPath,
+          including: including.map { Glob($0) },
+          excluding: excluding.map { Glob($0) },
+          collectParentDirectories: swiftPM
+        )
       guard failures.isEmpty else {
         throw CodebaseError.unreadable(failures: failures)
       }
       var paths = Set(sourcePaths)
       if swiftPM {
+        let relativeRoot = LexicalFilePath("")
         var visitedDirectories: Set<LexicalFilePath> = []
-        for path in sourcePaths {
-          var directory = LexicalFilePath(path).removingLastComponent()
-          while visitedDirectories.insert(directory).inserted,
-                root.contains(directory)
-          {
-            paths.insert(directory.appending("Package.swift").string)
-            if directory == root { break }
+        for parent in relativeParents {
+          var directory = parent
+          while visitedDirectories.insert(directory).inserted {
+            let manifest = directory.appending("Package.swift")
+            paths.insert(root.appending(manifest.string).string)
+            if directory == relativeRoot { break }
             directory = directory.removingLastComponent()
           }
         }

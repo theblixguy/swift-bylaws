@@ -194,6 +194,44 @@ struct CorrectionPathIdentityTests {
       .contains("active rule or configuration") == true)
   }
 
+  @Test(
+    "Batched targets retain protection through aliases",
+    arguments: [false, true]
+  )
+  func protectedBatch(protectedFirst: Bool) throws {
+    let project = try TemporaryProject(files: [
+      "Real/Policy.swift": "let policy = 1",
+      "Real/Value.swift": "let value = 1",
+    ])
+    let (root, physicalRoot) = try makeAlias(in: project)
+    let policy = try FileCollector.collect(fileAt: physicalRoot
+      .appendingPathComponent("Policy.swift").path)
+    let value = try FileCollector.collect(fileAt: physicalRoot
+      .appendingPathComponent("Value.swift").path)
+    let protectedFix = try SourceFix(edits: [policy.source
+        .replacement(with: "let policy = 2")])
+    let valueFix = try SourceFix(edits: [value.source
+        .replacement(with: "let value = 2")])
+
+    let plan = CorrectionPlan.prepare(
+      reports: [report(protectedFirst
+          ? [protectedFix, valueFix] : [valueFix, protectedFix])],
+      rootPath: root.path,
+      protectedPaths: [
+        root.appendingPathComponent("Policy.swift").path,
+        root.appendingPathComponent("Missing/Package.swift").path,
+      ]
+    )
+
+    #expect(plan.fixCount == 1)
+    #expect(plan.changes.map(\.resolvedPath) == [value.path])
+    #expect(plan.diagnostics.count == 1)
+    #expect(plan.diagnostics.first?.message
+      .contains("active rule or configuration") == true)
+    #expect(try Data(contentsOf: URL(fileURLWithPath: policy.path))
+      == Data("let policy = 1".utf8))
+  }
+
   @Test("Changed root alias stops application before writes")
   func retargetedRoot() async throws {
     let original = "let value = 1"

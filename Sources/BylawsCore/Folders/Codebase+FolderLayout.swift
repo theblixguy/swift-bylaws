@@ -121,7 +121,7 @@ extension Codebase {
     matching glob: Glob, rootPath: String
   ) async throws(CodebaseError) -> Set<String> {
     var directories: Set = [""]
-    let failures = await DirectoryWalker.walk(rootPath) { path, entry in
+    let failures = await DirectoryWalker.walk(rootPath) { path, _, entry in
       guard entry == .directory else { return .skipDescendants }
       directories.insert(path)
       return glob.matches(path) || glob

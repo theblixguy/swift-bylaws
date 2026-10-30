@@ -14,6 +14,21 @@ struct LexicalFilePathTests {
     )
   }
 
+  @Test(
+    "Appending normalises dot components and keeps regular names",
+    arguments: [
+      ("/project", "Sources/../Tests", "/project/Tests"),
+      ("", "/project/./Sources", "/project/Sources"),
+      ("/project", "/../Other", "/Other"),
+      ("../project", "../Other", "../Other"),
+      ("/project", "File..swift", "/project/File..swift"),
+      ("/", "../App.swift", "/App.swift"),
+    ]
+  )
+  func appendedPaths(directory: String, child: String, expected: String) {
+    #expect(LexicalFilePath(directory).appending(child).string == expected)
+  }
+
   @Test("Normalisation keeps the logical symbolic link path")
   func normalisationKeepsLogicalSymbolicLinkPath() throws {
     let manager = FileManager.default
@@ -64,6 +79,54 @@ struct LexicalFilePathTests {
     #expect(project.contains(LexicalFilePath("/workspace/project/App.swift")))
     #expect(!project
       .contains(LexicalFilePath("/workspace/project-old/App.swift")))
+  }
+
+  @Test(
+    "Containment and relative paths retain root semantics",
+    arguments: [
+      ("", "Sources/App.swift", true, Optional("Sources/App.swift")),
+      ("", "/Sources/App.swift", true, nil),
+      ("/", "/Sources/App.swift", true, "Sources/App.swift"),
+      ("/", "Sources/App.swift", false, nil),
+      ("/project", "/project", true, ""),
+      ("/project", "/project-old/App.swift", false, nil),
+      ("Sources", "Sources/App.swift", true, "App.swift"),
+    ]
+  )
+  func rootSemantics(
+    directory: String, candidate: String, contained: Bool, relative: String?
+  ) {
+    let directory = LexicalFilePath(directory)
+    let candidate = LexicalFilePath(candidate)
+
+    #expect(directory.contains(candidate) == contained)
+    #expect(candidate.relative(to: directory)?.string == relative)
+  }
+
+  @Test("Unicode path spellings keep distinct component identities")
+  func unicodeComponents() {
+    let composed = LexicalFilePath("/project/\u{00E9}")
+    let decomposed = LexicalFilePath("/project/e\u{0301}")
+
+    #expect(composed != decomposed)
+    #expect(Set([composed, decomposed]).count == 2)
+    #expect(!composed.contains(decomposed.appending("App.swift")))
+    #expect(!decomposed.contains(composed.appending("App.swift")))
+  }
+
+  @Test("Path operations retain components and hash identity")
+  func derivedPaths() throws {
+    let source = LexicalFilePath("/project/Sources/App.swift")
+    let parent = source.removingLastComponent()
+    let relative = try #require(source
+      .relative(to: LexicalFilePath("/project")))
+
+    #expect(parent.contains(source))
+    #expect(parent.appending("Other.swift")
+      == LexicalFilePath("/project/Sources/Other.swift"))
+    #expect(LexicalFilePath("Sources").contains(relative))
+    #expect(!parent.contains(relative))
+    #expect(Set([parent, LexicalFilePath("/project/./Sources")]).count == 1)
   }
 
   @Test("A descendant path becomes relative")

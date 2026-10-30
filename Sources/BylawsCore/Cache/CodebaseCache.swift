@@ -44,9 +44,17 @@ package actor CodebaseCache {
   }
 
   package func removeEntries(under directory: String) {
-    entries = entries.filter { !$0.key.hasDirectoryRoot(under: directory) }
+    let directory = LexicalFilePath(directory)
+    var removedKeys: Set<Key> = []
+    entries = entries.filter { key, entry in
+      guard let root = entry.directoryRoot, directory.contains(root) else {
+        return true
+      }
+      removedKeys.insert(key)
+      return false
+    }
     canonicalKeys = canonicalKeys.filter {
-      !$0.value.hasDirectoryRoot(under: directory)
+      !removedKeys.contains($0.value)
     }
   }
 
@@ -125,11 +133,6 @@ package actor CodebaseCache {
       swiftLanguageMode = codebase.swiftLanguageMode
       sourceLoading = codebase.sourceLoading
     }
-
-    func hasDirectoryRoot(under directory: String) -> Bool {
-      guard case let .directory(path) = root else { return false }
-      return CodebaseBuilder.contains(path, in: directory)
-    }
   }
 
   private struct LookupKey: Sendable, Hashable {
@@ -165,6 +168,7 @@ package actor CodebaseCache {
 
   private struct Entry {
     let overlay: SourceOverlay
+    let directoryRoot: LexicalFilePath?
     var parsedCodebase: MemoisedTask<CodebaseBuilder.Build, CodebaseError>?
     var packageAnalysis: MemoisedTask<PackageAnalysis, CodebaseError>?
     var reusableFiles: CodebaseBuilder.ReusableFiles?
@@ -191,6 +195,8 @@ package actor CodebaseCache {
     if entries[key]?.overlay != codebase.overlay {
       entries[key] = Entry(
         overlay: codebase.overlay,
+        directoryRoot: entries[key]?.directoryRoot
+          ?? key.directoryRoot.map { LexicalFilePath($0) },
         reusableFiles: entries[key]?.reusableFiles
       )
     }

@@ -26,15 +26,14 @@ struct PackageAnalysis: Sendable {
       !target.unresolvedValues.contains { $0.field.hasSuffix(".path") }
     }
 
+    let files = parsedCodebase.filesAsWritten.map {
+      (file: $0, path: LexicalFilePath($0.path))
+    }
     var filesByTarget: [String: [SourceFile]] = [:]
     for target in targets {
-      let directory = root.appending(target.sourceDirectory)
-      let candidates = parsedCodebase.filesAsWritten.filter {
-        directory.contains(LexicalFilePath($0.path))
-      }
       filesByTarget[target.name] = Self.selectedFiles(
-        among: candidates,
-        relativeTo: directory,
+        among: files,
+        relativeTo: root.appending(target.sourceDirectory),
         for: target
       )
     }
@@ -174,30 +173,30 @@ struct PackageAnalysis: Sendable {
   }
 
   private static func selectedFiles(
-    among files: [SourceFile],
+    among files: [(file: SourceFile, path: LexicalFilePath)],
     relativeTo directory: LexicalFilePath,
     for target: PackageManifest.Target
   ) -> [SourceFile] {
-    let excluded = target.excludedPaths.knownValues
-    let included: [String]? = switch target.sources {
+    let excluded = target.excludedPaths.knownValues.map {
+      LexicalFilePath($0)
+    }
+    let included: [LexicalFilePath]? = switch target.sources {
     case .automatic: nil
-    case let .explicit(paths): paths.knownValues
+    case let .explicit(paths):
+      paths.knownValues.map { LexicalFilePath($0) }
     }
-    return files.filter { file in
-      guard let relativePath = LexicalFilePath(file.path)
-        .relative(to: directory)?.string, !excluded.contains(where: {
-          path(relativePath, belongsTo: $0)
-        }) else { return false }
-      guard let included else { return true }
-      return included.contains { path(relativePath, belongsTo: $0) }
+    return files.compactMap { file, path in
+      guard directory.contains(path),
+            let relativePath = path.relative(to: directory),
+            !excluded.contains(where: {
+              $0.contains(relativePath)
+            })
+      else { return nil }
+      if let included, !included.contains(where: {
+        $0.contains(relativePath)
+      }) { return nil }
+      return file
     }
-  }
-
-  private static func path(
-    _ file: String,
-    belongsTo selection: String
-  ) -> Bool {
-    LexicalFilePath(selection).contains(LexicalFilePath(file))
   }
 }
 

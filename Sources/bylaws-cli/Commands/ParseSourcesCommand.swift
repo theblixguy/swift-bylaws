@@ -77,19 +77,20 @@ struct ParseSourcesCommand: AsyncParsableCommand {
       }
       if isDirectory.boolValue {
         directories.insert(relativePath)
-        let failures = await DirectoryWalker.walk(inputPath) { child, entry in
-          let childPath = LexicalFilePath(relativePath)
-            .appending(child).string
-          if entry == .directory {
-            directories.insert(childPath)
-          } else if child.hasSuffix(".swift") {
-            files.append(MappedSourceFile(
-              inputPath: LexicalFilePath(inputPath).appending(child).string,
-              relativePath: childPath
-            ))
+        let failures = await DirectoryWalker
+          .walk(inputPath) { child, _, entry in
+            let childPath = LexicalFilePath(relativePath)
+              .appending(child).string
+            if entry == .directory {
+              directories.insert(childPath)
+            } else if child.hasSuffix(".swift") {
+              files.append(MappedSourceFile(
+                inputPath: LexicalFilePath(inputPath).appending(child).string,
+                relativePath: childPath
+              ))
+            }
+            return .descend
           }
-          return .descend
-        }
         guard failures.isEmpty else {
           let failure = failures[0]
           let failedPath = failure.relativePath.isEmpty

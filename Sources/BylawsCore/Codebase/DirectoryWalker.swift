@@ -1,5 +1,5 @@
 import Foundation
-import SystemPackage
+package import SystemPackage
 
 // readdir supplies an entry's type without FileManager's costly attributes.
 package enum DirectoryWalker {
@@ -20,7 +20,9 @@ package enum DirectoryWalker {
 
   package static func walk(
     _ rootPath: String,
-    visit: (_ relativePath: String, _ entry: Entry) -> Step
+    visit: (
+      _ relativePath: String, _ parentDirectory: FilePath, _ entry: Entry
+    ) -> Step
   ) async -> [UnopenableDirectory] {
     var level = [""]
     var unopenable: [UnopenableDirectory] = []
@@ -71,13 +73,14 @@ package enum DirectoryWalker {
   private static func nextLevel(
     visiting listings: [Result<Listing, OpenFailure>],
     of directories: [String],
-    _ visit: (String, Entry) -> Step
+    _ visit: (String, FilePath, Entry) -> Step
   ) -> [String] {
     var next: [String] = []
     for (directory, listing) in zip(directories, listings) {
+      let parent = FilePath(directory)
       for (name, kind) in (try? listing.get()) ?? [] {
         let relativePath = directory.isEmpty ? name : "\(directory)/\(name)"
-        let step = visit(relativePath, kind)
+        let step = visit(relativePath, parent, kind)
         if kind == .directory, step == .descend {
           next.append(relativePath)
         }

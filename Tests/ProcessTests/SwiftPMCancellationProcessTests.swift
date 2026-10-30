@@ -17,7 +17,7 @@
     import Glibc
   #endif
 
-  @Suite("SwiftPM build cancellation")
+  @Suite("SwiftPM build cancellation", .processLimit)
   struct SwiftPMCancellationProcessTests {
     @Test(
       "Cancellation interrupts build tool in separate process group",
