@@ -131,6 +131,11 @@ package enum SourceLayoutComposition {
         || edit.source.range.lowerBound > plan.targetRange.lowerBound
         && edit.source.range.upperBound < plan.targetRange.upperBound
       else { return false }
+      if plan.replacement != nil {
+        return plan.elements.contains {
+          contains($0, edit.source.range)
+        }
+      }
       return try plan.elements.contains { range in
         let item = try SourceLayoutReplacement.Item(
           source: SourceSlice(snapshot: snapshot, range: range), tree: tree,

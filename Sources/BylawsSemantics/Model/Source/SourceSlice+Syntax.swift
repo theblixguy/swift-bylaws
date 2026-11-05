@@ -12,8 +12,7 @@ extension SourceSlice {
     as syntaxType: S.Type,
     _ transform: (S) throws -> S
   ) throws -> SourceFix.Edit {
-    var candidate = snapshot.token(at: range.lowerBound)
-      .map(Syntax.init)
+    var candidate = snapshot.token(at: range.lowerBound).map(Syntax.init)
     while let node = candidate {
       if node.positionAfterSkippingLeadingTrivia.utf8Offset == range.lowerBound,
          node.endPositionBeforeTrailingTrivia.utf8Offset == range.upperBound,
@@ -23,6 +22,25 @@ extension SourceSlice {
       }
       candidate = node.parent
     }
+    throw SourceError.syntaxMismatch
+  }
+
+  package func syntaxNode() throws -> Syntax {
+    var candidate = snapshot.token(at: range.lowerBound)
+      .map(Syntax.init)
+    var match: Syntax?
+    while let node = candidate {
+      if node.positionAfterSkippingLeadingTrivia.utf8Offset == range.lowerBound,
+         node.endPositionBeforeTrailingTrivia.utf8Offset == range.upperBound
+      {
+        if node.is(ExprSyntax.self) || node.is(StmtSyntax.self)
+          || node.is(DeclSyntax.self) || node.is(TypeSyntax.self)
+          || node.is(CodeBlockSyntax.self) { return node }
+        match = match ?? node
+      }
+      candidate = node.parent
+    }
+    if let match { return match }
     throw SourceError.syntaxMismatch
   }
 }

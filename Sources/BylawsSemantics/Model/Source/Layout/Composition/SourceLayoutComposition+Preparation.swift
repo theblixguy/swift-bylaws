@@ -2,7 +2,35 @@ import BylawsSyntax
 
 extension SourceLayoutComposition.Session {
   func contentEdits(in edits: [SourceFix.Edit]) throws -> [SourceFix.Edit] {
-    try edits.flatMap { edit in
+    if edits
+      .contains(where: {
+        $0.layout?.replacement != nil
+      })
+    {
+      return try composeTree(edits: edits, validating: false).flatMap { root in
+        guard let plan = root.edit.layout else { return [root.edit] }
+        if let replacement = plan.replacement {
+          let changes = try contentEdits(in: root.children
+            .flatMap(\.flattenedEdits))
+          let children = try composeTree(edits: changes, validating: false)
+          let prepared = try prepareReplacement(
+            root.edit, plan: plan, replacement: replacement, children: children
+          )
+          return [SourceFix.Edit(
+            source: root.edit.source,
+            replacement: try SourceLayoutRenderer.render(prepared)
+          )]
+        }
+        return try contentEdits(in:
+          plan.resolve(snapshot: snapshot).edits
+            + (plan.formatting?.nested ?? [])
+            .filter { $0.ownership == .independent }
+            .map { try $0.resolve(snapshot: snapshot) }
+            + root.children.flatMap(\.flattenedEdits)
+        )
+      }
+    }
+    return try edits.flatMap { edit in
       guard let plan = edit.layout else { return [edit] }
       let captured = try plan.resolve(snapshot: snapshot).edits
         + (plan.formatting?.nested ?? [])
@@ -48,6 +76,13 @@ extension SourceLayoutComposition.Session {
     let children = key.children
     guard let plan = edit.layout else { throw SourceError.syntaxMismatch }
     let prepared = switch plan.mode {
+    case let .replacement(replacement):
+      try prepareReplacement(
+        edit,
+        plan: plan,
+        replacement: replacement,
+        children: children
+      )
     case let .layout(formatting):
       try prepareFormatting(
         edit,

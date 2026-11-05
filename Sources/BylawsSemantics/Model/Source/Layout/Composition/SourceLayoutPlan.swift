@@ -81,6 +81,7 @@ package struct SourceLayoutPlan: Sendable, Hashable, Codable {
 
   package enum Mode: Sendable, Hashable, Codable {
     case layout(Layout)
+    case replacement(SourceReplacementPlan)
   }
 
   package let elements: [Range<Int>]
@@ -90,7 +91,12 @@ package struct SourceLayoutPlan: Sendable, Hashable, Codable {
   package var formatting: Layout? {
     switch mode {
     case let .layout(layout): layout
+    case .replacement: nil
     }
+  }
+
+  package var replacement: SourceReplacementPlan? {
+    if case let .replacement(value) = mode { value } else { nil }
   }
 
   package init(elements: [Range<Int>], targetRange: Range<Int>, mode: Mode) {
@@ -135,6 +141,10 @@ package struct SourceLayoutPlan: Sendable, Hashable, Codable {
     switch mode {
     case .layout:
       guard !elements.isEmpty else { throw SourceError.syntaxMismatch }
+    case let .replacement(replacement):
+      guard elements == replacement.node.ranges
+      else { throw SourceError.syntaxMismatch }
+      try replacement.validate(target: source)
     }
     for range in elements { try validate(range: range, source: source) }
     if let formatting {

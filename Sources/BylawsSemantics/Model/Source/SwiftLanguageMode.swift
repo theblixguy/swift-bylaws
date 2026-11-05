@@ -14,13 +14,20 @@ public enum SwiftLanguageMode: String, Sendable, Hashable, Codable,
   case v6 = "6"
 
   func parse(_ source: String) -> SourceFileSyntax {
+    parse(source, as: SourceFileSyntax.self)
+  }
+
+  func parse<Node: SyntaxParseable>(
+    _ source: String,
+    as type: Node.Type
+  ) -> Node {
     let version: Parser.SwiftVersion = switch self {
     case .v4: .v4
     case .v5: .v5
     case .v6: .v6
     }
     var parser = Parser(source, swiftVersion: version)
-    return SourceFileSyntax.parse(from: &parser)
+    return type.parse(from: &parser)
   }
 
   package init(toolsVersion: PackageManifest.ToolsVersion?) {
