@@ -62,6 +62,22 @@ package enum SourceLayoutComposition {
       return (try? owns(child, plan: plan)) == true
     }
 
+    package func canCombine(
+      _ first: SourceFix.Edit,
+      _ second: SourceFix.Edit
+    ) -> Bool {
+      guard first.source.snapshot == snapshot,
+            second.source.snapshot == snapshot,
+            first.layout?.listMutation != nil || second.layout?
+              .listMutation != nil
+      else { return false }
+      do {
+        try validate(first)
+        try validate(second)
+        return try mergingListMutations([first, second]).count == 1
+      } catch { return false }
+    }
+
     package func validate(_ edit: SourceFix.Edit) throws {
       guard edit.source.snapshot == snapshot else {
         throw SourceError.differentSnapshots
@@ -127,6 +143,26 @@ package enum SourceLayoutComposition {
     }
 
     func owns(_ edit: SourceFix.Edit, plan: SourceLayoutPlan) throws -> Bool {
+      if let mutation = plan.listMutation {
+        for value in mutation.mutations {
+          let list = try value.resolve(snapshot: snapshot)
+          let slices = try list.slices()
+          let retained = try value.groups(
+            in: list,
+            ordered: Array(list.elements.indices)
+          ).flatMap(\.self)
+          for element in retained {
+            guard case let .original(index) = element else { continue }
+            let item = try SourceLayoutReplacement.Item(
+              source: slices[index],
+              tree: tree,
+              validatesTrailingTrivia: false
+            )
+            if contains(item.contentRange, edit.source.range) { return true }
+          }
+        }
+        return false
+      }
       guard !edit.source.range.isEmpty
         || edit.source.range.lowerBound > plan.targetRange.lowerBound
         && edit.source.range.upperBound < plan.targetRange.upperBound

@@ -24,6 +24,14 @@ struct SourceLayoutPrepared {
     -> SourceLayoutRenderer.Context
   {
     var result = context
+    if capture.listMutation?.formatsElements == false {
+      result.initialColumn = placement.column
+      result.initialIndentation = placement.lineIndentation
+      result.baseIndentation = placement.lineIndentation
+      result.leadingWhitespace = ""
+      result.trailingWhitespace = ""
+      return result
+    }
     let original = placement.originalText ?? source.text
     let leading = String(original.prefix(while: Self.isWhitespace))
     result.initialColumn = SourceTextWidth.column(

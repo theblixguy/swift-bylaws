@@ -260,6 +260,38 @@ struct AttachedLayoutTests {
     """)
   }
 
+  @Test("Inserted arguments retain parent-controlled attachments")
+  func insertion() async throws {
+    let app = Codebase(root: .sources([
+      "Sources/Calls.swift": "let result = send(values: [1, 2], option: true)",
+    ]))
+    let call = try #require(await app.calls.first)
+    let elements = try #require(call.arguments.first?.expression?.elements)
+    let layout = try Layout(
+      call.arguments,
+      layout: Lines(call.arguments, boundaries: .newline)
+    )
+    .applying {
+      try Layout(elements, layout: Lines(elements, boundaries: .newline))
+    }
+    let insertion = try Insert("count: 3", into: call.argumentList)
+    let correction = SourceCorrection(combining: [
+      layout.correction,
+      insertion.correction,
+    ])
+
+    #expect(try applying(correction) == """
+    let result = send(
+      values: [
+        1,
+        2
+      ],
+      option: true,
+      count: 3
+    )
+    """)
+  }
+
   private func applying(_ operation: some SourceCorrectionProviding) throws
     -> String
   {

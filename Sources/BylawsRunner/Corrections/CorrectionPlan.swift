@@ -238,7 +238,7 @@ package struct CorrectionPlan {
     for path in ownersByPath.keys.sorted() {
       guard let owners = ownersByPath[path] else { continue }
       var sessions: [SourceSnapshot: SourceLayoutComposition.Session] = [:]
-      func canContain(_ parent: SourceFix.Edit, _ child: SourceFix.Edit)
+      func canCompose(_ parent: SourceFix.Edit, _ child: SourceFix.Edit)
         -> Bool
       {
         guard parent.layout != nil,
@@ -252,7 +252,10 @@ package struct CorrectionPlan {
           session = SourceLayoutComposition.Session(snapshot: snapshot)
           sessions[snapshot] = session
         }
-        return session.canContain(parent, child)
+        return session.canContain(parent, child) || session.canCombine(
+          parent,
+          child
+        )
       }
       let edits = owners.keys.sorted {
         if $0.range.lowerBound == $1.range.lowerBound {
@@ -277,11 +280,11 @@ package struct CorrectionPlan {
           let touchesInsertion = (lhs.isEmpty || rhs.isEmpty)
             && rhs.lowerBound <= lhs.upperBound
           if lhs.overlaps(rhs) || touchesInsertion {
-            if canContain(
+            if canCompose(
               edits[first].sourceEdit,
               edits[second].sourceEdit
             )
-              || canContain(
+              || canCompose(
                 edits[second].sourceEdit,
                 edits[first].sourceEdit
               )

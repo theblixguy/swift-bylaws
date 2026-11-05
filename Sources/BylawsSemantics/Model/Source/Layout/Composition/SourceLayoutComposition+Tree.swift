@@ -61,6 +61,9 @@ extension SourceLayoutComposition.Session {
       else { throw SourceLayoutComposition.Failure.changedCandidate }
       if validating { try validate(candidate) }
     }
+    if validating, edits.contains(where: { $0.layout?.listMutation != nil }) {
+      for edit in edits { try validate(edit) }
+    }
     let active = Set(edits)
     let candidateSet = Set(candidates)
     let changesLines = try !candidates.isEmpty && contentEdits(in: edits)
@@ -79,7 +82,7 @@ extension SourceLayoutComposition.Session {
           (changesLines || edits
             .contains { sharesLine(candidate, with: $0) }))
     }
-    let input = (edits + context).sorted {
+    let input = try mergingListMutations(edits + context).sorted {
       if $0.source.range.lowerBound != $1.source.range.lowerBound {
         return $0.source.range.lowerBound < $1.source.range.lowerBound
       }

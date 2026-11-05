@@ -48,6 +48,13 @@ public enum SourceReplacementBuilder {
     SourceReplacement(content: .sequence(sources.map { .source($0) }))
   }
 
+  /// Retains the captured elements of a source list.
+  public static func buildExpression(_ sources: SourceList<some Any>)
+    -> SourceReplacement
+  {
+    SourceReplacement(sources: sources)
+  }
+
   /// Includes an existing replacement description.
   public static func buildExpression(_ replacement: SourceReplacement)
     -> SourceReplacement { replacement }

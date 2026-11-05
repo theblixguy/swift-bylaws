@@ -36,10 +36,13 @@ extension SourceLayoutComposition {
           ownership: .withLayout
         ) }
       )
+      let mode: SourceLayoutPlan.Mode = if let mutation = plan.listMutation {
+        .listMutation(mutation, layout: attached)
+      } else { .layout(attached) }
       let updated = SourceLayoutPlan(
         elements: plan.elements,
         targetRange: plan.targetRange,
-        mode: .layout(attached)
+        mode: mode
       )
       let proposed = SourceFix.Edit(
         source: parent.source,

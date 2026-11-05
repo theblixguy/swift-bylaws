@@ -106,7 +106,7 @@ struct SourceReplacementTests {
     let node = try #require(file.syntaxNodes(of: .ifExpression).first)
     let condition = try #require(node.ifExpression)
     let replacement = try Replace(node) {
-      Scope { condition.body.statements }
+      try Scope { try condition.body.statementList }
     }
     let fix = try #require(replacement.correction.fix)
 
@@ -221,7 +221,7 @@ struct SourceReplacementTests {
       .jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
     var layout = try #require(payload["layout"] as? [String: Any])
     var mode = multiple ? try #require(layout["mode"] as? [String: Any]) : [:]
-    mode[multiple ? "layout" : "unknown"] = [String: String]()
+    mode[multiple ? "listMutation" : "unknown"] = [String: String]()
     layout["mode"] = mode
     payload["layout"] = layout
     let encoded = try JSONSerialization.data(withJSONObject: payload)
