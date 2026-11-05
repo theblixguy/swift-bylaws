@@ -7,12 +7,16 @@ extension RuntimeEvaluator {
     arguments: RuntimeArguments,
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> RuntimeValue {
+    if constructor == .layout {
+      return try await constructLayoutOperation(arguments, state: &state)
+    }
     if constructor == .group {
-      try arguments.requireLabels(["where"], for: constructor.rawValue)
-      return .layoutGroup(
-        predicate: try arguments.value(at: 0),
-        comparison: nil
-      )
+      let projected = arguments.hasLabels([nil, .where])
+        || arguments.hasLabels([nil, nil])
+      return .layoutGroup(RuntimeLayoutGroup(
+        projection: projected ? try arguments.value(at: 0) : nil,
+        predicate: try arguments.value(at: projected ? 1 : 0)
+      ))
     }
     if constructor == .newline || constructor == .blankLine || constructor ==
       .softBreak
@@ -27,29 +31,45 @@ extension RuntimeEvaluator {
         case .blankLine: .blankLine
         default: .softBreak
         }
+      if constructor != .softBreak {
+        return .layoutPlan([.separator(constructor == .blankLine ? .blankLine :
+            .newline)])
+      }
       return .sourceLayout(SourceLayout(node: node))
     }
     let values = arguments.values
-    let takesWidth = constructor == .wrap && values.count == 2
-    try arguments.requireLabels(
-      takesWidth ? ["width", nil] : [nil],
-      for: constructor.rawValue
-    )
-    let layout = try await layoutBody(
-      arguments.value(at: values.count - 1),
-      at: arguments.location,
-      state: &state
-    )
+    let bodyIndex = values[0].label == "width" || values[0]
+      .label == "boundaries" ? 1 : 0
+    let value = try arguments.value(at: bodyIndex)
+    let layout: SourceLayout = switch value {
+    case .closure, .function:
+      try await layoutBody(value, at: arguments.location, state: &state)
+    default:
+      try SourceLayout(node: value.layoutNode(at: arguments.location))
+    }
     let node: SourceLayout.Node
     switch constructor {
     case .sourceLayout: node = layout.node
     case .line: node = .line(layout.node)
+    case .lines:
+      let boundaries: Lines.Boundaries
+      if let argument = values.first(where: { $0.label == "boundaries" }) {
+        switch argument.value {
+        case .member(.constant(.newline)): boundaries = .newline
+        case .member(.constant(.preserved)): boundaries = .preserved
+        default: throw RuntimeError(
+            message: "Lines boundaries must be .preserved or .newline",
+            location: arguments.location
+          )
+        }
+      } else { boundaries = .preserved }
+      node = Lines(layout: layout, boundaries: boundaries).layout.node
     case .indent: node = .indent(layout.node)
     case .align: node = .align(layout.node)
     case .wrap:
       let width: Int?
-      if takesWidth {
-        switch try arguments.value(at: 0) {
+      if let argument = values.first(where: { $0.label == "width" }) {
+        switch argument.value {
         case let .integer(value), let .optional(.integer(value)): width = value
         case .optional(nil): width = nil
         default:
@@ -76,47 +96,36 @@ extension RuntimeEvaluator {
     arguments: RuntimeArguments,
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> RuntimeValue {
-    let hasWidth = arguments.hasLabels([.whenLineExceeds, nil])
+    let stored = arguments.hasLabels([.layout]) || arguments.hasLabels([
+      .layout,
+      .when,
+    ])
+    let hasCondition = arguments.hasLabels([.when, nil]) || arguments
+      .hasLabels([
+        .layout,
+        .when,
+      ])
     try arguments.requireLabels(
-      hasWidth ? [.whenLineExceeds, nil] : [nil], for: .replacement
+      stored ? (hasCondition ? [.layout, .when] : [.layout]) : (hasCondition ? [
+        .when,
+        nil,
+      ] : [nil]), for: .replacement
     )
-    let maximumWidth: Int? = if hasWidth {
-      switch try arguments.value(at: 0) {
-      case let .integer(value), let .optional(.integer(value)):
-        value
-      case .optional(nil): nil
-      default:
-        throw RuntimeError(
-          message: "SourceLayout width must be Int or nil",
-          location: arguments.location
-        )
-      }
-    } else {
-      nil
+    let condition = try hasCondition ? layoutCondition(
+      in: arguments,
+      at: stored ? 1 : 0
+    ) : nil
+    let result = if stored { try arguments.value(at: 0) } else {
+      try await layoutResult(
+        arguments.value(at: arguments.values.count - 1),
+        at: arguments.location, builder: .sourceLayout,
+        state: &state
+      )
     }
-    let result = try await layoutResult(
-      arguments.value(at: arguments.values.count - 1),
-      at: arguments.location,
-      state: &state
-    )
     do {
       let providers =
         try elements
           .map { try $0.sourceProvider(at: arguments.location) }
-      if case let .layoutPlan(plan) = result {
-        guard !hasWidth else {
-          throw RuntimeError(
-            message: "SourceListLayout must use an unconditional replacement. Remove whenLineExceeds.",
-            location: arguments.location
-          )
-        }
-        let operations = try await resolveLayoutPlan(
-          plan, elements: elements, at: arguments.location, state: &state
-        )
-        return .sourceFix(try SourceListLayoutReplacement.make(
-          elements: providers, operations: operations
-        ))
-      }
       guard case let .sourceLayout(layout) = result else {
         throw RuntimeError(
           message: RuntimeBuilder.layout.argumentRequirement,
@@ -127,7 +136,7 @@ extension RuntimeEvaluator {
         try SourceLayoutReplacement.make(
           elements: providers,
           layout: layout,
-          when: maximumWidth.map { !.maximumLineLength(...$0) }
+          when: condition
         )
       )
     } catch {
@@ -135,24 +144,29 @@ extension RuntimeEvaluator {
     }
   }
 
-  private func layoutBody(
+  func layoutBody(
     _ callable: RuntimeValue,
     at location: DeclarationLocation,
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> SourceLayout {
-    let result = try await layoutResult(callable, at: location, state: &state)
+    let result = try await layoutResult(
+      callable,
+      at: location,
+      builder: .sourceLayout,
+      state: &state
+    )
     guard case let .sourceLayout(layout) = result else {
       throw RuntimeError(
-        message: "SourceLayout must emit source values. Use groups in a collection replacement.",
+        message: "SourceLayout must emit source values. Use groups in Layout.",
         location: location
       )
     }
     return layout
   }
 
-  private func layoutResult(
+  func layoutResult(
     _ callable: RuntimeValue,
-    at location: DeclarationLocation,
+    at location: DeclarationLocation, builder: RuntimeBuilder = .layout,
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> RuntimeValue {
     let result: RuntimeValue
@@ -160,7 +174,7 @@ extension RuntimeEvaluator {
     case let .closure(closure):
       result = try await invokeSynchronous(
         closure, arguments: [], kind: "layout", allowsThrowing: true,
-        builder: .layout, state: &state
+        builder: builder, state: &state
       )
     case let .function(function):
       result = try await invokeSynchronous(
@@ -177,14 +191,12 @@ extension RuntimeEvaluator {
       )
     }
     switch result {
-    case .sourceLayout:
-      if case let .closure(closure) = callable,
-         closure.definition.isAutomaticLayout
-      {
-        return .layoutPlan(try result.layoutOperations(at: location))
-      }
+    case let .sourceLayout(layout):
+      if layout.correctionError != nil { return result }
       return result
     case .layoutPlan: return result
+    case .layoutGroup where builder == .layout:
+      return try builder.combine([result], at: location)
     default:
       throw RuntimeError(
         message: RuntimeBuilder.layout.argumentRequirement,

@@ -252,8 +252,13 @@ extension ModelSamples {
     )
     add(try await codebase.calls, as: RuntimeModelValue.functionCall)
     add(
+      try await codebase.ifExpressions,
+      as: RuntimeModelValue.sourceIfExpression
+    )
+    add(
       try await codebase.syntaxNodes(
         of: .functionCall,
+        .ifExpression,
         .functionDeclaration,
         .codeBlock,
         .classDeclaration,

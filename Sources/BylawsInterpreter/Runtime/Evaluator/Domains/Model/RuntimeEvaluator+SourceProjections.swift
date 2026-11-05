@@ -7,6 +7,7 @@ extension RuntimeEvaluator {
     at location: DeclarationLocation
   ) throws(RuntimeError) -> RuntimeValue? {
     do {
+      if let list = try sourceListProjection(name, of: value) { return list }
       if name == .source { return .sourceSlice(try value.source) }
       if name ==
         .spacing { return .sourceSpacing(try value.sourceProvider.spacing) }

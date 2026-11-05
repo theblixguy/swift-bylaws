@@ -24,14 +24,14 @@ struct DeferredLayoutEffectTests {
     let expression = switch policy {
     case .groupPredicate:
       """
-      Group<SourceNode>(where: { node in
+      Group<SourceNode> { node in
         let prefix = try node.source.slice(\(start)..<\(start + 1))
         return !prefix.text.isEmpty
-      })
+      }
       """
     case .groupComparison:
       """
-      Group<SourceNode>(where: { _ in true }).sorted { left, right in
+      Group<SourceNode> { _ in true }.sorted { left, right in
         let prefix = try left.source.slice(\(start)..<\(start + 1))
         return !prefix.text.isEmpty && (left.name ?? "") < (right.name ?? "")
       }
@@ -60,7 +60,7 @@ struct DeferredLayoutEffectTests {
       rules: """
       Rule("members") {
         try await app.syntaxNodes(of: .structDeclaration).violations("Arrange members") { declaration in
-          try declaration.members.replacement {
+          try Layout(declaration.members) {
             makePolicy()
           }
         }

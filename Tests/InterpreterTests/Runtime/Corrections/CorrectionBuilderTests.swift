@@ -98,7 +98,7 @@ struct CorrectionBuilderTests {
     #expect(edits.map(\.replacement) == ["FIRST", "SECOND", "Updated"])
   }
 
-  @Test("Explicit scalar return reports edit array requirement")
+  @Test("Explicit scalar return supplies a correction")
   func scalarReturn() async throws {
     let project = try rulesProject(
       rules: """
@@ -110,13 +110,9 @@ struct CorrectionBuilderTests {
       """,
       sources: ["Sources/Model.swift": "class Model {}"]
     )
-    let path = project.fileURL(for: "ProjectRules.swift").path
-    let program = await RuleProgram.loaded(fromFiles: [path])
-
-    #expect(program.rules.isEmpty)
-    #expect(program.errors.contains {
-      $0.message.contains("must be [SourceFix.Edit]")
-        && $0.location.filePath == path && $0.location.line == 7
-    })
+    let program = try await loadedProgram(in: project)
+    let findings = try await #require(program.rules.first).findings()
+    #expect(findings.violations.fixes.compactMap(\.self).flatMap(\.edits)
+      .map(\.replacement) == ["class Updated {}"])
   }
 }

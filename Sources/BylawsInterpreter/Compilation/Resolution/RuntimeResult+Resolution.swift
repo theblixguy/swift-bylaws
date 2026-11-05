@@ -17,7 +17,8 @@ extension SupportedAPI.RuntimeResult {
     case .slicedCollection: return .arraySlice(receiver.collectionElement)
     case .collection:
       switch receiver {
-      case .selection, .arraySlice: return .array(receiver.collectionElement)
+      case .selection, .arraySlice,
+           .sourceList: return .array(receiver.collectionElement)
       default: return receiver
       }
     case .collectionElement:

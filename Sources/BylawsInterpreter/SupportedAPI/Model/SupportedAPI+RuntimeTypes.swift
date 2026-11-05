@@ -8,9 +8,15 @@ extension SupportedAPI {
     case string
     case regex
     case sourceSlice
+    case sourceList(RuntimeType)
     case sourceEdit
     case sourceFix
+    case sourceCorrection
+    case layoutCorrection
+    case sourceReplacement, sourceScope
     case sourceLayout
+    case sourceLayoutCondition
+    case layoutContent(RuntimeType)
     case layoutGroup(RuntimeType)
     case layoutOperation(Constructor)
     case conditionalLayoutOperation(Constructor, RuntimeType)
@@ -37,6 +43,8 @@ extension SupportedAPI {
     case ruleResults
     case rule
     case integerRange
+    case integerClosedRange, integerRangeFrom, integerRangeThrough,
+         integerRangeUpTo
     case staticType(String)
     case staticMember(Set<MemberLiteral.Owner>)
     case keyPath([Member])
@@ -60,9 +68,16 @@ extension SupportedAPI {
       case .string: "String"
       case .regex: "Regex"
       case .sourceSlice: "SourceSlice"
+      case let .sourceList(element): "SourceList<\(element.writtenName)>"
       case .sourceEdit: "SourceFix.Edit"
       case .sourceFix: "SourceFix"
+      case .sourceCorrection: "SourceCorrection"
+      case .layoutCorrection: "Layout"
+      case .sourceReplacement: "SourceReplacement"
+      case .sourceScope: "Scope"
       case .sourceLayout: "SourceLayout"
+      case .sourceLayoutCondition: "SourceLayoutCondition"
+      case let .layoutContent(element): "LayoutContent<\(element.writtenName)>"
       case let .layoutGroup(element): "Group<\(element.writtenName)>"
       case let .layoutOperation(operation): operation.rawValue
       case let .conditionalLayoutOperation(operation, element):
@@ -95,6 +110,10 @@ extension SupportedAPI {
       case .ruleResults: "RuleResults"
       case .rule: "Rule"
       case .integerRange: "Range<Int>"
+      case .integerClosedRange: "ClosedRange<Int>"
+      case .integerRangeFrom: "PartialRangeFrom<Int>"
+      case .integerRangeThrough: "PartialRangeThrough<Int>"
+      case .integerRangeUpTo: "PartialRangeUpTo<Int>"
       case let .staticType(name): "\(name).Type"
       case .staticMember: "a static member"
       case .keyPath: "a key path"
@@ -128,9 +147,12 @@ extension SupportedAPI {
   }
 
   package enum RuntimeReceiver: Hashable, Sendable {
+    case sourceCorrection, sourceFix, sourceEdit, layoutCorrection
+    case sourceLayout
     case layoutGroup
     case arraySlice
-    case sourceSlice, sourceSpacing, fixContext
+    case sourceSlice, sourceSpacing, fixContext, sourceScope
+    case sourceList
     case url
     case dictionary
     case dependencyGroup
@@ -241,4 +263,5 @@ extension SupportedAPI {
     .map(\.rawValue))
     .union(Constructor.allCases.map(\.rawValue))
     .union(staticMemberTypeNames)
+    .union(["SourceLayoutCondition"])
 }

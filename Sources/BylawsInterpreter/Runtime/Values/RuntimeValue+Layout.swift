@@ -5,18 +5,10 @@ extension RuntimeValue {
     -> [RuntimeLayoutOperation]
   {
     switch self {
-    case let .layoutPlan(operations): return operations
-    case let .layoutGroup(predicate, comparison): return [.group(
-        predicate: predicate,
-        comparison: comparison
-      )]
-    case let .sourceLayout(layout):
-      return try layout.node.listOperations(at: location)
+    case let .layoutPlan(operations): operations
+    case let .layoutGroup(group): [.group(group)]
     default:
-      throw RuntimeError(
-        message: "SourceListLayout must contain groups and separators. Use a separate replacement for explicit source.",
-        location: location
-      )
+      [.layout(SourceLayout(node: try layoutNode(at: location)))]
     }
   }
 
@@ -24,7 +16,27 @@ extension RuntimeValue {
     -> SourceLayout.Node
   {
     switch self {
+    case let .layoutPlan(operations):
+      let nodes = try operations
+        .map { operation throws(RuntimeError) -> SourceLayout.Node in
+          switch operation {
+          case let .separator(whitespace):
+            whitespace == .blankLine ? .blankLine : .newline
+          default: throw RuntimeError(
+              message: RuntimeBuilder.sourceLayout.argumentRequirement,
+              location: location
+            )
+          }
+        }
+      return .sequence(nodes)
     case let .sourceLayout(layout): return layout.node
+    case .member(.constant(.newline)): return .newline
+    case .member(.constant(.blankLine)): return .blankLine
+    case .member(.constant(.softBreak)): return .softBreak
+    case let .sourceCorrection(correction),
+         let .layoutCorrection(correction): return SourceLayout(correction)
+      .node
+    case let .sourceFix(fix): return SourceLayout(fix).node
     case let .sourceSlice(source): return .source(source)
     case let .sourceEdit(edit): return .edit(edit)
     case let .model(model) where SupportedAPI.sourceProvidingModels
@@ -32,10 +44,9 @@ extension RuntimeValue {
       return .source(try model.sourceProvider)
     default:
       if let values = sequenceElements {
-        return .sequence(try values
-          .map { value throws(RuntimeError) -> SourceLayout.Node in
-            .source(try value.sourceProvider(at: location))
-          })
+        return .sequence(try values.map { value throws(RuntimeError) in
+          try value.layoutNode(at: location)
+        })
       }
       throw RuntimeError(
         message: RuntimeBuilder.layout.argumentRequirement,
@@ -49,34 +60,13 @@ extension RuntimeValue {
   {
     switch self {
     case let .sourceSlice(source): return source
+    case let .sourceList(list): return list.source
     case let .model(model) where SupportedAPI.sourceProvidingModels
       .contains(model.modelType):
       return try model.sourceProvider
     default:
       throw RuntimeError(
         message: "SourceLayout must contain captured source. Select a parsed source value.",
-        location: location
-      )
-    }
-  }
-}
-
-extension SourceLayout.Node {
-  fileprivate func listOperations(at location: DeclarationLocation)
-    throws(RuntimeError) -> [RuntimeLayoutOperation]
-  {
-    switch self {
-    case .blankLine: return [.separator(.blankLine)]
-    case .newline: return [.separator(.newline)]
-    case let .sequence(nodes):
-      var operations: [RuntimeLayoutOperation] = []
-      for node in nodes {
-        operations.append(contentsOf: try node.listOperations(at: location))
-      }
-      return operations
-    default:
-      throw RuntimeError(
-        message: "SourceListLayout must contain groups and separators. Use a separate replacement for explicit source.",
         location: location
       )
     }

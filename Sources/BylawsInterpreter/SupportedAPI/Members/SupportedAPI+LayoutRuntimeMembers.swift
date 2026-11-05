@@ -1,5 +1,40 @@
 extension SupportedAPI {
   static let layoutRuntimeMembers: [RuntimeMemberAPI] = [
+    property(
+      .boundariesType,
+      on: [.staticType("Lines")],
+      result: .fixed(.staticType("Lines.Boundaries"))
+    ),
+    method(
+      .applying,
+      on: [.layoutCorrection],
+      arguments: .exact([.init(nil)]),
+      result: .receiver,
+      canThrow: true
+    ),
+    method(
+      .maximumLineLength, on: [.staticType("SourceLayoutCondition")],
+      arguments: .exact([.init(nil, .oneOf([
+        .integerRange, .integerClosedRange, .integerRangeFrom,
+        .integerRangeThrough, .integerRangeUpTo,
+      ]))]), result: .fixed(.sourceLayoutCondition)
+    ),
+    property(
+      .newline,
+      on: [.staticType("SourceLayout")],
+      result: .fixed(.sourceLayout)
+    ),
+    property(
+      .blankLine,
+      on: [.staticType("SourceLayout")],
+      result: .fixed(.sourceLayout)
+    ),
+    property(
+      .softBreak,
+      on: [.staticType("SourceLayout")],
+      result: .fixed(.sourceLayout)
+    ),
+    property(.layout, on: [.sourceLayout], result: .fixed(.sourceLayout)),
     method(
       .sorted,
       on: [.layoutGroup],
@@ -19,10 +54,15 @@ extension SupportedAPI {
     property(.after, on: [.sourceSpacing], result: .fixed(.sourceSlice)),
     method(
       .replacement,
-      on: [.array, .arraySlice, .selection],
+      on: [.array, .arraySlice, .selection, .sourceList],
       arguments: .alternatives([
         [.init(nil)],
-        [.init(.whenLineExceeds, .exact(.optional(.integer))), .init(nil)],
+        [.init(.when, .exact(.optional(.sourceLayoutCondition))), .init(nil)],
+        [.init(.layout)],
+        [
+          .init(.layout),
+          .init(.when, .exact(.optional(.sourceLayoutCondition))),
+        ],
       ]),
       result: .fixed(.sourceEdit), canThrow: true
     ),
@@ -79,7 +119,8 @@ extension SupportedAPI {
   ]
 
   static let sourceProvidingModels: Set<ModelType> = [
-    .sourceToken, .sourceTrivia, .sourceFile, .sourceNode, .sourceExpression,
+    .sourceToken, .sourceTrivia, .sourceFile, .sourceNode, .sourceIfExpression,
+    .sourceExpression,
     .sourceAssignment,
     .variableBinding, .classDeclaration, .actor, .structDeclaration,
     .enumDeclaration, .nominalType, .protocolDeclaration,
@@ -93,18 +134,40 @@ extension SupportedAPI {
 extension SupportedAPI.RuntimeType {
   var providesSource: Bool {
     switch self {
-    case .sourceSlice: true
+    case .sourceSlice, .sourceList: true
     case let .model(model): SupportedAPI.sourceProvidingModels.contains(model)
     default: false
     }
   }
 
+  var providesLayout: Bool {
+    switch self {
+    case .sourceLayout, .layoutOperation(.line),
+         .layoutOperation(.lines),
+         .layoutOperation(.indent), .layoutOperation(.wrap),
+         .layoutOperation(.align): true
+    default: false
+    }
+  }
+
+  var supportsSourceLayout: Bool {
+    switch self {
+    case .layoutContent, .layoutGroup, .conditionalLayoutOperation: false
+    default: supportsLayout
+    }
+  }
+
   var supportsLayout: Bool {
     if providesSource { return true }
-    if let element = sequenceElement { return element.providesSource }
+    if let element = sequenceElement {
+      return element.providesSource || RuntimeBuilder.correction.accepts(self)
+    }
     return switch self {
-    case .sourceLayout, .sourceEdit, .layoutOperation, .layoutGroup,
-         .conditionalLayoutOperation: true
+    case .sourceLayout, .layoutContent, .sourceEdit, .sourceFix,
+         .sourceCorrection, .layoutCorrection,
+         .layoutOperation, .layoutGroup,
+         .conditionalLayoutOperation:
+      true
     default: false
     }
   }

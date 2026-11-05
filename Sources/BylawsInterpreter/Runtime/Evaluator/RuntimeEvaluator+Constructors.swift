@@ -23,7 +23,24 @@ extension RuntimeEvaluator {
       )
     }
     switch constructor {
-    case .sourceLayout, .line, .newline, .blankLine, .indent, .wrap, .softBreak,
+    case .layoutContent:
+      throw RuntimeError(
+        message: "LayoutContent must use a case such as .group or .layout",
+        location: arguments.location
+      )
+    case .sourceCorrection:
+      return try constructCorrection(arguments)
+    case .replace, .unwrap, .sourceReplacement, .scope:
+      return try await constructReplacement(
+        constructor,
+        arguments: arguments,
+        state: &state
+      )
+    case .insert, .remove:
+      return try constructListCorrection(constructor, arguments: arguments)
+    case .sourceLayout, .layout, .line, .lines, .newline, .blankLine,
+         .indent,
+         .wrap, .softBreak,
          .align, .group:
       return try await constructLayout(
         constructor,

@@ -13,9 +13,9 @@ struct ReusableLayoutTests {
       rules: """
       Rule("members") {
         try await app.syntaxNodes(of: .structDeclaration).violations("Order members") { declaration in
-          try declaration.members.replacement {
-            let unused = Group(where: { true })
-            Group(where: { true }).sorted { ($0.name ?? "") < ($1.name ?? "") }
+          try Layout(declaration.members) {
+            let unused = Group { true }
+            Group { true }.sorted { ($0.name ?? "") < ($1.name ?? "") }
           }
         }
       }
@@ -34,9 +34,9 @@ struct ReusableLayoutTests {
   @Test(
     "Inactive automatic policies retain their resolved layout kind",
     arguments: [
-      "if false { Group(where: { true }) }",
+      "if false { Group { true } }",
       "if false { BlankLine(before: { $0.call != nil }) }",
-      "for index in 0..<0 { Group(where: { true }) }",
+      "for index in 0..<0 { Group { true } }",
     ],
     ["func run() {}", "func run() {\n  send()\n}"]
   )
@@ -45,7 +45,7 @@ struct ReusableLayoutTests {
       rules: """
       Rule("statements") {
         try await app.syntaxNodes(of: .codeBlock).violations("Retain statements") { block in
-          try block.statements.replacement {
+          try Layout(block.statements) {
             \(policy)
           }
         }
@@ -68,9 +68,9 @@ struct ReusableLayoutTests {
       rules: """
       Rule("members") {
         try await app.syntaxNodes(of: .structDeclaration).violations("Order constants") { declaration in
-          let constants = Group<SourceNode>(where: { $0.property?.isConstant == true })
+          let constants = Group<SourceNode> { $0.property?.isConstant == true }
             .sorted { ($0.name ?? "") < ($1.name ?? "") }
-          try declaration.members.replacement {
+          try Layout(declaration.members) {
             if \(included) { constants }
           }
         }
@@ -102,7 +102,7 @@ struct ReusableLayoutTests {
       Rule("statements") {
         try await app.syntaxNodes(of: .codeBlock).violations("Separate calls") { block in
           let separator: BlankLine<SourceNode> = BlankLine<SourceNode>(before: { $0.call != nil })
-          try block.statements.replacement {
+          try Layout(block.statements) {
             if \(included) { separator }
           }
         }
@@ -130,8 +130,8 @@ struct ReusableLayoutTests {
       rules: """
       Rule("members") {
         try await app.syntaxNodes(of: .structDeclaration).violations("Retain members") { declaration in
-          try declaration.members.replacement {
-            let unused = Group<SourceNode>(where: { true })
+          try Layout(declaration.members) {
+            let unused = Group<SourceNode> { true }
             declaration.members
           }
         }
@@ -143,5 +143,43 @@ struct ReusableLayoutTests {
     let findings = try await #require(program.rules.first).findings()
     #expect(findings.violations.checkedCount == 1)
     #expect(findings.violations.isEmpty)
+  }
+}
+
+extension ReusableLayoutTests {
+  @Test("Layout callbacks retain their element type", arguments: [false, true])
+  func contentCallback(stored: Bool) async throws {
+    let body = """
+    .group(Group<Property> { _ in true }.sorted { $0.name < $1.name })
+    """
+    let declaration = stored
+      ? "let ordering = { () -> LayoutContent<Property> in \(body) }"
+      : "func ordering() -> LayoutContent<Property> { \(body) }"
+    let project = try TemporaryProject(files: [
+      "Package.swift": "",
+      "Sources/Item.swift": "struct Item {\n  let zebra = 1\n  let apple = 2\n}",
+      "ProjectRules.swift": """
+      import Bylaws
+      let app = Codebase(root: .automatic(), including: ["Sources/**"])
+      \(declaration)
+      let projectRules: [Rule] = [
+        Rule("properties") {
+          try await app.structs.violations("Order properties") { declaration in
+            try Layout(declaration.properties, ordering)
+          }
+        }
+      ]
+      """,
+    ])
+    let program = try await loadedProgram(in: project)
+    let findings = try await #require(program.rules.first).findings()
+    let fix = try #require(findings.violations.fixes.first ?? nil)
+
+    #expect(try correctedSource(applying: fix) == """
+    struct Item {
+      let apple = 2
+      let zebra = 1
+    }
+    """)
   }
 }

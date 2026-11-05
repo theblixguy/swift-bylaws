@@ -14,8 +14,6 @@ struct RuntimeTypeResolver {
   var observedSuspension = false
   var observedThrowing = false
   var layoutElementType: RuntimeType?
-  var layoutUsesAutomaticOperations = false
-  var automaticLayoutClosures: Set<DeclarationLocation> = []
 
   init(
     environment: [String: RuntimeType],
@@ -128,6 +126,10 @@ struct RuntimeTypeResolver {
     let numericExpectation = expected == .double ? RuntimeType.double : nil
     let leftExpectation = if operatorName == "+", case .array = expected {
       expected
+    } else if ["&&", "||"].contains(operatorName),
+              expected == .sourceLayoutCondition
+    {
+      expected
     } else { numericExpectation }
     var leftType = resolve(left, expected: leftExpectation)
     if operatorName == "??", case let .optional(wrapped) = leftType {
@@ -146,6 +148,10 @@ struct RuntimeTypeResolver {
       leftType
     } else if operatorName == "+",
               case .array = leftType
+    {
+      leftType
+    } else if ["&&", "||"].contains(operatorName),
+              leftType == .sourceLayoutCondition
     {
       leftType
     } else { leftType == .double ? .double : nil }
@@ -187,6 +193,8 @@ struct RuntimeTypeResolver {
       }
       return .boolean
     case "&&", "||":
+      if leftType == .sourceLayoutCondition,
+         rightType == .sourceLayoutCondition { return .sourceLayoutCondition }
       if case .matcher = leftType, case .matcher = rightType {
         let result = commonType(in: [leftType, rightType])
         if result == .unknown {
@@ -210,7 +218,7 @@ struct RuntimeTypeResolver {
         at: right.location
       )
       return .boolean
-    case "..<":
+    case "..<", "...":
       require(
         leftType,
         toMatch: .integer,
@@ -223,7 +231,7 @@ struct RuntimeTypeResolver {
         subject: "the range end",
         at: right.location
       )
-      return .integerRange
+      return operatorName == "..<" ? .integerRange : .integerClosedRange
     case "<", "<=", ">", ">=":
       guard leftType.isComparable, leftType == rightType else {
         diagnose(

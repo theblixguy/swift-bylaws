@@ -29,11 +29,11 @@ extension RuntimeTypeResolver {
         results = [result]
         if builder == .layout {
           switch result {
-          case let .layoutGroup(element), let .conditionalLayoutOperation(
-            _,
-            element
-          ):
-            layoutUsesAutomaticOperations = true
+          case let .layoutGroup(element), let .layoutContent(element),
+               let .conditionalLayoutOperation(
+                 _,
+                 element
+               ):
             if let layoutElementType {
               require(
                 element,

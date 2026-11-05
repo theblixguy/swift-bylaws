@@ -62,10 +62,16 @@ extension RuntimeTypeResolver {
     at location: DeclarationLocation
   ) {
     if case let .closure(body) = expression.kind {
-      _ = resolve(
-        body, parameters: [input], expectedResult: .array(.sourceEdit),
-        requiresSynchronousBody: false, builder: .edits
-      )
+      let result = resolve(
+        body, parameters: [input], expectedResult: nil,
+        requiresSynchronousBody: false, builder: .correction
+      ).result
+      if !RuntimeBuilder.correction.accepts(result) {
+        diagnose(
+          RuntimeBuilder.correction.argumentRequirement,
+          at: body.location
+        )
+      }
       return
     }
     let callable = resolve(expression)
@@ -103,12 +109,9 @@ extension RuntimeTypeResolver {
         at: location
       )
     }
-    require(
-      result,
-      toMatch: .array(.sourceEdit),
-      subject: takesContext ? "the fix result" : "the correction result",
-      at: location
-    )
+    if !RuntimeBuilder.correction.accepts(result) {
+      diagnose(RuntimeBuilder.correction.argumentRequirement, at: location)
+    }
   }
 
   mutating func resolveBuilder(

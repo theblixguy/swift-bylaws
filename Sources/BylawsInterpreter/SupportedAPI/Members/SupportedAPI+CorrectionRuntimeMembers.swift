@@ -37,7 +37,7 @@ extension SupportedAPI {
       .replacement,
       on: [.sourceSlice],
       arguments: .alternatives([
-        [.init(.with, .oneOf([.string, .staticMember([.sourceWhitespace])]))],
+        [.init(.with)],
         [.init(.applying, .exact(.array(.sourceEdit)))],
       ]),
       result: .fixed(.sourceEdit)
@@ -123,6 +123,7 @@ extension SupportedAPI {
 
   private static let sourceReceivers = declarationReceivers.union([
     RuntimeReceiver.model(.sourceFile), .model(.sourceNode),
+    .model(.sourceIfExpression),
     .model(.sourceExpression), .model(.functionCall),
     .model(.callArgument), .model(.expressionArgument),
     .model(.sourceAssignment), .model(.variableBinding), .model(.enumCase),

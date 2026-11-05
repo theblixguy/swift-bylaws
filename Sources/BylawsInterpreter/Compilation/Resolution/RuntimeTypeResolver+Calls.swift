@@ -13,6 +13,13 @@ extension RuntimeTypeResolver {
     } ?? []
     let values = arguments.map { ($0.label, $0.value) } + trailing
     switch callable {
+    case let .staticMember(owners)
+      where owners
+      .contains(.sourceLayoutCondition) && name == "maximumLineLength":
+      return resolveLayoutCondition(values: values, at: location)
+    case let .staticMember(owners)
+      where owners.contains(.sourceListPosition) && name == "index":
+      return resolveSourceListIndex(values: values, at: location)
     case let .boundMethod(receiver, call, canSuspend, canThrow):
       guard call.arguments.accepts(labels: values.map(\.0)) else {
         diagnose(
@@ -28,6 +35,14 @@ extension RuntimeTypeResolver {
       {
         diagnose(
           "sorted must compare Comparable elements. Use sorted(by:) for this element type.",
+          at: location
+        )
+      }
+      if case let .constructor(.layoutContent, types) = receiver {
+        return resolveLayoutContent(
+          call.method,
+          types: types,
+          values: values,
           at: location
         )
       }
@@ -53,6 +68,9 @@ extension RuntimeTypeResolver {
           at: location
         )
       }
+      if call.method == .applying, receiver == .layoutCorrection {
+        return resolveLayoutApplying(values: values, at: location)
+      }
       if call.method == .withFix {
         return resolveFix(receiver: receiver, values: values, at: location)
       }
@@ -67,6 +85,22 @@ extension RuntimeTypeResolver {
         receiver: receiver,
         at: location
       )
+      if call.method == .replacement, receiver == .sourceSlice,
+         values.map(\.0).equal([.with]), let content = resolved.first
+      {
+        if content != .string,
+           !content.isAssignable(to: .staticMember([.sourceWhitespace])),
+           content != .sourceReplacement, !content.providesSource
+        {
+          diagnose(
+            "replacement takes text, whitespace or captured syntax",
+            at: location
+          )
+        }
+        if content != .string {
+          requireEffects(canSuspend: false, canThrow: true, at: location)
+        }
+      }
       if call.method == .replacement, receiver == .sourceSlice,
          values.map(\.0).equal([.applying])
       {

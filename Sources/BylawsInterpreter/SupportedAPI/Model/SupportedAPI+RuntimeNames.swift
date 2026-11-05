@@ -1,6 +1,13 @@
 extension SupportedAPI {
   package enum Member: String, CaseIterable, Hashable, Sendable {
-    case hasLine
+    case correction, outcome, fix, preparedFix, unavailable, undetermined
+    case outcomeType = "Outcome"
+    case boundariesType = "Boundaries"
+    case notApplicable, satisfied, edits, title
+    case unwrapped, ifExpression, ifExpressions, body, elseBody, summary
+    case hasLine, maximumLineLength, applying
+    case argumentList, attributeList, modifierList, memberList, statementList
+    case inserting, removing, removal
     case elements, trivia, previous, next
     case modifiers
     case spacing, before, after
@@ -181,6 +188,8 @@ extension SupportedAPI {
     case knownValues
     case label
     case layer
+    case layout
+    case group, separator, sequence, newline, blankLine, softBreak
     case leadingTrivia
     case line
     case lineCount
@@ -307,7 +316,11 @@ extension SupportedAPI {
   }
 
   package enum Method: String, CaseIterable, Sendable {
-    case hasLine
+    case layout, group, separator, sequence, newline, blankLine
+    case preparedFix, unavailable, undetermined
+    case unwrapped
+    case inserting, removing, removal
+    case hasLine, maximumLineLength, applying
     case dropFirst, prefix
     case sorted, reversed
     case matches, replacement, only, argument, withFix, slice
@@ -372,10 +385,20 @@ extension SupportedAPI {
   }
 
   package enum Constructor: String, CaseIterable, Sendable {
+    case sourceCorrection = "SourceCorrection"
+    case replace = "Replace"
+    case unwrap = "Unwrap"
+    case sourceReplacement = "SourceReplacement"
+    case scope = "Scope"
+    case insert = "Insert"
+    case remove = "Remove"
     case group = "Group"
     case newline = "Newline"
     case sourceLayout = "SourceLayout"
+    case layout = "Layout"
+    case layoutContent = "LayoutContent"
     case line = "Line"
+    case lines = "Lines"
     case blankLine = "BlankLine"
     case indent = "Indent"
     case wrap = "Wrap"
@@ -396,6 +419,7 @@ extension SupportedAPI {
   }
 
   package enum ModelType: String, CaseIterable, Sendable {
+    case sourceIfExpression = "SourceIfExpression"
     case sourceNode = "SourceNode"
     case sourceExpression = "SourceExpression"
     case sourceAssignment = "SourceAssignment"
@@ -491,6 +515,7 @@ extension SupportedAPI {
       case .import: self = .importDeclaration
       case .typealias: self = .typealiasDeclaration
       case .functionCall: self = .functionCall
+      case .sourceIfExpression: self = .sourceIfExpression
       case .sourceNode: self = .sourceNode
       case .sourceExpression: self = .sourceExpression
       case .sourceAssignment: self = .sourceAssignment

@@ -6,15 +6,11 @@ extension RuntimeTypeResolver {
     values: [(String?, RuntimeExpression)],
     at location: DeclarationLocation
   ) -> RuntimeType {
+    if constructor == .layout {
+      return resolveLayoutOperation(values: values, at: location)
+    }
     if constructor == .group {
-      guard values.map(\.0).equal([.where]), let predicate = values.first?.1
-      else {
-        diagnose("Group takes one predicate labelled where:", at: location)
-        values.forEach { _ = resolve($0.1) }
-        return .layoutGroup(layoutElementType ?? .unknown)
-      }
-      resolveLayoutPredicate(predicate, at: location)
-      return .layoutGroup(layoutElementType ?? .unknown)
+      return resolveLayoutGroup(values: values, at: location)
     }
     if constructor == .newline || constructor == .blankLine || constructor ==
       .softBreak
@@ -48,28 +44,7 @@ extension RuntimeTypeResolver {
       }
       return .layoutOperation(constructor)
     }
-    let labels = values.map(\.0)
-    let takesWidth = constructor == .wrap && labels.equal([.width, nil])
-    guard labels == [nil] || takesWidth,
-          let body = values.last?.1
-    else {
-      diagnose("\(constructor.rawValue) takes one layout closure", at: location)
-      values.forEach { _ = resolve($0.1) }
-      return constructor == .sourceLayout ? .sourceLayout :
-        .layoutOperation(constructor)
-    }
-    if takesWidth {
-      let width = resolve(values[0].1, expected: .optional(.integer))
-      require(
-        width,
-        toMatch: .optional(.integer),
-        subject: "the width",
-        at: location
-      )
-    }
-    resolveLayoutClosure(body)
-    return constructor == .sourceLayout ? .sourceLayout :
-      .layoutOperation(constructor)
+    return resolveLayoutComponent(constructor, values: values, at: location)
   }
 
   mutating func resolveLayoutReplacement(
@@ -77,12 +52,16 @@ extension RuntimeTypeResolver {
     values: [(String?, RuntimeExpression)],
     at location: DeclarationLocation
   ) -> RuntimeType {
-    let hasWidth = values.map(\.0).equal([.whenLineExceeds, nil])
-    if hasWidth {
-      let width = resolve(values[0].1, expected: .optional(.integer))
+    if let value = values.first(where: { $0.0 == "when" })?.1 {
+      let condition = resolve(
+        value,
+        expected: .optional(.sourceLayoutCondition)
+      )
       require(
-        width, toMatch: .optional(.integer), subject: "the width",
-        at: values[0].1.location
+        condition,
+        toMatch: .optional(.sourceLayoutCondition),
+        subject: "the condition",
+        at: location
       )
     }
     if !receiver.collectionElement.providesSource {
@@ -91,28 +70,26 @@ extension RuntimeTypeResolver {
         at: location
       )
     }
+    if values.first?.0 == "layout" {
+      let layout = resolve(values[0].1, expected: .sourceLayout)
+      if !layout.providesLayout { require(
+        layout,
+        toMatch: .sourceLayout,
+        subject: "the layout",
+        at: location
+      ) }
+      return .sourceEdit
+    }
     let outerElement = layoutElementType
-    let outerAutomatic = layoutUsesAutomaticOperations
     layoutElementType = receiver.collectionElement
-    layoutUsesAutomaticOperations = false
     defer {
       layoutElementType = outerElement
-      layoutUsesAutomaticOperations = outerAutomatic
     }
-    if let body = values.last?.1 { resolveLayoutClosure(body) }
-    if layoutUsesAutomaticOperations, hasWidth {
-      diagnose(
-        "SourceListLayout must use an unconditional replacement. Remove whenLineExceeds.",
-        at: location
-      )
-    }
-    if layoutUsesAutomaticOperations,
-       let expression = values.last?.1,
-       case let .closure(body) = expression.kind
-    {
-      automaticLayoutClosures.insert(body.location)
-    }
-    return layoutUsesAutomaticOperations ? .sourceFix : .sourceEdit
+    if let body = values.last?.1 { resolveLayoutClosure(
+      body,
+      builder: .sourceLayout
+    ) }
+    return .sourceEdit
   }
 
   private mutating func resolveLayoutPredicate(
@@ -121,7 +98,7 @@ extension RuntimeTypeResolver {
   ) {
     guard let element = layoutElementType else {
       diagnose(
-        "SourceListLayout must be inside a collection replacement. Move the policy into replacement.",
+        "Layout must contain grouping and spacing policies. Move the policy into Layout.",
         at: location
       )
       _ = resolve(expression)
@@ -133,14 +110,18 @@ extension RuntimeTypeResolver {
     )
   }
 
-  private mutating func resolveLayoutClosure(_ expression: RuntimeExpression) {
+  mutating func resolveLayoutClosure(
+    _ expression: RuntimeExpression, builder: RuntimeBuilder = .layout
+  ) {
+    let expected: RuntimeType = builder == .layout
+      ? .layoutContent(layoutElementType ?? .unknown) : .sourceLayout
     let canThrow: Bool
     if case let .closure(body) = expression.kind {
       canThrow =
         resolve(
-          body, parameters: [], expectedResult: .sourceLayout,
+          body, parameters: [], expectedResult: expected,
           requiresSynchronousBody: true, allowsThrowingBody: true,
-          builder: .layout
+          builder: builder
         ).isThrowing
     } else {
       let callable = resolve(expression)
@@ -173,7 +154,7 @@ extension RuntimeTypeResolver {
       }
       require(
         result,
-        toMatch: .sourceLayout,
+        toMatch: expected,
         subject: "the layout",
         at: expression.location
       )

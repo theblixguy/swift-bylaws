@@ -56,6 +56,11 @@ extension RuntimeTypeResolver {
       diagnose("'\(name)' is not declared", at: expression.location)
       return .unknown
     case let .staticMember(literal):
+      if contextualType == .sourceLayout,
+         literal.owners.contains(.sourceLayout)
+      {
+        return .sourceLayout
+      }
       if case let .matcher(id) = literal,
          let matcher = SupportedAPI.matcher(named: id.rawValue)
       {
@@ -90,6 +95,8 @@ extension RuntimeTypeResolver {
       return resolveMember(name, of: baseType, at: expression.location)
     case let .qualifiedMember(base, literal):
       let baseType = resolve(base)
+      if case .constructor(.sourceLayout, _) = baseType,
+         literal.owners.contains(.sourceLayout) { return .sourceLayout }
       guard case let .staticType(typeName) = baseType,
             let owner = SupportedAPI.StaticMemberType(rawValue: typeName)?
               .owner,
@@ -104,10 +111,15 @@ extension RuntimeTypeResolver {
       return .staticMember([owner])
     case let .call(callee, arguments, trailingClosure):
       let callable: RuntimeType
-      if case .implicitConstructor = callee.kind,
-         let constructor = contextualType.flatMap({
-           SupportedAPI.Constructor(rawValue: $0.writtenName)
-         })
+      if case let .staticMember(member) = callee.kind,
+         case let .layoutContent(element) = contextualType,
+         let constructor = layoutContentCase(member, element: element)
+      {
+        callable = constructor
+      } else if case .implicitConstructor = callee.kind,
+                let constructor = contextualType.flatMap({
+                  SupportedAPI.Constructor(rawValue: $0.writtenName)
+                })
       {
         constructors[callee.location] = constructor
         callable = .constructor(constructor, [])
@@ -137,7 +149,9 @@ extension RuntimeTypeResolver {
       let type = resolve(operand, expected: contextualType)
       switch (operatorName, type) {
       case ("!", .boolean): return .boolean
-      case ("!", .matcher): return type
+      case ("!", .matcher), ("!", .sourceLayoutCondition): return type
+      case ("...", .integer): return .integerRangeThrough
+      case ("..<", .integer): return .integerRangeUpTo
       case ("-", .integer): return .integer
       case ("-", .double): return .double
       default:
@@ -147,6 +161,14 @@ extension RuntimeTypeResolver {
         )
         return .unknown
       }
+    case let .postfix(operatorName, operand):
+      let type = resolve(operand, expected: .integer)
+      if operatorName == "...", type == .integer { return .integerRangeFrom }
+      diagnose(
+        "'\(operatorName)' does not apply to \(type.writtenName)",
+        at: expression.location
+      )
+      return .unknown
     case let .binary(left, operatorName, right):
       return resolveBinary(
         operatorName,
@@ -197,6 +219,12 @@ extension RuntimeTypeResolver {
   ) -> RuntimeType {
     if case let .optional(wrapped) = type {
       return resolveMember(name, of: wrapped, at: location).optionalChained
+    }
+    if name == .correction, case .array = type,
+       !RuntimeBuilder.correction.accepts(type)
+    {
+      diagnose("Array must contain source corrections", at: location)
+      return .unknown
     }
     if case let .staticType(typeName) = type {
       if name == .selfType { return type }

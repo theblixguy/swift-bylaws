@@ -31,8 +31,15 @@ extension SupportedAPI {
 extension SupportedAPI.RuntimeReceiver {
   fileprivate var documentationName: String {
     switch self {
+    case .sourceCorrection: "SourceCorrection, Replace, Unwrap, Insert, Remove"
+    case .sourceFix: "SourceFix"
+    case .sourceEdit: "SourceFix.Edit"
     case .layoutGroup: "Group"
+    case .layoutCorrection: "Layout"
+    case .sourceLayout: "Line, Lines, Indent, Wrap, Align"
+    case .sourceScope: "Scope"
     case .sourceSlice: "SourceSlice"
+    case .sourceList: "SourceList"
     case .sourceSpacing: "SourceSpacing"
     case .fixContext: "FixContext"
     case .url: "URL"

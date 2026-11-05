@@ -261,6 +261,7 @@ extension SupportedAPI {
   ]
 
   private static let attributedDeclarationFamilies = visibleDeclarationFamilies
+    .union([.sourceNode])
 
   private static let documentedDeclarationFamilies: Set<DeclarationFamily> = [
     .class, .actor, .struct, .enum, .nominalType, .protocol, .function,

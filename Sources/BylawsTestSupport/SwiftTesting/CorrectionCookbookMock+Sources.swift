@@ -15,7 +15,7 @@ extension CorrectionCookbookMock {
     }
     let prefix = try #require(parts.first).prefix
     return configured(
-      prefix + "nonisolated let maximumWidth: Int? = nil\n\n"
+      prefix + "nonisolated let condition: SourceLayoutCondition? = nil\n\n"
         + declaration + parts.map(\.body).joined(separator: "\n") + "\n]"
     )
   }
@@ -54,9 +54,10 @@ extension CorrectionCookbookMock {
   }
 
   private func configured(_ source: String) -> String {
-    source.replacing(
-      "maximumWidth: Int? = nil",
-      with: "maximumWidth: Int? = \(maximumWidth.map(String.init) ?? "nil")"
+    let condition = maximumWidth.map { "!.maximumLineLength(...\($0))" } ?? "nil"
+    return source.replacing(
+      "condition: SourceLayoutCondition? = nil",
+      with: "condition: SourceLayoutCondition? = \(condition)"
     )
   }
 }

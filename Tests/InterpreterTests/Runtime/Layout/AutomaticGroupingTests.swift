@@ -8,6 +8,70 @@ import Testing
 @Suite("Portable automatic grouping")
 struct AutomaticGroupingTests {
   @Test(
+    "Source layouts reject automatic policies before execution",
+    arguments: [
+      "SourceLayout(Group { _ in true })",
+      "SourceLayout { Group { _ in true } }",
+      "Line { Group { _ in true } }",
+      "Lines { Group { _ in true } }",
+      "Indent { Group { _ in true } }",
+      "Align { Group { _ in true } }",
+      "Wrap { Group { _ in true } }",
+      "Line { BlankLine(before: { _ in true }) }",
+    ]
+  )
+  func sourceLayoutPolicy(expression: String) async throws {
+    let project = try rulesProject(
+      rules: """
+      Rule("members") {
+        try await app.syntaxNodes(of: .structDeclaration).violations("Group members") { declaration in
+          try Layout(declaration.members) {
+            \(expression)
+          }
+        }
+      }
+      """,
+      sources: ["Sources/Panel.swift": "struct Panel { let count = 0 }"]
+    )
+    let program = await RuleProgram.loaded(fromFiles: [
+      project.fileURL(for: "ProjectRules.swift").path,
+    ])
+
+    #expect(program.rules.isEmpty)
+    #expect(program.errors.contains {
+      $0.message.contains("SourceLayout takes source values")
+        || $0.message.contains("SourceLayout takes source elements")
+    })
+  }
+
+  @Test("Grouping policies use Layout", arguments: [
+    "Group { _ in true }",
+    "BlankLine(before: { _ in true })",
+  ])
+  func policyReplacement(policy: String) async throws {
+    let project = try rulesProject(
+      rules: """
+      Rule("members") {
+        try await app.syntaxNodes(of: .structDeclaration).violations("Group members") { declaration in
+          try declaration.members.replacement {
+            \(policy)
+          }
+        }
+      }
+      """,
+      sources: ["Sources/Panel.swift": "struct Panel { let count = 0 }"]
+    )
+    let program = await RuleProgram.loaded(fromFiles: [
+      project.fileURL(for: "ProjectRules.swift").path,
+    ])
+
+    #expect(program.rules.isEmpty)
+    #expect(program.errors.contains {
+      $0.message.contains("Use Layout for grouping and spacing")
+    })
+  }
+
+  @Test(
     "Groups retain unmatched declarations and use first matching membership"
   )
   func groupedMembers() async throws {
@@ -15,11 +79,11 @@ struct AutomaticGroupingTests {
       rules: """
       Rule("members") {
         try await app.syntaxNodes(of: .structDeclaration).violations("Group properties") { declaration in
-          try declaration.members.replacement {
-            Group(where: { $0.hasAttribute("State") })
+          try Layout(declaration.members) {
+            Group { $0.hasAttribute("State") }
             BlankLine()
-            Group(where: { $0.property?.visibility == .private })
-            Group(where: { $0.property?.isConstant == true })
+            Group { $0.property?.visibility == .private }
+            Group { $0.property?.isConstant == true }
               .sorted { ($0.name ?? "") < ($1.name ?? "") }
           }
         }
@@ -80,10 +144,10 @@ struct AutomaticGroupingTests {
       rules: """
       Rule("statements") {
         try await app.syntaxNodes(of: .codeBlock).violations("Group bindings") { block in
-          try block.statements.replacement {
-            Group(where: { $0.kind == .variableDeclaration })
+          try Layout(block.statements) {
+            Group { $0.kind == .variableDeclaration }
             BlankLine()
-            Group(where: { false })
+            Group { false }
           }
         }
       }
@@ -102,12 +166,12 @@ struct AutomaticGroupingTests {
       rules: """
       Rule("statements") {
         try await app.syntaxNodes(of: .codeBlock).violations("Retain statements") { block in
-          try block.statements.replacement {
-            Group(where: { true })
-            Group(where: {
+          try Layout(block.statements) {
+            Group { true }
+            Group {
               let region = try $0.source.slice(1000..<1001)
               return region.text.isEmpty
-            })
+            }
           }
         }
       }
@@ -126,8 +190,8 @@ struct AutomaticGroupingTests {
       rules: """
       Rule("members") {
         try await app.syntaxNodes(of: .structDeclaration).violations("Order constants") { declaration in
-          try declaration.members.replacement {
-            Group(where: { $0.property?.isConstant == true }).sorted {
+          try Layout(declaration.members) {
+            Group { $0.property?.isConstant == true }.sorted {
               if $0.name == "first" || $1.name == "first" {
                 let region = try $0.source.slice(1000..<1001)
                 return region.text.isEmpty

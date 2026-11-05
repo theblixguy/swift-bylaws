@@ -5,6 +5,33 @@ import Testing
 
 @Suite("Portable correction storage")
 struct RuntimeCorrectionStorageTests {
+  @Test("Builder fix expressions match native title behaviour")
+  func fixTitles() throws {
+    let file = try FileCollector.collect(
+      source: "class Model {}",
+      path: "/virtual/Model.swift"
+    )
+    let edit = try file.classes.only().nameSource.replacement(with: "Changed")
+    let fix = SourceFix("Rename", edits: [edit])
+    let expression = try RuntimeBuilder.correction.combine(
+      [.sourceFix(fix)],
+      at: .start(of: "Rules.swift")
+    )
+    .correction(at: .start(of: "Rules.swift"))
+    let returned = try RuntimeValue.sourceFix(fix)
+      .correction(at: .start(of: "Rules.swift"))
+    let value = try RuntimeBuilder.correction.combine(
+      [.sourceCorrection(SourceCorrection(fix))],
+      at: .start(of: "Rules.swift")
+    )
+    .correction(at: .start(of: "Rules.swift"))
+
+    #expect(expression.fix?.title == "Rename")
+    #expect(returned.fix?.title == "Rename")
+    #expect(value.fix?.title == "Rename")
+    #expect(expression.fix?.edits == [edit])
+  }
+
   @Test("Absent and all-nil corrections stay absent through erasure")
   func noCorrections() {
     let offenders = ["first", "second"].map {

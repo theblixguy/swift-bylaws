@@ -39,12 +39,16 @@ package enum SupportedAPI {
   }
 
   package enum ArgumentLabel: String, Sendable {
+    case edits
+    case containingOnly, source, sources, combining, replacement
+    case into
     case and, before, after
     case applying
     case changes
     case width, argument
+    case layout
     case exceeding, tabWidth
-    case whenLineExceeds
+    case when, boundaries
     case with
     case labeled
     case fileURLWithPath
@@ -109,6 +113,7 @@ package enum SupportedAPI {
     case `import`
     case `typealias`
     case functionCall
+    case sourceIfExpression
     case sourceNode
     case sourceExpression
     case sourceAssignment
@@ -119,10 +124,10 @@ package enum SupportedAPI {
   package static let allDeclarationFamilies = Set(DeclarationFamily.allCases)
 
   package static let queryDeclarationFamilies = allDeclarationFamilies
-    .subtracting([.sourceNode])
+    .subtracting([.sourceNode, .sourceIfExpression])
 
   package static let namedDeclarationFamilies = allDeclarationFamilies
-    .subtracting([.sourceNode])
+    .subtracting([.sourceNode, .sourceIfExpression])
 
   package enum ArgumentContract: Equatable, Sendable {
     case none
