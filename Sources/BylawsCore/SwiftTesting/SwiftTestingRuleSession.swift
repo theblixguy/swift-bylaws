@@ -3,7 +3,7 @@ package import Foundation
 
 package struct SwiftTestingRuleSession: Codable, Sendable, Equatable {
   package static let environmentKey = "BYLAWS_SWIFT_TESTING_RULE_SESSION"
-  package static let protocolVersion = 5
+  package static let protocolVersion = 6
 
   package let version: Int
   package let id: String
