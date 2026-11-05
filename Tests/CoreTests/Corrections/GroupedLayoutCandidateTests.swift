@@ -10,9 +10,10 @@ struct GroupedLayoutCandidateTests {
     let file = try FileCollector.collect(
       source: source, path: "/virtual/Panel.swift"
     )
-    let fix = try file.structs[0].properties.replacement {
-      Group(where: { _ in true })
+    let fixLayout = try Layout(file.structs[0].properties) {
+      Group { _ in true }
     }
+    let fix = try #require(fixLayout.correction.fix)
 
     #expect(fix.edits.isEmpty)
     #expect(fix.layoutCandidates.count == 1)
@@ -26,8 +27,8 @@ struct GroupedLayoutCandidateTests {
     let codebase = Codebase(root: .sources(["Sources/Panel.swift": source]))
     let violations = try await codebase.structs.violations("Group properties") {
       declaration in
-      try declaration.properties.replacement {
-        Group(where: { _ in true })
+      try Layout(declaration.properties) {
+        Group { _ in true }
       }
     }
 
@@ -44,9 +45,10 @@ struct GroupedLayoutCandidateTests {
     let file = try FileCollector.collect(
       source: source, path: "/virtual/Panel.swift"
     )
-    let original = try file.structs[0].properties.replacement {
-      Group(where: { _ in true })
+    let originalLayout = try Layout(file.structs[0].properties) {
+      Group { _ in true }
     }
+    let original = try #require(originalLayout.correction.fix)
     let decoded = try JSONDecoder().decode(
       SourceFix.self, from: JSONEncoder().encode(original)
     )
@@ -56,17 +58,6 @@ struct GroupedLayoutCandidateTests {
     #expect(decoded.layoutCandidates.count == 1)
     #expect(candidate.source.file.text == source)
     try candidate.validateLayoutCandidate()
-  }
-
-  @Test("Older corrections decode without layout context")
-  func olderCorrection() throws {
-    let decoded = try JSONDecoder().decode(
-      SourceFix.self, from: Data(#"{"edits":[]}"#.utf8)
-    )
-
-    #expect(decoded.title == nil)
-    #expect(decoded.edits.isEmpty)
-    #expect(decoded.layoutCandidates.isEmpty)
   }
 
   @Test("Raw replacements cannot become passing layout context")

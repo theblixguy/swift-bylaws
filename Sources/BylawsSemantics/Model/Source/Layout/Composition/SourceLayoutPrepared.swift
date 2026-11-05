@@ -1,6 +1,6 @@
 struct SourceLayoutPrepared {
-  let source: SourceSlice
-  let capture: SourceLayoutPlan
+  var source: SourceSlice
+  var capture: SourceLayoutPlan
   let content: SourceLayoutContent
   let lookaheadText: String
   let document: SourceLayoutDocument
@@ -11,7 +11,7 @@ struct SourceLayoutPrepared {
   let hasBaseIndentation: Bool
   var trimmed = false
 
-  var maximumWidth: Int? { capture.lineWidthLimit }
+  var condition: SourceLayoutCondition? { capture.formatting?.condition }
 
   var baseline: String {
     trimmed ? Self.trim(lookaheadText) : lookaheadText

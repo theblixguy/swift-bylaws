@@ -127,7 +127,7 @@ extension RuntimeEvaluator {
         try SourceLayoutReplacement.make(
           elements: providers,
           layout: layout,
-          whenLineExceeds: maximumWidth
+          when: maximumWidth.map { !.maximumLineLength(...$0) }
         )
       )
     } catch {

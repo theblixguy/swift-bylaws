@@ -68,14 +68,15 @@ package enum SourceLayoutComposition {
       }
       guard let plan = edit.layout else { return }
       try plan.validate(source: edit.source)
-      let layout = try plan.thaw(snapshot: snapshot)
-      let nested = try plan.nested.map { try $0.thaw(snapshot: snapshot) }
-      for child in nested {
-        guard try owns(child, plan: plan)
-        else { throw SourceError.overlappingEdits }
-      }
-      for child in layout.edits + nested {
-        try validate(child)
+      if let formatting = plan.formatting {
+        let layout = try plan.resolve(snapshot: snapshot)
+        let nested = try formatting.nested
+          .map { try $0.resolve(snapshot: snapshot) }
+        for child in nested {
+          guard try owns(child, plan: plan)
+          else { throw SourceError.overlappingEdits }
+        }
+        for child in try layout.edits + nested { try validate(child) }
       }
       guard try render(edit).utf8.elementsEqual(edit.replacement.utf8) else {
         throw Failure.replacementMismatch

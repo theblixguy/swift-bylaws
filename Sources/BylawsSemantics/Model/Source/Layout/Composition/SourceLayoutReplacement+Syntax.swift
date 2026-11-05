@@ -280,7 +280,7 @@ extension SourceLayoutReplacement {
 }
 
 extension TriviaPiece {
-  fileprivate var isLayoutControl: Bool {
+  var isLayoutControl: Bool {
     let text: String
     switch self {
     case let .lineComment(value), let .blockComment(value),
@@ -299,7 +299,7 @@ extension TriviaPiece {
     }
   }
 
-  fileprivate var isLayoutWhitespace: Bool {
+  var isLayoutWhitespace: Bool {
     switch self {
     case .spaces, .tabs, .newlines, .carriageReturns,
          .carriageReturnLineFeeds: true

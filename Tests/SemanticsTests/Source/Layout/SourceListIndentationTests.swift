@@ -21,9 +21,10 @@ struct SourceListIndentationTests {
     let file = try collect(source)
     let members = try #require(file.syntaxNodes(of: .structDeclaration).first)
       .members
-    let fix = try members.replacement {
-      Group(where: { _ in true }).sorted { ($0.name ?? "") < ($1.name ?? "") }
+    let fixLayout = try Layout(members) {
+      Group { _ in true }.sorted { ($0.name ?? "") < ($1.name ?? "") }
     }
+    let fix = try #require(fixLayout.correction.fix)
     let corrected = try applying(fix, to: file)
 
     #expect(corrected == """
@@ -39,9 +40,10 @@ struct SourceListIndentationTests {
     let parsed = try collect(corrected)
     let correctedMembers = try #require(parsed
       .syntaxNodes(of: .structDeclaration).first).members
-    let second = try correctedMembers.replacement {
-      Group(where: { _ in true }).sorted { ($0.name ?? "") < ($1.name ?? "") }
+    let secondLayout = try Layout(correctedMembers) {
+      Group { _ in true }.sorted { ($0.name ?? "") < ($1.name ?? "") }
     }
+    let second = try #require(secondLayout.correction.fix)
     #expect(second.edits.isEmpty)
   }
 
@@ -67,10 +69,11 @@ struct SourceListIndentationTests {
     let file = try collect(source)
     let members = try #require(file.syntaxNodes(of: .structDeclaration).first)
       .members
-    let fix = try members.replacement {
-      Group(where: { $0.property?.isConstant == true })
+    let fixLayout = try Layout(members) {
+      Group { $0.property?.isConstant == true }
         .sorted { ($0.name ?? "") < ($1.name ?? "") }
     }
+    let fix = try #require(fixLayout.correction.fix)
 
     #expect(try applying(fix, to: file) == """
     struct Store {
@@ -97,9 +100,10 @@ struct SourceListIndentationTests {
     let file = try collect(source)
     let members = try #require(file.syntaxNodes(of: .structDeclaration).first)
       .members
-    let fix = try members.replacement {
-      Group(where: { _ in true }).sorted { ($0.name ?? "") < ($1.name ?? "") }
+    let fixLayout = try Layout(members) {
+      Group { _ in true }.sorted { ($0.name ?? "") < ($1.name ?? "") }
     }
+    let fix = try #require(fixLayout.correction.fix)
     let corrected = try applying(fix, to: file)
 
     #expect(corrected ==

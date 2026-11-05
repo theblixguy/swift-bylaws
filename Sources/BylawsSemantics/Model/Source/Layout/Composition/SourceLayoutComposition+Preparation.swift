@@ -4,8 +4,10 @@ extension SourceLayoutComposition.Session {
   func contentEdits(in edits: [SourceFix.Edit]) throws -> [SourceFix.Edit] {
     try edits.flatMap { edit in
       guard let plan = edit.layout else { return [edit] }
-      let captured = try plan.thaw(snapshot: snapshot).edits
-        + plan.nested.map { try $0.thaw(snapshot: snapshot) }
+      let captured = try plan.resolve(snapshot: snapshot).edits
+        + (plan.formatting?.nested ?? [])
+        .filter { $0.ownership == .independent }
+        .map { try $0.resolve(snapshot: snapshot) }
       return try contentEdits(in: captured)
     }
   }
@@ -45,19 +47,39 @@ extension SourceLayoutComposition.Session {
     let edit = key.edit
     let children = key.children
     guard let plan = edit.layout else { throw SourceError.syntaxMismatch }
+    let prepared = switch plan.mode {
+    case let .layout(formatting):
+      try prepareFormatting(
+        edit,
+        plan: plan,
+        formatting: formatting,
+        children: children
+      )
+    }
+    preparedLayouts[key] = prepared
+    return prepared
+  }
+
+  private func prepareFormatting(
+    _ edit: SourceFix.Edit, plan: SourceLayoutPlan,
+    formatting: SourceLayoutPlan.Layout, children: [ComposedEdit]
+  ) throws -> SourceLayoutPrepared {
     let elements = try plan.elements.map {
       try SourceSlice(snapshot: snapshot, range: $0)
     }
     var prepared = try SourceLayoutReplacement.prepare(
-      elements: elements, layout: plan.thaw(snapshot: snapshot),
-      parsedTree: tree, allowsPartialList: plan.allowsPartialList,
-      baseIndentation: plan.baseIndentation,
-      nested: try plan.nested.map { try $0.thaw(snapshot: snapshot) },
+      elements: elements, layout: plan.resolve(snapshot: snapshot),
+      parsedTree: tree, allowsPartialList: formatting.allowsPartialList,
+      baseIndentation: formatting.baseIndentation,
+      nested: try formatting.nested.filter { $0.ownership == .independent }
+        .map { try $0.resolve(snapshot: snapshot) },
+      attached: try formatting.nested.filter { $0.ownership == .withLayout }
+        .map { try $0.resolve(snapshot: snapshot) },
       children: children,
-      session: self, whenLineExceeds: plan.lineWidthLimit,
+      session: self, when: formatting.condition,
       lineEnding: lineEnding
     )
-    if plan.trimmed {
+    if formatting.trimmed {
       guard let first = elements.min(by: {
         $0.range.lowerBound < $1.range.lowerBound
       }), let last = elements.max(by: {
@@ -71,11 +93,12 @@ extension SourceLayoutComposition.Session {
       ).node.endPositionBeforeTrailingTrivia.utf8Offset
       guard edit.source.range == (lower..<upper)
       else { throw SourceError.syntaxMismatch }
+      prepared.source = edit.source
+      prepared.capture = plan
       prepared.trimmed = true
     } else if prepared.source.range != edit.source.range {
       throw SourceError.syntaxMismatch
     }
-    preparedLayouts[key] = prepared
     return prepared
   }
 

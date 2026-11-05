@@ -166,30 +166,30 @@ func propertyGroups() async throws {
         $0.property != nil && $0.attributes.count <= 1
       }
 
-      try properties.replacement {
-        Group(where: {
+      try Layout(properties) {
+        Group {
           $0.hasAttribute("Environment", argument: \.isKeyPath)
-        })
-        Group(where: {
+        }
+        Group {
           $0.hasAttribute("Environment")
-        })
+        }
 
         BlankLine()
 
-        Group(where: {
+        Group {
           $0.hasAttribute("State")
-        })
+        }
 
         BlankLine()
 
-        Group(where: {
+        Group {
           $0.attributes.isEmpty
             && $0.property?.isConstant == true
             && $0.property?.visibility == .private
-        })
-        Group(where: {
+        }
+        Group {
           $0.attributes.isEmpty && $0.property?.isConstant == true
-        })
+        }
       }
     }
 
@@ -203,7 +203,7 @@ condition before including them. Empty groups add no blank lines.
 
 Stored-property order can affect initialisation and memberwise initialisers.
 The rule author must decide which declarations can be reordered. You can use
-`Group(where:)` on other source lists and add `.sorted { ... }` to order the
+`Group` on other source lists and add `.sorted { ... }` to order the
 elements within a group.
 
 ## Separate adjacent statements
@@ -250,7 +250,7 @@ func statementGaps() async throws {
   let app = Codebase(root: .automatic(), including: ["Sources/**"])
   let violations = try await app.syntaxNodes(of: .codeBlock, .closureExpression)
     .violations("Bindings and throwing calls use blank lines") { block in
-      try block.statements.replacement {
+      try Layout(block.statements) {
         BlankLine(
           between: { $0.kind == .variableDeclaration },
           and: { $0.call != nil }
@@ -513,39 +513,20 @@ func argumentLines() async throws {
   let violations = try await app.syntaxNodes(of: .functionCall)
     .violations("Call arguments use separate lines") { node in
       if let call = node.call, call.arguments.count > 1 {
-        let leading = call.arguments.prefix { $0.label == nil }
-        try call.arguments.replacement(whenLineExceeds: maximumWidth) {
-          if !leading.isEmpty {
-            Newline()
-            leading
-          }
-          for argument in call.arguments.dropFirst(leading.count) {
-            Newline()
-            if let elements = argument.expression?.arrayElements,
-               !elements.isEmpty
-            {
-              try elements.replacement {
-                for element in elements {
-                  Newline()
-                  element
-                }
-                Newline()
-              }
-            } else if let elements = argument.expression?.dictionaryElements,
-                      !elements.isEmpty
-            {
-              try elements.replacement {
-                for element in elements {
-                  Newline()
-                  element
-                }
-                Newline()
-              }
-            } else {
-              argument
-            }
-          }
+        let arguments = call.arguments
+        let leading = arguments.prefix { $0.label == nil }
+        let remaining = arguments.dropFirst(leading.count)
+        let collections = remaining.compactMap { $0.expression?.elements }
+        try Layout(arguments, when: maximumWidth.map { !.maximumLineLength(...$0) }) {
           Newline()
+          leading
+          Newline()
+          Lines(remaining)
+          Newline()
+        }.applying {
+          for elements in collections {
+            try Layout(elements, layout: Lines(elements, boundaries: .newline))
+          }
         }
       }
     }

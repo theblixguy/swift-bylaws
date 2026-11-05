@@ -6,14 +6,12 @@ extension SourceLayoutReplacement {
     parsedTree: SourceFileSyntax?, allowsPartialList: Bool = false,
     sourceContext: Context? = nil, baseIndentation: String? = nil,
     nested: [SourceFix.Edit] = [],
+    attached: [SourceFix.Edit] = [],
     children: [SourceLayoutComposition.Session.ComposedEdit] = [],
     session: SourceLayoutComposition.Session? = nil,
-    whenLineExceeds maximumWidth: Int? = nil,
+    when condition: SourceLayoutCondition? = nil,
     lineEnding: String? = nil
   ) throws -> SourceLayoutPrepared {
-    if let maximumWidth, maximumWidth <= 0 {
-      throw SourceLayoutError.widthMustBePositive
-    }
     let slices = try elements.map { try $0.source }
     guard let first = slices.first
     else { throw SourceLayoutReplacementError.emptyCollection }
@@ -41,7 +39,7 @@ extension SourceLayoutReplacement {
         throw SourceLayoutReplacementError.repeatedElement
       }
     }
-    let edits = layout.edits
+    let edits = try layout.edits
     let output = try layout.sources.map { provider -> Item in
       let slice = try provider.source
       guard slice.snapshot == first.snapshot else {
@@ -66,56 +64,9 @@ extension SourceLayoutReplacement {
     guard Set(identifiers) == Set(items.map(\.node.id)) else {
       throw SourceLayoutReplacementError.missingElement
     }
-    let ending = sourceContext.lineEnding
-    let leadingWhitespace = try SourceSlice(
-      snapshot: first.snapshot,
-      range: sourceList.range.lowerBound..<sourceList.leadingContentStart
-    ).text
-    let trailingWhitespace = try SourceSlice(
-      snapshot: first.snapshot,
-      range: sourceList.trailingContentEnd..<sourceList.range.upperBound
-    ).text
-    let originalIndent = sourceContext.indentation(
-      before: sourceList.leadingContentStart
-    )
-    let ownerIndent = sourceContext.indentation(
-      before: sourceList.ownerStart ?? sourceList.range.lowerBound
-    )
-    let unit = sourceContext.indentationUnit
-    let inferredIndent = switch sourceList.indentationBase {
-    case .owner: ownerIndent
-    case .contents: ownerIndent + unit
-    case nil:
-      if sourceList.isDelimited {
-        ownerIndent + unit
-      } else {
-        originalIndent
-      }
-    }
-    let contentIndent = baseIndentation ?? inferredIndent
-    let closingIndent =
-      if sourceList.closesOwner {
-        ownerIndent
-      } else if let next = sourceList.nextContentStart,
-                trailingWhitespace.contains(where: \.isPhysicalLayoutLineEnding)
-      {
-        sourceContext.indentation(before: next)
-      } else {
-        contentIndent
-      }
-    let context = SourceLayoutRenderer.Context(
-      initialColumn: sourceContext
-        .column(before: sourceList.leadingContentStart),
-      initialIndentation: originalIndent,
-      baseIndentation: contentIndent,
-      indentationUnit: unit,
-      lineEnding: ending,
-      defaultSeparator: sourceList.isVertical ? .newline : .space,
-      leadingWhitespace: leadingWhitespace,
-      trailingWhitespace: trailingWhitespace,
-      hasSourceBefore: sourceList.range.lowerBound > 0,
-      hasSourceAfter: sourceList.nextContentStart != nil,
-      closingIndentation: closingIndent
+    let context = try makeContext(
+      for: sourceList, snapshot: first.snapshot,
+      sourceContext: sourceContext, baseIndentation: baseIndentation
     )
     let source = try SourceSlice(
       snapshot: first.snapshot,
@@ -123,11 +74,14 @@ extension SourceLayoutReplacement {
     )
     let plan = try SourceLayoutPlan(
       elements: slices.map(\.range),
-      node: SourceLayoutPlan.freeze(layout, snapshot: first.snapshot),
+      node: SourceLayoutPlan.capture(layout, snapshot: first.snapshot),
       allowsPartialList: allowsPartialList,
       baseIndentation: baseIndentation, targetRange: source.range,
-      lineWidthLimit: maximumWidth,
-      nested: nested.map(SourceLayoutPlan.CapturedEdit.init)
+      condition: condition,
+      nested: nested.map { .init($0) } + attached.map { .init(
+        $0,
+        ownership: .withLayout
+      ) }
     )
     try plan.validate(source: source)
     let session = session ?? SourceLayoutComposition.Session(
@@ -147,13 +101,15 @@ extension SourceLayoutReplacement {
       )).replacement
     }
     let lastID = output.last?.node.id
+    let elementEdits = nested + attached
     func event(for item: Item, edit: SourceFix.Edit? = nil) throws
       -> SourceLayoutDocument.Event
     {
       let source = try SourceSlice(
         snapshot: first.snapshot, range: item.contentRange
       )
-      let edits = nested.filter { item.contentRange.contains($0.source.range) }
+      let edits = elementEdits
+        .filter { item.contentRange.contains($0.source.range) }
         + (edit.map { [$0] } ?? [])
       let attached = children.filter {
         item.contentRange.contains($0.edit.source.range)
@@ -206,6 +162,63 @@ extension SourceLayoutReplacement {
         || sourceList.indentationBase == nil && sourceList.isDelimited,
       closesOwner: sourceList.closesOwner,
       hasBaseIndentation: baseIndentation != nil
+    )
+  }
+
+  private static func makeContext(
+    for sourceList: List, snapshot: SourceSnapshot,
+    sourceContext: Context, baseIndentation: String?
+  ) throws -> SourceLayoutRenderer.Context {
+    let ending = sourceContext.lineEnding
+    let leadingWhitespace = try SourceSlice(
+      snapshot: snapshot,
+      range: sourceList.range.lowerBound..<sourceList.leadingContentStart
+    ).text
+    let trailingWhitespace = try SourceSlice(
+      snapshot: snapshot,
+      range: sourceList.trailingContentEnd..<sourceList.range.upperBound
+    ).text
+    let originalIndent = sourceContext.indentation(
+      before: sourceList.leadingContentStart
+    )
+    let ownerIndent = sourceContext.indentation(
+      before: sourceList.ownerStart ?? sourceList.range.lowerBound
+    )
+    let unit = sourceContext.indentationUnit
+    let inferredIndent = switch sourceList.indentationBase {
+    case .owner: ownerIndent
+    case .contents: ownerIndent + unit
+    case nil:
+      if sourceList.isDelimited {
+        ownerIndent + unit
+      } else {
+        originalIndent
+      }
+    }
+    let contentIndent = baseIndentation ?? inferredIndent
+    let closingIndent =
+      if sourceList.closesOwner {
+        ownerIndent
+      } else if let next = sourceList.nextContentStart,
+                trailingWhitespace.contains(where: \.isPhysicalLayoutLineEnding)
+      {
+        sourceContext.indentation(before: next)
+      } else {
+        contentIndent
+      }
+    return SourceLayoutRenderer.Context(
+      initialColumn: sourceContext
+        .column(before: sourceList.leadingContentStart),
+      initialIndentation: originalIndent,
+      baseIndentation: contentIndent,
+      indentationUnit: unit,
+      lineEnding: ending,
+      defaultSeparator: sourceList.isVertical ? .newline : .space,
+      leadingWhitespace: leadingWhitespace,
+      trailingWhitespace: trailingWhitespace,
+      hasSourceBefore: sourceList.range.lowerBound > 0,
+      hasSourceAfter: sourceList.nextContentStart != nil,
+      closingIndentation: closingIndent
     )
   }
 }

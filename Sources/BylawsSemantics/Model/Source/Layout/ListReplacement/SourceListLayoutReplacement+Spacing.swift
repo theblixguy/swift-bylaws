@@ -5,25 +5,14 @@ extension SourceListLayoutReplacement {
     items: [SourceLayoutReplacement.Item],
     operations: [SourceListLayoutOperation]
   ) throws -> SourceFix {
-    var requests: [Int: SourceWhitespace] = [:]
-    for operation in operations {
-      guard case let .conditionalSeparator(gaps, whitespace) = operation
-      else { continue }
-      for gap in gaps {
-        guard gap > 0,
-              gap < items.count else { throw SourceError.syntaxMismatch }
-        if let existing = requests[gap], existing != whitespace {
-          throw SourceListLayoutError.conflictingSeparators
-        }
-        requests[gap] = whitespace
-      }
-    }
+    let requests = try separatorRequests(operations)
     guard let first = items.first else { return SourceFix(edits: []) }
     let snapshot = first.source.snapshot
     let bytes = Array(snapshot.text.utf8)
     let lineEnding = snapshot.lineEnding
     var edits: [SourceFix.Edit] = []
     for gap in requests.keys.sorted() {
+      guard gap > 0, gap < items.count else { throw SourceError.syntaxMismatch }
       guard let whitespace = requests[gap] else { continue }
       let start = items[gap - 1].node.endPositionBeforeTrailingTrivia.utf8Offset
       let end = items[gap].contentRange.lowerBound
@@ -52,6 +41,25 @@ extension SourceListLayoutReplacement {
       }
     }
     return SourceFix(edits: edits)
+  }
+
+  static func separatorRequests(
+    _ operations: [SourceListLayoutOperation]
+  ) throws
+    -> [Int: SourceWhitespace]
+  {
+    var requests: [Int: SourceWhitespace] = [:]
+    for operation in operations {
+      guard case let .conditionalSeparator(gaps, whitespace) = operation
+      else { continue }
+      for gap in gaps {
+        if let existing = requests[gap], existing != whitespace {
+          throw SourceListLayoutError.conflictingSeparators
+        }
+        requests[gap] = whitespace
+      }
+    }
+    return requests
   }
 
   static func isWhitespace(_ character: Character) -> Bool {

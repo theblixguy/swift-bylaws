@@ -119,7 +119,7 @@ struct CorrectionPathIdentityTests {
     try #require(logicalFile.path != physicalFile.path)
     let physicalCall = try #require(physicalFile.calls.first)
     let candidate = try physicalCall.arguments
-      .replacement(whenLineExceeds: 22) {
+      .replacement(when: !.maximumLineLength(...22)) {
         for argument in physicalCall.arguments {
           Newline()
           argument

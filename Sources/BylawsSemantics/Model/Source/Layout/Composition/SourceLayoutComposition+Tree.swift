@@ -63,17 +63,18 @@ extension SourceLayoutComposition.Session {
     }
     let active = Set(edits)
     let candidateSet = Set(candidates)
-    let changesLines = try contentEdits(in: edits).contains {
-      $0.source.text.contains(where: SourceLayoutText.isNewline)
-        || $0.replacement.contains(where: SourceLayoutText.isNewline)
-    }
+    let changesLines = try !candidates.isEmpty && contentEdits(in: edits)
+      .contains {
+        $0.source.text.contains(where: SourceLayoutText.isNewline)
+          || $0.replacement.contains(where: SourceLayoutText.isNewline)
+      }
     let context = Array(candidateSet).filter { candidate in
       !active.contains(candidate)
         && (edits.contains { SourceLayoutComposition.intersects(
           candidate.source.range,
           $0.source.range
         ) }
-          || candidate.layout?.lineWidthLimit != nil
+          || candidate.layout?.formatting?.condition != nil
           &&
           (changesLines || edits
             .contains { sharesLine(candidate, with: $0) }))

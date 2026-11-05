@@ -17,13 +17,14 @@ struct CorrectionLayoutCandidateTests {
     let file = try FileCollector
       .collect(fileAt: project.fileURL(for: "Value.swift").path)
     let call = try #require(file.calls.first)
-    let candidate = try call.arguments.replacement(whenLineExceeds: 22) {
-      for argument in call.arguments {
+    let candidate = try call.arguments
+      .replacement(when: !.maximumLineLength(...22)) {
+        for argument in call.arguments {
+          Newline()
+          argument
+        }
         Newline()
-        argument
       }
-      Newline()
-    }
     try #require(candidate.source.text == candidate.replacement)
     let first = try #require(call.arguments.first)
     let child = try first.expressionSource.replacement(with: "longValue")
@@ -70,13 +71,14 @@ struct CorrectionLayoutCandidateTests {
       .collect(fileAt: project.fileURL(for: "Call.swift").path)
     let node = try #require(file.syntaxNodes(of: .functionCall).first)
     let call = try #require(node.call)
-    let candidate = try call.arguments.replacement(whenLineExceeds: 10) {
-      for argument in call.arguments {
+    let candidate = try call.arguments
+      .replacement(when: !.maximumLineLength(...10)) {
+        for argument in call.arguments {
+          Newline()
+          argument
+        }
         Newline()
-        argument
       }
-      Newline()
-    }
     try #require(candidate.source.text.utf8
       .elementsEqual(candidate.replacement.utf8))
     let active = try call.memberNameSource.replacement(with: "sendWithLongName")
@@ -132,13 +134,14 @@ struct CorrectionLayoutCandidateTests {
     let owner = try FileCollector
       .collect(fileAt: project.fileURL(for: "Owner.swift").path)
     let call = try #require(file.calls.first)
-    let candidate = try call.arguments.replacement(whenLineExceeds: 22) {
-      for argument in call.arguments {
+    let candidate = try call.arguments
+      .replacement(when: !.maximumLineLength(...22)) {
+        for argument in call.arguments {
+          Newline()
+          argument
+        }
         Newline()
-        argument
       }
-      Newline()
-    }
     try #require(candidate.source.text == candidate.replacement)
     let ownerValue = try #require(owner.syntaxNodes(of: .integerLiteral).first)
     let ownerEdit = if reason == .parseFailure {
@@ -226,13 +229,14 @@ struct CorrectionLayoutCandidateTests {
       .collect(fileAt: project.fileURL(for: "Call.swift").path)
     let node = try #require(file.syntaxNodes(of: .functionCall).first)
     let call = try #require(node.call)
-    let candidate = try call.arguments.replacement(whenLineExceeds: 10) {
-      for argument in call.arguments {
+    let candidate = try call.arguments
+      .replacement(when: !.maximumLineLength(...10)) {
+        for argument in call.arguments {
+          Newline()
+          argument
+        }
         Newline()
-        argument
       }
-      Newline()
-    }
     try #require(candidate.source.text == candidate.replacement)
     let insertion = try file.source.slice(offset..<offset)
       .replacement(with: ".id")
@@ -284,7 +288,7 @@ struct CorrectionLayoutCandidateTests {
         try owner.source.replacement(with: "let marker = 1\n")
         let related = try await codebase.files.named("Value.swift").only()
         let call = try #require(related.calls.first)
-        try call.arguments.replacement(whenLineExceeds: 22) {
+        try call.arguments.replacement(when: !.maximumLineLength(...22)) {
           for argument in call.arguments {
             Newline()
             argument

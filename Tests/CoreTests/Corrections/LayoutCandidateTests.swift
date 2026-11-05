@@ -134,7 +134,7 @@ struct LayoutCandidateTests {
       "Sources/Calls.swift": "func run() {\n  pair(first: 1, second: 2)\n}",
     ]))
     let child = try await codebase.calls.violations("Wrap long calls") { call in
-      try call.arguments.replacement(whenLineExceeds: 27) {
+      try call.arguments.replacement(when: !.maximumLineLength(...27)) {
         for argument in call.arguments {
           Newline()
           argument
@@ -182,7 +182,7 @@ struct LayoutCandidateTests {
     ]))
     let passing = try await codebase.calls
       .violations("Wrap long calls") { call in
-        try call.arguments.replacement(whenLineExceeds: 23) {
+        try call.arguments.replacement(when: !.maximumLineLength(...23)) {
           for argument in call.arguments {
             Newline()
             argument
@@ -233,13 +233,14 @@ struct LayoutCandidateTests {
     let passing = try await codebase.syntaxNodes(of: .functionCall)
       .violations("Wrap long calls") { node in
         if let call = node.call {
-          try call.arguments.replacement(whenLineExceeds: maximumWidth) {
-            for argument in call.arguments {
+          try call.arguments
+            .replacement(when: !.maximumLineLength(...maximumWidth)) {
+              for argument in call.arguments {
+                Newline()
+                argument
+              }
               Newline()
-              argument
             }
-            Newline()
-          }
         }
       }
     let candidate = try #require(passing.layoutCandidates.first)
@@ -277,7 +278,7 @@ struct LayoutCandidateTests {
     let passing = try await codebase.syntaxNodes(of: .functionCall)
       .violations("Wrap long calls") { node in
         if let call = node.call {
-          try call.arguments.replacement(whenLineExceeds: 10) {
+          try call.arguments.replacement(when: !.maximumLineLength(...10)) {
             for argument in call.arguments {
               Newline()
               argument
