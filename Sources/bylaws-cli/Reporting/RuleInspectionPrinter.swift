@@ -34,7 +34,7 @@ enum RuleInspectionPrinter {
     for offender in findings.violations.offenders {
       Swift
         .print(
-          "    \(position(offender.location, rootPath: rootPath)) \(offender.description)"
+          "    \(position(offender.location, rootPath: rootPath)) \(offender.summary)"
         )
     }
     for warning in findings.warnings {

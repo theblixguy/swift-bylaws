@@ -23,7 +23,8 @@ extension Rule {
               name: offender.name,
               location: offender.location,
               affectedPath: offender.affectedPath,
-              requirement: offender.requirement ?? check.rule
+              requirement: offender.requirement ?? check.rule,
+              correctionFailure: offender.correctionFailure
             )
           }
         },
@@ -31,7 +32,10 @@ extension Rule {
         witnesses: checks.flatMap(\.witnesses),
         fixes: checks.contains(where: { $0.proposedFixes != nil })
           ? checks.flatMap(\.fixes) : nil,
-        layoutCandidates: checks.flatMap(\.layoutCandidates)
+        layoutCandidates: checks.flatMap(\.layoutCandidates),
+        correctionFailures: checks
+          .contains { $0.storedCorrectionFailures != nil }
+          ? checks.flatMap(\.correctionFailures) : nil
       )
     }
 
@@ -42,7 +46,13 @@ extension Rule {
 
     /// Creates findings from individual checks and their warnings.
     public init(checks: [Violations<Offender>], warnings: [Warning] = []) {
-      self.checks = checks
+      self.checks = if checks
+        .contains(where: { $0.storedCorrectionFailures != nil })
+      {
+        checks.map { $0.storedCorrectionFailures == nil ? $0 : $0.erased() }
+      } else {
+        checks
+      }
       self.warnings = warnings
     }
   }

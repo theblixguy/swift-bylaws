@@ -1,39 +1,44 @@
 public import BylawsSemantics
 
 extension Selection {
-  /// Returns violations for elements whose proposed corrections change their source.
+  /// Returns violations from the selected elements' correction results.
   ///
   /// The closure runs once per selected element. An empty result or an edit
-  /// with unchanged bytes produces no violation. The source files stay unchanged.
+  /// with unchanged bytes produces no violation. An unavailable correction
+  /// records a violation and its reason. Undetermined applicability throws
+  /// ``/BylawsSemantics/SourceCorrectionError/undetermined(_:)``.
+  /// The source files stay unchanged.
   /// Ordinary CLI checks evaluate the closure but omit corrections from
   /// the result.
   public func violations(
     _ requirement: String,
-    @ArrayBuilder<SourceFix.Edit> changes: (Element) async throws
-      -> [SourceFix.Edit]
+    @SourceCorrectionBuilder changes: (Element) async throws
+      -> some SourceCorrectionProviding
   ) async throws -> Violations<Element> {
     var offenders: [Element] = []
     var fixes: [SourceFix?] = []
     var candidates: [SourceFix.Edit] = []
+    var failures: [String?] = []
     let proposesCorrections = RuleRunPurpose.current == .proposeCorrections
     for element in self {
       try Task.checkCancellation()
-      let edits = try await changes(element)
-      if !proposesCorrections {
-        if edits.contains(where: {
-          !$0.source.text.utf8.elementsEqual($0.replacement.utf8)
-        }) {
-          offenders.append(element)
+      let correction = try await changes(element).correction
+      guard correction.outcome != .undetermined else {
+        throw SourceCorrectionError.undetermined(
+          correction.reason ?? "Restrict the rule to source with a known context."
+        )
+      }
+      guard correction.outcome == .violation else {
+        if proposesCorrections, let fix = correction.fixOmittingUnchangedEdits {
+          candidates.append(contentsOf: fix.layoutCandidates)
         }
         continue
       }
-      let fix = SourceFix(proposedEdits: edits)
-      guard !fix.edits.isEmpty else {
-        candidates.append(contentsOf: fix.layoutCandidates)
-        continue
-      }
       offenders.append(element)
-      fixes.append(fix)
+      failures.append(correction.reason)
+      if proposesCorrections {
+        fixes.append(correction.fixOmittingUnchangedEdits)
+      }
     }
     return Violations(
       rule: requirement,
@@ -42,14 +47,8 @@ extension Selection {
       witnesses: Array(repeating: nil, count: offenders.count),
       fixes: proposesCorrections ? fixes : nil,
       codebase: codebase,
-      layoutCandidates: candidates
+      layoutCandidates: candidates,
+      correctionFailures: failures
     )
-  }
-}
-
-extension ArrayBuilder where Element == SourceFix.Edit {
-  /// Includes all edits from a proposed correction.
-  public static func buildExpression(_ fix: SourceFix) -> [SourceFix.Edit] {
-    fix.edits + fix.layoutCandidates
   }
 }

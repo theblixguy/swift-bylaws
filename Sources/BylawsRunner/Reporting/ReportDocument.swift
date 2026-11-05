@@ -108,7 +108,7 @@ package struct ReportDocument {
           Event(
             category: .violation,
             level: level,
-            message: "\(offender.description) violates '\(offender.requirement ?? report.name)'",
+            message: "\(offender.summary) violates '\(offender.requirement ?? report.name)'",
             hint: report.hint,
             location: offender.location,
             ruleID: id,

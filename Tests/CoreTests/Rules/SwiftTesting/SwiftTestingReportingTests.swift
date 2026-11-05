@@ -223,6 +223,35 @@ struct SwiftTestingReportingTests {
     ) == source)
   }
 
+  @Test(
+    "Collection retains unavailable correction reasons",
+    arguments: [false, true]
+  )
+  func unavailableCorrection(isCorrection: Bool) async throws {
+    let project =
+      try TemporaryProject(files: ["Screen.swift": "class Screen {}"])
+    let session = session(in: project, isCorrection: isCorrection)
+    let codebase = Codebase(root: .directory(project.rootURL.path))
+    let violations = try await codebase.classes
+      .violations("Use final classes") { _ in
+        SourceCorrection.unavailable("The declaration has an attached macro.")
+      }
+
+    SwiftTestingRuleSession.$testingSession.withValue(session) {
+      violations.report(ruleID: "final-classes")
+    }
+
+    let report = try #require(reports(in: project).first)
+    let result = report.findings.violations
+    #expect(result.offenders.map(\.name) == ["Screen"])
+    #expect(result.fixes == [nil])
+    #expect(result
+      .correctionFailures == ["The declaration has an attached macro."])
+    #expect(result.offenders.first?.summary
+      ==
+      "Screen. Correction unavailable: The declaration has an attached macro.")
+  }
+
   @Test("Report validation rejects another session")
   func reportSessionIdentity() throws {
     let project = try TemporaryProject(files: [:])

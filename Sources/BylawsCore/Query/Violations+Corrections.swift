@@ -7,7 +7,8 @@ extension Violations {
     guard hasCorrections else { return self }
     return Self(
       rule: rule, offenders: offenders, checkedCount: checkedCount,
-      witnesses: witnesses, codebase: codebase
+      witnesses: witnesses, codebase: codebase,
+      correctionFailures: storedCorrectionFailures
     )
   }
 }

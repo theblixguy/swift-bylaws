@@ -22,7 +22,19 @@ public struct Violations<Element: Sendable>: Sendable {
     proposedFixes ?? Array(repeating: nil, count: offenders.count)
   }
 
+  /// Why each offender has no correction, or `nil` when none was declined.
+  ///
+  /// - Complexity: O(n) in the worst case, where n is the offender count.
+  public var correctionFailures: [String?] {
+    if let storedCorrectionFailures { return storedCorrectionFailures }
+    if let reported = offenders as? [Offender] {
+      return reported.map(\.correctionFailure)
+    }
+    return Array(repeating: nil, count: offenders.count)
+  }
+
   package let proposedFixes: [SourceFix?]?
+  package let storedCorrectionFailures: [String?]?
   package let witnesses: [DeclarationLocation?]
   package let codebase: Codebase?
   package let layoutCandidates: [SourceFix.Edit]
@@ -44,7 +56,8 @@ public struct Violations<Element: Sendable>: Sendable {
     witnesses: [DeclarationLocation?],
     fixes: [SourceFix?]? = nil,
     codebase: Codebase? = nil,
-    layoutCandidates: [SourceFix.Edit] = []
+    layoutCandidates: [SourceFix.Edit] = [],
+    correctionFailures: [String?]? = nil
   ) {
     self.rule = rule
     self.offenders = offenders
@@ -55,6 +68,10 @@ public struct Violations<Element: Sendable>: Sendable {
       .flatMap { $0.contains(where: { $0 != nil }) ? $0 : nil }
     self.codebase = codebase
     self.layoutCandidates = layoutCandidates
+    precondition(correctionFailures == nil || correctionFailures?
+      .count == offenders.count)
+    storedCorrectionFailures = correctionFailures
+      .flatMap { $0.contains { $0 != nil } ? $0 : nil }
     precondition(witnesses.count == offenders.count)
   }
 
@@ -106,6 +123,7 @@ extension Violations: Equatable where Element: Equatable {
       && lhs.checkedCount == rhs.checkedCount
       && lhs.proposedFixes == rhs.proposedFixes
       && lhs.layoutCandidates == rhs.layoutCandidates
+      && lhs.storedCorrectionFailures == rhs.storedCorrectionFailures
   }
 }
 
@@ -116,6 +134,7 @@ extension Violations: Hashable where Element: Hashable {
     hasher.combine(checkedCount)
     hasher.combine(proposedFixes)
     hasher.combine(layoutCandidates)
+    hasher.combine(storedCorrectionFailures)
   }
 }
 
@@ -126,6 +145,7 @@ extension Violations: Codable where Element: Codable {
     case checkedCount
     case fixes
     case layoutCandidates
+    case correctionFailures
   }
 
   public init(from decoder: any Decoder) throws {
@@ -135,6 +155,16 @@ extension Violations: Codable where Element: Codable {
     let candidates = try container.decodeIfPresent(
       [SourceFix.Edit].self, forKey: .layoutCandidates
     ) ?? []
+    let failures = try container.decodeIfPresent(
+      [String?].self,
+      forKey: .correctionFailures
+    )
+    guard failures == nil || failures?.count == offenders.count else {
+      throw DecodingError.dataCorruptedError(
+        forKey: .correctionFailures, in: container,
+        debugDescription: "The correction failure count must equal the offender count."
+      )
+    }
     for candidate in candidates { try candidate.validateLayoutCandidate() }
     guard fixes == nil || fixes?.count == offenders.count else {
       throw DecodingError.dataCorruptedError(
@@ -148,7 +178,8 @@ extension Violations: Codable where Element: Codable {
       checkedCount: try container.decode(Int.self, forKey: .checkedCount),
       witnesses: Array(repeating: nil, count: offenders.count),
       fixes: fixes,
-      layoutCandidates: candidates
+      layoutCandidates: candidates,
+      correctionFailures: failures
     )
   }
 
@@ -160,6 +191,10 @@ extension Violations: Codable where Element: Codable {
     if let proposedFixes {
       try container.encode(proposedFixes, forKey: .fixes)
     }
+    try container.encodeIfPresent(
+      storedCorrectionFailures,
+      forKey: .correctionFailures
+    )
     if !layoutCandidates.isEmpty {
       for candidate in layoutCandidates {
         try candidate.validateLayoutCandidate()
@@ -194,48 +229,76 @@ public struct Offender: Sendable, Hashable, Codable, Located,
   /// The check's requirement, or `nil` to report the rule's display name.
   public let requirement: String?
 
+  /// Why a correction for this violation could not be prepared.
+  public let correctionFailure: String?
+
   /// Creates a violation with its reporting location and optional affected path.
   public init(
     description: String,
     name: String? = nil,
     location: DeclarationLocation,
     affectedPath: String? = nil,
-    requirement: String? = nil
+    requirement: String? = nil,
+    correctionFailure: String? = nil
   ) {
     self.description = description
     self.name = name
     self.location = location
     self.affectedPath = affectedPath
     self.requirement = requirement
+    self.correctionFailure = correctionFailure
+  }
+
+  package func withCorrectionFailure(_ failure: String?) -> Self {
+    Self(
+      description: description, name: name, location: location,
+      affectedPath: affectedPath, requirement: requirement,
+      correctionFailure: failure
+    )
   }
 }
 
 extension Offender: Summarised {
   /// The offender's display text.
-  public var summary: String { description }
+  public var summary: String {
+    if let correctionFailure {
+      "\(description). Correction unavailable: \(correctionFailure)"
+    } else {
+      description
+    }
+  }
 }
 
 extension Violations where Element: Located {
   /// Returns the violations with each element represented by an ``Offender``.
   public func erased() -> Violations<Offender> {
-    if let alreadyErased = self as? Violations<Offender> {
+    if storedCorrectionFailures == nil,
+       let alreadyErased = self as? Violations<Offender>
+    {
       return alreadyErased
     }
     return Violations<Offender>(
       rule: rule,
-      offenders: zip(offenders, witnesses).map { element, witness in
-        Offender(
-          description: (element as? any Summarised)?.summary
+      offenders: offenders.enumerated().map { index, element in
+        let reported = element as? Offender
+        return Offender(
+          description: reported?.description ?? (element as? any Summarised)?
+            .summary
             ?? String(describing: element),
-          name: (element as? any Named)?.name,
-          location: witness ?? element.location
+          name: reported?.name ?? (element as? any Named)?.name,
+          location: witnesses[index] ?? element.location,
+          affectedPath: reported?.affectedPath,
+          requirement: reported?.requirement,
+          correctionFailure: storedCorrectionFailures?[index] ?? reported?
+            .correctionFailure
         )
       },
       checkedCount: checkedCount,
       witnesses: Array(repeating: nil, count: offenders.count),
       fixes: proposedFixes,
       codebase: codebase,
-      layoutCandidates: layoutCandidates
+      layoutCandidates: layoutCandidates,
+      correctionFailures: storedCorrectionFailures
     )
   }
 }
@@ -252,7 +315,9 @@ extension Violations {
       witnesses: indices.map { witnesses[$0] },
       fixes: proposedFixes.map { fixes in indices.map { fixes[$0] } },
       codebase: codebase,
-      layoutCandidates: layoutCandidates
+      layoutCandidates: layoutCandidates,
+      correctionFailures: storedCorrectionFailures
+        .map { failures in indices.map { failures[$0] } }
     )
   }
 }
@@ -262,8 +327,17 @@ extension Violations: CustomStringConvertible {
     if offenders.isEmpty {
       return "no violations of '\(rule)' (\(checkedCount) checked)"
     }
-    let listing = offenders
-      .map { "  - \(String(describing: $0))" }
+    let listing = offenders.enumerated()
+      .map { index, offender in
+        let description = String(describing: offender)
+        let failure = storedCorrectionFailures?[index]
+          ?? (offender as? Offender)?.correctionFailure
+        return if let failure {
+          "  - \(description). Correction unavailable: \(failure)"
+        } else {
+          "  - \(description)"
+        }
+      }
       .joined(separator: "\n")
     let noun = offenders.count == 1 ? "violation" : "violations"
     return "\(offenders.count) \(noun) of '\(rule)':\n\(listing)"

@@ -38,7 +38,7 @@ struct SwiftTestingRuleSessionTests {
   }
 
   @Test("Unsupported request version retains version error", arguments: [
-    -1, 0, 2, 99,
+    -1, 0, 2, 5, 99,
   ])
   func unsupportedVersion(version: Int) throws {
     let project = try TemporaryProject(files: [:])

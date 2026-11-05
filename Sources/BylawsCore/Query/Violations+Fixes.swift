@@ -80,6 +80,8 @@ extension Violations {
   /// The closure runs once per offender, in order. Its edits form one
   /// correction, which may span several files. An empty result leaves the
   /// offender without a correction. This method keeps the files unchanged.
+  /// An unavailable correction retains its reason. Undetermined applicability
+  /// throws ``/BylawsSemantics/SourceCorrectionError/undetermined(_:)``.
   ///
   /// Ordinary CLI lint runs skip this closure and return no corrections.
   /// Correction previews, autocorrection, direct library calls and plain
@@ -87,28 +89,47 @@ extension Violations {
   /// correction closure.
   public func withFix(
     _ title: String? = nil,
-    @ArrayBuilder<SourceFix.Edit> _ makeFix: (FixContext<Element>) async throws
-      -> [SourceFix.Edit]
+    @SourceCorrectionBuilder _ makeFix: (FixContext<Element>) async throws
+      -> some SourceCorrectionProviding
   ) async throws -> Self {
     guard RuleRunPurpose.current == .proposeCorrections else {
       return removingCorrections()
     }
     var fixes: [SourceFix?] = []
+    var failures: [String?] = []
     for offender in offenders {
       try Task.checkCancellation()
-      let edits = try await makeFix(
+      let correction = try await makeFix(
         FixContext(offender: offender, codebase: codebase)
-      )
-      fixes.append(edits.isEmpty ? nil : SourceFix(title, edits: edits))
+      ).correction
+      guard correction.outcome != .undetermined else {
+        throw SourceCorrectionError.undetermined(
+          correction.reason ?? "Restrict the rule to source with a known context."
+        )
+      }
+      failures.append(correction.reason)
+      fixes.append(correction.proposedFix(titled: title))
     }
     return Self(
       rule: rule,
-      offenders: offenders,
+      offenders: updatingReportedFailures(failures),
       checkedCount: checkedCount,
       witnesses: witnesses,
       fixes: fixes,
       codebase: codebase,
-      layoutCandidates: layoutCandidates
+      layoutCandidates: layoutCandidates,
+      correctionFailures: failures
     )
+  }
+
+  private func updatingReportedFailures(_ failures: [String?]) -> [Element] {
+    guard let reported = offenders as? [Offender],
+          failures.contains(where: { $0 != nil }) || reported
+            .contains(where: { $0.correctionFailure != nil })
+    else {
+      return offenders
+    }
+    let updated = zip(reported, failures).map { $0.withCorrectionFailure($1) }
+    return updated as? [Element] ?? offenders
   }
 }

@@ -62,7 +62,7 @@
           )
           TraitScope.$reportedViolation.withValue(context) {
             let comment = Comment(
-              rawValue: "\(offender.description) violates '\(offender.requirement ?? name)'"
+              rawValue: "\(offender.summary) violates '\(offender.requirement ?? name)'"
                 + (hint.map { " (\($0))" } ?? "")
             )
             if enforcement == .advisory {
