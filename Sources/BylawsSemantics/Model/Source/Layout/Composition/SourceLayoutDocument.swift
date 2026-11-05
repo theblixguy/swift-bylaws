@@ -101,6 +101,11 @@ struct SourceLayoutDocument {
         }
         events.append(.line(contents))
         return true
+      case let .joined(child):
+        let start = events.count
+        let hasText = try lower(child, separator: .space, into: &events)
+        if !hasText { events.removeSubrange(start...) }
+        return hasText
       case let .lines(child):
         return try lower(child, separator: .newline, into: &events)
       case let .boundedLines(child):

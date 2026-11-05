@@ -51,6 +51,7 @@ extension RuntimeEvaluator {
     switch constructor {
     case .sourceLayout: node = layout.node
     case .line: node = .line(layout.node)
+    case .joined: node = Joined(layout: layout).layout.node
     case .lines:
       let boundaries: Lines.Boundaries
       if let argument = values.first(where: { $0.label == "boundaries" }) {
@@ -167,19 +168,20 @@ extension RuntimeEvaluator {
   func layoutResult(
     _ callable: RuntimeValue,
     at location: DeclarationLocation, builder: RuntimeBuilder = .layout,
+    inputs: [RuntimeValue] = [],
     state: inout RuntimeEvaluationState
   ) async throws(RuntimeError) -> RuntimeValue {
     let result: RuntimeValue
     switch callable {
     case let .closure(closure):
       result = try await invokeSynchronous(
-        closure, arguments: [], kind: "layout", allowsThrowing: true,
+        closure, arguments: inputs, kind: "layout", allowsThrowing: true,
         builder: builder, state: &state
       )
     case let .function(function):
       result = try await invokeSynchronous(
         function,
-        arguments: [],
+        arguments: inputs,
         allowsThrowing: true,
         at: location,
         state: &state

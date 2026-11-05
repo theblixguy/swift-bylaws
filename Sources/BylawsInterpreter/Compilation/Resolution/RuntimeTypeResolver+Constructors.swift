@@ -35,7 +35,7 @@ extension RuntimeTypeResolver {
         values: values,
         at: location
       )
-    case .sourceLayout, .layout, .line, .lines, .newline, .blankLine,
+    case .sourceLayout, .layout, .line, .joined, .lines, .newline, .blankLine,
          .indent,
          .wrap, .softBreak,
          .align, .group:

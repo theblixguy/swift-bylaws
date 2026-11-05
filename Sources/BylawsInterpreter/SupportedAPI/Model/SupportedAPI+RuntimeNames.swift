@@ -398,6 +398,7 @@ extension SupportedAPI {
     case layout = "Layout"
     case layoutContent = "LayoutContent"
     case line = "Line"
+    case joined = "Joined"
     case lines = "Lines"
     case blankLine = "BlankLine"
     case indent = "Indent"

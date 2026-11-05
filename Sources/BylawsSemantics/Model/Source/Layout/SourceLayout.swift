@@ -6,6 +6,7 @@ public struct SourceLayout: Sendable {
     case sequence([Node])
     case line(Node)
     case lines(Node)
+    case joined(Node)
     case boundedLines(Node)
     case blankLine
     case newline
@@ -102,7 +103,8 @@ extension SourceLayout.Node {
   fileprivate var isEmpty: Bool {
     switch self {
     case let .sequence(children): children.allSatisfy(\.isEmpty)
-    case let .line(child), let .lines(child), let .boundedLines(child),
+    case let .line(child), let .lines(child), let .joined(child),
+         let .boundedLines(child),
          let .indent(child),
          let .wrap(_, child), let .align(child): child.isEmpty
     case .source, .edit, .blankLine, .newline, .softBreak, .failure: false
@@ -120,7 +122,8 @@ extension SourceLayout.Node {
         unavailable = unavailable ?? error
       }
       return unavailable
-    case let .line(child), let .lines(child), let .boundedLines(child),
+    case let .line(child), let .lines(child), let .joined(child),
+         let .boundedLines(child),
          let .indent(child),
          let .wrap(_, child), let .align(child):
       return child.correctionError
@@ -131,7 +134,8 @@ extension SourceLayout.Node {
   private var children: [Self] {
     switch self {
     case let .sequence(children): children
-    case let .line(child), let .lines(child), let .boundedLines(child),
+    case let .line(child), let .lines(child), let .joined(child),
+         let .boundedLines(child),
          let .indent(child),
          let .wrap(_, child), let .align(child): [child]
     case .source, .edit, .blankLine, .newline, .softBreak, .failure: []

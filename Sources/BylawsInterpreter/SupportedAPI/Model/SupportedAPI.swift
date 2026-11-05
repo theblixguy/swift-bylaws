@@ -43,7 +43,7 @@ package enum SupportedAPI {
     case containingOnly, source, sources, combining, replacement
     case into
     case and, before, after
-    case applying
+    case applying, toEach
     case changes
     case width, argument
     case layout

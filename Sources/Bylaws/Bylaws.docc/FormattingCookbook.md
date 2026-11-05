@@ -480,9 +480,9 @@ each remaining argument on a new line. For an array or dictionary argument
 after that leading run, it puts each element on its own line.
 
 Nested calls use the same rule. The layouts combine, so a call inside an
-array, dictionary or another call keeps its own formatting. `Newline` followed
-by the source element lets it span several lines. Use `Line` when the entire
-element must stay on one physical line.
+array, dictionary or another call keeps its own formatting. `Joined` keeps
+the leading arguments together while allowing their contents to span lines.
+Use `Line` when the entire sequence must stay on one physical line.
 
 ### Bylaws.swift
 
@@ -502,15 +502,12 @@ nonisolated let rules: [Rule] = [
           let remaining = arguments.dropFirst(leading.count)
           let collections = remaining.compactMap { $0.expression?.elements }
           try Layout(arguments, when: condition) {
-            Newline()
-            leading
-            Newline()
-            Lines(remaining)
-            Newline()
-          }.applying {
-            for elements in collections {
-              try Layout(elements, layout: Lines(elements, boundaries: .newline))
+            Lines(boundaries: .newline) {
+              Joined(leading)
+              remaining
             }
+          }.applying(toEach: collections) {
+            Lines($0, boundaries: .newline)
           }
         }
       }
@@ -536,15 +533,12 @@ func argumentLines() async throws {
         let remaining = arguments.dropFirst(leading.count)
         let collections = remaining.compactMap { $0.expression?.elements }
         try Layout(arguments, when: condition) {
-          Newline()
-          leading
-          Newline()
-          Lines(remaining)
-          Newline()
-        }.applying {
-          for elements in collections {
-            try Layout(elements, layout: Lines(elements, boundaries: .newline))
+          Lines(boundaries: .newline) {
+            Joined(leading)
+            remaining
           }
+        }.applying(toEach: collections) {
+          Lines($0, boundaries: .newline)
         }
       }
     }
@@ -572,7 +566,7 @@ line exceeds 100 columns. A line at the limit stays unchanged, as does an
 existing multiline call whose lines all fit. The check includes the call's
 position on its line. Tabs use eight-column stops.
 
-The child layouts in `.applying` apply when the containing layout's
+The child layouts in `.applying(toEach:)` apply when the containing layout's
 condition matches, including when its argument spacing matches. Each child
 layout must stay inside an element retained by the containing layout.
 

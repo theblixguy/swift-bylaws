@@ -111,7 +111,8 @@ extension RuntimeTypeResolver {
   }
 
   mutating func resolveLayoutClosure(
-    _ expression: RuntimeExpression, builder: RuntimeBuilder = .layout
+    _ expression: RuntimeExpression, builder: RuntimeBuilder = .layout,
+    inputs: [RuntimeType] = []
   ) {
     let expected: RuntimeType = builder == .layout
       ? .layoutContent(layoutElementType ?? .unknown) : .sourceLayout
@@ -119,7 +120,7 @@ extension RuntimeTypeResolver {
     if case let .closure(body) = expression.kind {
       canThrow =
         resolve(
-          body, parameters: [], expectedResult: expected,
+          body, parameters: inputs, expectedResult: expected,
           requiresSynchronousBody: true, allowsThrowingBody: true,
           builder: builder
         ).isThrowing
@@ -146,9 +147,18 @@ extension RuntimeTypeResolver {
         )
         return
       }
-      if !parameters.isEmpty || isAsync {
+      if parameters.count != inputs.count || isAsync {
         diagnose(
-          "SourceLayout takes a synchronous closure with no parameters",
+          inputs.isEmpty
+            ? "SourceLayout takes a synchronous closure with no parameters"
+            :
+            "applying takes a synchronous layout closure with one collection parameter",
+          at: expression.location
+        )
+      }
+      for (input, parameter) in zip(inputs, parameters) {
+        require(
+          input, toMatch: parameter, subject: "the collection",
           at: expression.location
         )
       }

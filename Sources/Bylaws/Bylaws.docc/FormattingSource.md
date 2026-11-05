@@ -78,6 +78,7 @@ You can also pass a matcher, such as `Group(.hasAttribute("State"))`.
 | Operation | Behaviour |
 | --- | --- |
 | `Lines(elements)` | Separates the elements with line breaks and permits multiline elements. Pass `boundaries: .newline` to start and end the list on separate lines. |
+| `Joined(elements)` | Keeps the elements together with their normal separators. Permits multiline contents and forms one item inside `Lines`. An empty sequence adds no output. |
 | `Line { ... }` | Puts the enclosed source on one physical line, separate from surrounding code. Rejects source with physical line breaks. |
 | `Newline()` | Requests a line break between source elements or at a list boundary. |
 | `BlankLine()` | Separates non-empty output with an empty line. Repeated requests collapse, and empty sections add no leading or trailing blank lines. |
@@ -110,7 +111,7 @@ let line = Line(attributes.sorted { $0.name < $1.name })
 try Layout(attributes, layout: line)
 ```
 
-`Line`, `Lines`, `Indent`, `Wrap` and `Align` also take a `layout:` value. You can
+`Line`, `Lines`, `Joined`, `Indent`, `Wrap` and `Align` also take a `layout:` value. You can
 combine stored layouts with `SourceLayout([first, second])` and add `.newline`,
 `.blankLine` or `.softBreak` where you want a boundary.
 
@@ -146,11 +147,10 @@ Rule("call-arguments", "Call arguments use separate lines") {
         let leading = call.arguments.prefix { $0.label == nil }
         let remaining = call.arguments.dropFirst(leading.count)
         try Layout(call.arguments, when: .maximumLineLength(101...)) {
-          Newline()
-          leading
-          Newline()
-          Lines(remaining)
-          Newline()
+          Lines(boundaries: .newline) {
+            Joined(leading)
+            remaining
+          }
         }
       }
     }
@@ -177,10 +177,8 @@ you can expand array and dictionary arguments along with the call:
 ```swift
 try Layout(call.arguments) {
   Lines(call.arguments, boundaries: .newline)
-}.applying {
-  for elements in call.arguments.compactMap({ $0.expression?.elements }) {
-    try Layout(elements, layout: Lines(elements, boundaries: .newline))
-  }
+}.applying(toEach: call.arguments.compactMap { $0.expression?.elements }) {
+  Lines($0, boundaries: .newline)
 }
 ```
 
@@ -193,7 +191,8 @@ the contents even when the containing layout's spacing already matches. Each
 correction must stay inside an element retained by that layout. A grouping or
 spacing policy retains its matched regions, so corrections outside those
 regions must be separate operations. You can also pass a stored correction to
-`.applying`.
+`.applying`. The `.applying(toEach:)` closure can return a stored `LayoutContent`
+value or be a named function that returns one.
 
 Layouts from different rules can format a nested call and its containing
 statement or declaration together. Use `Newline()` before an element that

@@ -36,7 +36,7 @@ extension SupportedAPI.RuntimeReceiver {
     case .sourceEdit: "SourceFix.Edit"
     case .layoutGroup: "Group"
     case .layoutCorrection: "Layout"
-    case .sourceLayout: "Line, Lines, Indent, Wrap, Align"
+    case .sourceLayout: "Line, Joined, Lines, Indent, Wrap, Align"
     case .sourceScope: "Scope"
     case .sourceSlice: "SourceSlice"
     case .sourceList: "SourceList"

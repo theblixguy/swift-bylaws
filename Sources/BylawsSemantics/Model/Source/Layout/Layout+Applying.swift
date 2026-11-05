@@ -1,4 +1,21 @@
 extension Layout {
+  /// Arranges each contained source list when this layout applies.
+  ///
+  /// Each list must use the same captured source and remain inside one retained
+  /// element. The closure runs for each list, including empty lists and lists
+  /// whose containing layout does not match its condition at its current position.
+  public func applying<Sources: Collection>(
+    toEach lists: some Sequence<Sources>,
+    @LayoutBuilder<Sources.Element> _ content: (Sources) throws
+      -> LayoutContent<Sources.Element>
+  ) throws -> Self where Sources.Element: SourceProviding {
+    let changes = try lists.map { elements in
+      try Layout<Sources.Element>(elements, layout: content(elements))
+        .correction
+    }
+    return try applying(SourceCorrection(combining: changes))
+  }
+
   /// Includes contained corrections when this layout applies.
   ///
   /// Each correction must use the same captured source and remain inside one

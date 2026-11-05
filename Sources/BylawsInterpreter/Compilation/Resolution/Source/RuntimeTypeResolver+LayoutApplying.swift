@@ -4,6 +4,25 @@ extension RuntimeTypeResolver {
   mutating func resolveLayoutApplying(
     values: [(String?, RuntimeExpression)], at location: DeclarationLocation
   ) -> RuntimeType {
+    if values.first?.0 == "toEach" {
+      let lists = resolve(values[0].1)
+      guard let collection = lists.sequenceElement,
+            let element = collection.sequenceElement,
+            element.providesSource
+      else {
+        diagnose(
+          "applying takes collections of captured source with toEach:",
+          at: location
+        )
+        _ = resolve(values[1].1)
+        return .layoutCorrection
+      }
+      let outerElement = layoutElementType
+      layoutElementType = element
+      defer { layoutElementType = outerElement }
+      resolveLayoutClosure(values[1].1, inputs: [collection])
+      return .layoutCorrection
+    }
     let expression = values[0].1
     let result: RuntimeType
     switch expression.kind {
