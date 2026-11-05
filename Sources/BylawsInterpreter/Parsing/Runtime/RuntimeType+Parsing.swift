@@ -40,6 +40,7 @@ extension SupportedAPI.RuntimeType {
           Self(writtenType: $0.text)
         } ?? .unknown)
       case "Line": .layoutOperation(.line)
+      case "Joined": .layoutOperation(.joined)
       case "Lines": .layoutOperation(.lines)
       case "Newline", "BlankLine":
         if let element = Self.singleGenericArgument(of: reference),
@@ -201,6 +202,7 @@ extension SupportedAPI.RuntimeType {
     case .sourceEdit: .sourceEdit
     case .constructor(.sourceCorrection, _): .staticType("SourceCorrection")
     case .constructor(.sourceLayout, _): .staticType("SourceLayout")
+    case .constructor(.joined, _): .staticType("Joined")
     case .constructor(.lines, _): .staticType("Lines")
     case .constructor(.layoutContent, _): .staticType("LayoutContent")
     case .sourceLayout, .layoutOperation: .sourceLayout

@@ -5,6 +5,7 @@ package struct SourceLayoutPlan: Sendable, Hashable, Codable {
     case sequence([Node])
     case line(Node)
     case lines(Node)
+    case joined(Node)
     case boundedLines(Node)
     case blankLine
     case newline
@@ -197,6 +198,7 @@ extension SourceLayoutPlan.Node {
       self = .sequence(try children.map { try Self($0, snapshot: snapshot) })
     case let .line(child): self = .line(try Self(child, snapshot: snapshot))
     case let .lines(child): self = .lines(try Self(child, snapshot: snapshot))
+    case let .joined(child): self = .joined(try Self(child, snapshot: snapshot))
     case let .boundedLines(child): self = .boundedLines(try Self(
         child,
         snapshot: snapshot
@@ -222,6 +224,7 @@ extension SourceLayoutPlan.Node {
       .sequence(try children.map { try $0.resolve(snapshot: snapshot) })
     case let .line(child): .line(try child.resolve(snapshot: snapshot))
     case let .lines(child): .lines(try child.resolve(snapshot: snapshot))
+    case let .joined(child): .joined(try child.resolve(snapshot: snapshot))
     case let .boundedLines(child): .boundedLines(try child
         .resolve(snapshot: snapshot))
     case let .indent(child): .indent(try child.resolve(snapshot: snapshot))
@@ -248,7 +251,8 @@ extension SourceLayoutPlan.Node {
       _ = try edit.resolve(snapshot: source.snapshot)
     case let .sequence(children):
       for child in children { try child.validate(source: source) }
-    case let .line(child), let .lines(child), let .boundedLines(child),
+    case let .line(child), let .lines(child), let .joined(child),
+         let .boundedLines(child),
          let .indent(child),
          let .align(child):
       try child.validate(source: source)

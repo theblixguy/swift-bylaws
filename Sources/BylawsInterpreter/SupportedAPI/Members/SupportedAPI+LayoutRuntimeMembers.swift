@@ -8,7 +8,10 @@ extension SupportedAPI {
     method(
       .applying,
       on: [.layoutCorrection],
-      arguments: .exact([.init(nil)]),
+      arguments: .alternatives([
+        [.init(nil)],
+        [.init(.toEach), .init(nil)],
+      ]),
       result: .receiver,
       canThrow: true
     ),
@@ -142,7 +145,7 @@ extension SupportedAPI.RuntimeType {
 
   var providesLayout: Bool {
     switch self {
-    case .sourceLayout, .layoutOperation(.line),
+    case .sourceLayout, .layoutOperation(.line), .layoutOperation(.joined),
          .layoutOperation(.lines),
          .layoutOperation(.indent), .layoutOperation(.wrap),
          .layoutOperation(.align): true

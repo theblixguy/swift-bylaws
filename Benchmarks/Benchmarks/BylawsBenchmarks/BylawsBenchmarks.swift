@@ -10,6 +10,7 @@ let benchmarks = { @Sendable in
   registerStructuralCorrectionBenchmarks()
   registerSourceListCorrectionBenchmarks()
   registerAttachedLayoutBenchmarks()
+  registerJoinedLayoutBenchmarks()
 
   let smallSource = """
   import Foundation

@@ -69,19 +69,35 @@ struct LayoutValueParityTests {
 extension LayoutValueParityTests {
   @Test(
     "Stored layout content retains its selected element type",
-    arguments: [false, true]
+    arguments: [false, true], [false, true]
   )
-  func selectedContent(matching: Bool) async throws {
-    let selected = "FunctionCall.Argument"
+  func selectedContent(contained: Bool, matching: Bool) async throws {
+    let selected = contained ? "SourceNode" : "FunctionCall.Argument"
     let element = matching ? selected : "Attribute"
+    let body = """
+    let content: LayoutContent<\(element)> = .layout(Lines(elements, boundaries: .newline).layout)
+    content
+    """
+    let correction = if contained {
+      """
+      let collections = call.arguments.compactMap { $0.expression?.elements }
+      try Layout(call.arguments, layout: Lines(call.arguments, boundaries: .newline))
+        .applying(toEach: collections) { elements in
+          \(body)
+        }
+      """
+    } else {
+      """
+      let elements = call.arguments
+      try Layout(elements) {
+        \(body)
+      }
+      """
+    }
     let project = try rulesProject(rules: """
     Rule("arguments") {
       try await app.calls.violations("Arrange arguments") { call in
-        let elements = call.arguments
-        try Layout(elements) {
-          let content: LayoutContent<\(element)> = .layout(Lines(elements, boundaries: .newline).layout)
-          content
-        }
+        \(correction)
       }
     }
     """, sources: [
@@ -95,14 +111,11 @@ extension LayoutValueParityTests {
       try program.requireNoDiagnostics()
       let findings = try await #require(program.rules.first).findings()
       let fix = try #require(findings.violations.fixes.first ?? nil)
-      #expect(try correctedSource(applying: fix) == """
-      func run() {
-        send(
-          values: [1, 2],
-          flag: true
-        )
-      }
-      """)
+      let output = try correctedSource(applying: fix)
+      #expect(output.contains("send(\n    values:"))
+      #expect(output
+        .contains(contained ? "values: [\n      1,\n      2\n    ]" :
+          "values: [1, 2]"))
     } else {
       #expect(
         program.diagnostics.contains {

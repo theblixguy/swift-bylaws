@@ -38,7 +38,7 @@ extension RuntimeEvaluator {
       )
     case .insert, .remove:
       return try constructListCorrection(constructor, arguments: arguments)
-    case .sourceLayout, .layout, .line, .lines, .newline, .blankLine,
+    case .sourceLayout, .layout, .line, .joined, .lines, .newline, .blankLine,
          .indent,
          .wrap, .softBreak,
          .align, .group:

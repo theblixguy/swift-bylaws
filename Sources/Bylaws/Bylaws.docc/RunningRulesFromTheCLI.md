@@ -658,7 +658,7 @@ other APIs.
 | `LayeringCheck` | `emptyLayers`, `missingImports`, `violations` | `findings` |
 | `LayeringCheck.MissingImport` | `layer`, `requiredImport` | None |
 | `Layout` | `correction` | `applying` |
-| `Line, Lines, Indent, Wrap, Align` | `layout` | None |
+| `Line, Joined, Lines, Indent, Wrap, Align` | `layout` | None |
 | `ManifestList` | `conditionalValues`, `isComplete`, `knownValues`, `possibleValues`, `unresolvedValues`, `values` | None |
 | `Matcher` | `requirementDescription` | None |
 | `MemberBlockSyntax` | `members` | None |
