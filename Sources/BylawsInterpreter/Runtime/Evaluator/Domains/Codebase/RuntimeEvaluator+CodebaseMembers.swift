@@ -129,6 +129,13 @@ extension RuntimeEvaluator {
       )
     case .packageManifest:
       .model(.packageManifest(try await codebase.packageManifest))
+    case .ifExpressions:
+      selection(
+        try await codebase.ifExpressions,
+        family: .sourceIfExpression,
+        root: root,
+        transform: RuntimeModelValue.sourceIfExpression
+      )
     case .expressions:
       selection(
         try await codebase.expressions, family: .sourceExpression,

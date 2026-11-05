@@ -8,9 +8,9 @@ import Testing
 @Suite("Portable deferred line widths")
 struct DeferredLineWidthTests {
   @Test("Width conditions use strict threshold", arguments: [
-    ("9", "send(\n  1,\n  2\n)", 1),
-    ("10", "send(1, 2)", 0),
-    ("11", "send(1, 2)", 0),
+    ("!.maximumLineLength(...9)", "send(\n  1,\n  2\n)", 1),
+    ("!.maximumLineLength(...10)", "send(1, 2)", 0),
+    ("!.maximumLineLength(...11)", "send(1, 2)", 0),
     ("nil", "send(\n  1,\n  2\n)", 1),
   ])
   func threshold(
@@ -18,7 +18,7 @@ struct DeferredLineWidthTests {
   ) async throws {
     let result = try await findings(
       source: "send(1, 2)",
-      argument: "whenLineExceeds: \(width)"
+      argument: "when: \(width)"
     )
     let edits = result.violations.fixes.compactMap(\.self).flatMap(\.edits)
     let candidates = result.violations.layoutCandidates
@@ -42,8 +42,8 @@ struct DeferredLineWidthTests {
   @Test("Optional width values reach layout evaluator")
   func optionalWidth() async throws {
     let result = try await findings(
-      source: "send(1, 2)", argument: "whenLineExceeds: limit",
-      declarations: "let limit: Int? = 9"
+      source: "send(1, 2)", argument: "when: limit",
+      declarations: "let limit: SourceLayoutCondition? = !.maximumLineLength(...9)"
     )
     let fix = try #require(result.violations.fixes.first ?? nil)
 
@@ -57,7 +57,7 @@ struct DeferredLineWidthTests {
   func multiline(ending: String) async throws {
     let source = "send(\(ending)  first: 1,\(ending)  second: 2\(ending))"
     let result = try await findings(
-      source: source, argument: "whenLineExceeds: 12"
+      source: source, argument: "when: !.maximumLineLength(...12)"
     )
 
     #expect(result.violations.isEmpty)
@@ -78,7 +78,7 @@ struct DeferredLineWidthTests {
     expectedCount: Int
   ) async throws {
     let result = try await findings(
-      source: "send(1, 2)", argument: "whenLineExceeds: 10",
+      source: "send(1, 2)", argument: "when: !.maximumLineLength(...10)",
       resultExpression: expression
     )
     let candidates = result.violations.layoutCandidates
@@ -101,8 +101,8 @@ struct DeferredLineWidthTests {
       rules: """
       Rule("groups") {
         try await app.structs.violations("Group properties") { declaration in
-          try declaration.properties.replacement {
-            Group(where: { _ in true })
+          try Layout(declaration.properties) {
+            Group { _ in true }
           }
         }
       }
@@ -121,36 +121,33 @@ struct DeferredLineWidthTests {
     try candidate.validateLayoutCandidate()
   }
 
-  @Test(
-    "Automatic groups reject explicit width labels",
-    arguments: ["80", "nil"]
-  )
-  func conditionalGroups(width: String) async throws {
+  @Test("Automatic groups take line conditions", arguments: [
+    (".maximumLineLength(1...)", 1), (".maximumLineLength(...1)", 0), (
+      "nil",
+      1
+    ),
+  ])
+  func conditionalGroups(condition: String, count: Int) async throws {
+    let source = "struct Panel {\n  let zebra = 1\n  let alpha = 2\n}"
     let project = try rulesProject(
       rules: """
       Rule("groups") {
-        try await app.structs.violations("Group properties") { declaration in
-          try declaration.properties.replacement(whenLineExceeds: \(width)) {
-            Group(where: { _ in true })
+        try await app.structs.violations("Order properties") { declaration in
+          try Layout(declaration.properties, when: \(condition)) {
+            Group { true }.sorted { $0.name < $1.name }
           }
         }
       }
-      """,
-      sources: ["Sources/Panel.swift": "struct Panel { let value = 1 }"]
+      """, sources: ["Sources/Panel.swift": source]
     )
-    let program = await RuleProgram.loaded(
-      fromFiles: [project.fileURL(for: "ProjectRules.swift").path]
-    )
-    try #require(program.errors.count == 1)
-    let diagnostic = try #require(program.errors.first)
-
-    #expect(program.rules.isEmpty)
-    #expect(diagnostic.message ==
-      "SourceListLayout must use an unconditional replacement. Remove whenLineExceeds.")
-    #expect(diagnostic.location.filePath ==
-      project.fileURL(for: "ProjectRules.swift").path)
-    #expect(diagnostic.location.line == 8)
-    #expect(diagnostic.location.column == 9)
+    let program = try await loadedProgram(in: project)
+    let findings = try await #require(program.rules.first).findings()
+    #expect(findings.violations.count == count)
+    if count == 1 {
+      let fix = try #require(findings.violations.fixes.first ?? nil)
+      #expect(try correctedSource(applying: fix) ==
+        "struct Panel {\n  let alpha = 2\n  let zebra = 1\n}")
+    }
   }
 
   @Test("Unconditional groups reorder source")
@@ -159,8 +156,8 @@ struct DeferredLineWidthTests {
       rules: """
       Rule("groups") {
         try await app.structs.violations("Order properties") { declaration in
-          try declaration.properties.replacement {
-            Group(where: { _ in true }).sorted { $0.name < $1.name }
+          try Layout(declaration.properties) {
+            Group { _ in true }.sorted { $0.name < $1.name }
           }
         }
       }

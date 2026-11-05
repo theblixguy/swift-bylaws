@@ -85,6 +85,10 @@ extension RuntimeEvaluator {
     }
 
     switch (operatorName, left, right) {
+    case let ("&&", .sourceLayoutCondition(lhs), .sourceLayoutCondition(rhs)):
+      return .sourceLayoutCondition(lhs && rhs)
+    case let ("||", .sourceLayoutCondition(lhs), .sourceLayoutCondition(rhs)):
+      return .sourceLayoutCondition(lhs || rhs)
     case let ("&&", .boolean(lhs), .boolean(rhs)):
       return .boolean(lhs && rhs)
     case let ("||", .boolean(lhs), .boolean(rhs)):
@@ -117,6 +121,12 @@ extension RuntimeEvaluator {
     at location: DeclarationLocation
   ) throws(RuntimeError) -> RuntimeValue {
     switch (operatorName, value) {
+    case let ("!", .sourceLayoutCondition(value)):
+      return .sourceLayoutCondition(!value)
+    case let ("...", .integer(value)):
+      return .integerRangeThrough(...value)
+    case let ("..<", .integer(value)):
+      return .integerRangeUpTo(..<value)
     case let ("!", .boolean(value)):
       return .boolean(!value)
     case let ("!", .matcher(matcher)):
@@ -228,14 +238,15 @@ extension RuntimeEvaluator {
        case let .integer(rhs) = right
     {
       switch operatorName {
-      case "..<":
+      case "..<", "...":
         guard lhs <= rhs else {
           throw RuntimeError(
             message: "a range must end at or after its start",
             location: location
           )
         }
-        return .integerRange(lhs..<rhs)
+        return operatorName == "..<" ? .integerRange(lhs..<rhs) :
+          .integerClosedRange(lhs...rhs)
       case "<": return .boolean(lhs < rhs)
       case "<=": return .boolean(lhs <= rhs)
       case ">": return .boolean(lhs > rhs)

@@ -46,7 +46,13 @@ extension RuntimeEvaluator {
         {
           return .sourceEdit(try value.replacement(with: whitespace))
         }
-        return .sourceEdit(value.replacement(with: try arguments.string(at: 0)))
+        let replacement = try arguments.value(at: 0)
+        if case let .string(text) = replacement {
+          return .sourceEdit(value.replacement(with: text))
+        }
+        return .sourceEdit(try value
+          .replacement(with: replacement
+            .capturedReplacement(at: arguments.location)))
       case .matches:
         try arguments.requireLabels([.of], for: name)
         guard case let .regex(pattern) = try arguments.value(at: 0) else {
@@ -96,6 +102,7 @@ extension RuntimeEvaluator {
     var offenders: [RuntimeModelValue] = []
     var fixes: [SourceFix?] = []
     var candidates: [SourceFix.Edit] = []
+    var failures: [String?] = []
     let proposesCorrections = RuleRunPurpose.current == .proposeCorrections
     for element in selection.elements {
       try step(at: arguments.location, state: &state)
@@ -105,23 +112,26 @@ extension RuntimeEvaluator {
       {
         continue
       }
-      let proposedEdits = try await correctionEdits(
+      let correction = try await correctionResult(
         body, input: .model(element), method: .violations,
         at: arguments.location, state: &state
       )
-      if !proposesCorrections {
-        if proposedEdits.contains(where: {
-          !$0.source.text.utf8.elementsEqual($0.replacement.utf8)
-        }) {
-          offenders.append(element)
-        }
-        continue
+      guard correction.outcome != .undetermined else {
+        throw RuntimeError(
+          wrapping: SourceCorrectionError.undetermined(
+            correction.reason ?? "Restrict the rule to source with a known context."
+          ), at: arguments.location
+        )
       }
-      let fix = SourceFix(proposedEdits: proposedEdits)
-      if !fix.edits.isEmpty {
+      if correction.outcome == .violation {
         offenders.append(element)
-        fixes.append(fix)
-      } else {
+        failures.append(correction.reason)
+        if proposesCorrections {
+          fixes.append(correction.fixOmittingUnchangedEdits)
+        }
+      } else if proposesCorrections,
+                let fix = correction.fixOmittingUnchangedEdits
+      {
         candidates.append(contentsOf: fix.layoutCandidates)
       }
     }
@@ -131,7 +141,8 @@ extension RuntimeEvaluator {
         checkedCount: selection.elements.count,
         fixes: proposesCorrections ? fixes : nil,
         codebase: selection.codebase,
-        layoutCandidates: candidates
+        layoutCandidates: candidates,
+        correctionFailures: failures
       )
     )
   }
@@ -169,6 +180,7 @@ extension RuntimeEvaluator {
       return .violations(violations.removingCorrections())
     }
     var fixes: [SourceFix?] = []
+    var failures: [String?] = []
     for index in violations.offenders.indices {
       try step(at: arguments.location, state: &state)
       let offender = violations.offenders[index]
@@ -179,6 +191,7 @@ extension RuntimeEvaluator {
          ) == true
       {
         fixes.append(nil)
+        failures.append(nil)
         continue
       }
       let context = RuntimeValue.fixContext(
@@ -187,37 +200,52 @@ extension RuntimeEvaluator {
           codebase: violations.codebase
         )
       )
-      let edits = try await correctionEdits(
+      let correction = try await correctionResult(
         callable, input: context, method: .withFix,
         at: arguments.location, state: &state
       )
-      fixes.append(edits.isEmpty ? nil : SourceFix(title, edits: edits))
+      guard correction.outcome != .undetermined else {
+        throw RuntimeError(
+          wrapping: SourceCorrectionError.undetermined(
+            correction.reason ?? "Restrict the rule to source with a known context."
+          ), at: arguments.location
+        )
+      }
+      failures.append(correction.reason)
+      fixes.append(correction.proposedFix(titled: title))
     }
     return .violations(
       RuntimeViolations(
         rule: violations.rule,
-        offenders: violations.offenders,
+        offenders: zip(violations.offenders, failures).map { offender, reason in
+          if case let .offender(value) = offender {
+            .offender(value.withCorrectionFailure(reason))
+          } else {
+            offender
+          }
+        },
         checkedCount: violations.checkedCount,
         witnesses: violations.witnesses,
         fixes: fixes,
         codebase: violations.codebase,
-        layoutCandidates: violations.layoutCandidates
+        layoutCandidates: violations.layoutCandidates,
+        correctionFailures: failures
       )
     )
   }
 
-  private func correctionEdits(
+  private func correctionResult(
     _ callable: RuntimeValue,
     input: RuntimeValue,
     method: SupportedAPI.Method,
     at location: DeclarationLocation,
     state: inout RuntimeEvaluationState
-  ) async throws(RuntimeError) -> [SourceFix.Edit] {
+  ) async throws(RuntimeError) -> SourceCorrection {
     let result: RuntimeValue =
       switch callable {
       case let .closure(closure):
         try await invoke(
-          closure, arguments: [input], builder: .edits, state: &state
+          closure, arguments: [input], builder: .correction, state: &state
         )
       case let .function(function):
         try await invoke(
@@ -238,24 +266,6 @@ extension RuntimeEvaluator {
           location: location
         )
       }
-    guard case let .array(values) = result else {
-      throw RuntimeError(
-        message: method == .withFix
-          ? "withFix must return an edit array"
-          : RuntimeBuilder.edits.argumentRequirement,
-        location: location
-      )
-    }
-    return try values.map { value throws(RuntimeError) -> SourceFix.Edit in
-      guard case let .sourceEdit(edit) = value else {
-        throw RuntimeError(
-          message: method == .withFix
-            ? "withFix takes SourceFix.Edit values or edit arrays"
-            : RuntimeBuilder.edits.argumentRequirement,
-          location: location
-        )
-      }
-      return edit
-    }
+    return try result.correction(at: location)
   }
 }

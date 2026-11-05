@@ -26,6 +26,7 @@ struct RuntimeExpression: Sendable {
     case subscriptCall(base: RuntimeExpression, key: RuntimeExpression)
     case nilLiteral
     case prefix(operator: String, RuntimeExpression)
+    case postfix(operator: String, RuntimeExpression)
     case binary(
       left: RuntimeExpression,
       operator: String,

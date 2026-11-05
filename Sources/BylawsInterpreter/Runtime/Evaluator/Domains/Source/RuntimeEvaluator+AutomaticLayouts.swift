@@ -10,35 +10,32 @@ extension RuntimeEvaluator {
     var comparisons: [Int: RuntimeValue] = [:]
     for operation in plan {
       switch operation {
-      case let .group(predicate, comparison):
+      case .layout:
+        throw RuntimeError(
+          wrapping: SourceListLayoutError.mixedContent,
+          at: location
+        )
+      case let .group(group):
         var indices: [Int] = []
         for index in elements.indices where !claimed[index] {
-          if try await self.predicate(
-            predicate, value: elements[index], allowsThrowing: true,
+          if try await matchesLayoutGroup(
+            group,
+            value: elements[index],
             state: &state
           ) {
             indices.append(index)
             claimed[index] = true
           }
         }
-        if let comparison {
+        if let comparison = group.comparison {
           comparisons[operations.count] = comparison
         }
         operations.append(.group(indices: indices))
       case let .separator(whitespace):
         operations.append(.separator(whitespace))
-      case let .conditionalSeparator(condition, whitespace):
-        var gaps: Set<Int> = []
-        for index in elements.indices.dropFirst() {
-          if try await layoutCondition(
-            condition, previous: elements[index - 1], next: elements[index],
-            state: &state
-          ) {
-            gaps.insert(index)
-          }
-        }
+      case let .conditionalSeparator(_, whitespace):
         operations.append(.conditionalSeparator(
-          gaps: gaps,
+          gaps: [],
           whitespace: whitespace
         ))
       }
@@ -64,7 +61,58 @@ extension RuntimeEvaluator {
       }
       operations[index] = .group(indices: ordered)
     }
+    var regionIDs = [Int](repeating: -1, count: elements.count)
+    for (regionID, region) in regions.enumerated() {
+      for index in region { regionIDs[index] = regionID }
+    }
+    let order = SourceListLayoutReplacement.orderedIndices(
+      operations: operations, regions: regions, regionIDs: regionIDs
+    )
+    for (operationIndex, operation) in plan.enumerated() {
+      guard case let .conditionalSeparator(condition, whitespace) = operation
+      else { continue }
+      var gaps = Set<Int>()
+      for index in order.indices.dropFirst() {
+        if try await layoutCondition(
+          condition, previous: elements[order[index - 1]],
+          next: elements[order[index]],
+          state: &state
+        ) { gaps.insert(index) }
+      }
+      operations[operationIndex] = .conditionalSeparator(
+        gaps: gaps,
+        whitespace: whitespace
+      )
+    }
     return operations
+  }
+
+  private func matchesLayoutGroup(
+    _ group: RuntimeLayoutGroup, value: RuntimeValue,
+    state: inout RuntimeEvaluationState
+  ) async throws(RuntimeError) -> Bool {
+    let subject: RuntimeValue
+    if let projection = group.projection {
+      let projected = try await transform(
+        projection,
+        value: value,
+        state: &state
+      )
+      guard case let .optional(wrapped) = projected,
+            let wrapped else { return false }
+      subject = wrapped
+    } else { subject = value }
+    if case let .matcher(matcher) = group.predicate,
+       case let .model(model) = subject
+    {
+      return try await matches(matcher, value: model, state: &state)
+    }
+    return try await predicate(
+      group.predicate,
+      value: subject,
+      allowsThrowing: true,
+      state: &state
+    )
   }
 
   private func layoutCondition(

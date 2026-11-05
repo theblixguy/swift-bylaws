@@ -94,6 +94,15 @@ extension RuntimeEvaluator {
         location: diagnostic.location
       )
     }
+    if case let .sourceNode(node) = value,
+       let matcher: Matcher<SourceNode> = MatcherCompiler.attributed(
+         supported.id,
+         call
+       )
+    {
+      let result = matcher.match(node)
+      return (result.matches, result.witness)
+    }
     guard let result = value.matcherSubject?.match(supported, call) else {
       throw RuntimeError(
         message: "'\(call.name)' does not apply to this value",
@@ -129,6 +138,14 @@ extension RuntimeEvaluator {
       call,
       for: family
     ) else { return nil }
+    if family == .sourceNode,
+       let attributed: Matcher<SourceNode> = MatcherCompiler.attributed(
+         matcher.id,
+         call
+       )
+    {
+      return attributed.requirementDescription
+    }
     return family.subject?.requirement(of: matcher, call)
   }
 }

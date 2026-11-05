@@ -208,7 +208,7 @@ extension SupportedAPI.DeclarationFamily {
     case .import: Import.self
     case .typealias: Typealias.self
     case .functionCall: FunctionCall.self
-    case .sourceNode: nil
+    case .sourceNode, .sourceIfExpression: nil
     case .sourceExpression: SourceExpression.self
     case .sourceAssignment: SourceAssignment.self
     case .variableBinding: VariableBinding.self
@@ -238,7 +238,8 @@ extension RuntimeModelValue {
     case let .sourceAssignment(value): value
     case let .variableBinding(value): value
     case let .compilationBranch(value): value
-    case .sourceToken, .sourceTrivia, .sourceNode, .callArgument,
+    case .sourceToken, .sourceTrivia, .sourceNode, .sourceIfExpression,
+         .callArgument,
          .expressionArgument, .enclosingDeclaration,
          .dictionaryElement,
          .check, .typeReference, .parameter, .attribute, .genericParameter,
@@ -254,6 +255,7 @@ extension RuntimeModelValue {
 
   var family: SupportedAPI.DeclarationFamily? {
     if case .sourceNode = self { return .sourceNode }
+    if case .sourceIfExpression = self { return .sourceIfExpression }
     return matcherSubject.map { type(of: $0).family }
   }
 }

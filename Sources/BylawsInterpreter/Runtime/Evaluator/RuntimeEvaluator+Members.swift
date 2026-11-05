@@ -46,7 +46,32 @@ extension RuntimeEvaluator {
       return .boundMethod(receiver: receiver, name: method)
     }
     try requireEffects(of: api, at: location, state: state)
+    if let correction = try correctionMember(name, of: receiver, at: location) {
+      return correction
+    }
     switch receiver {
+    case .genericType("Lines", _) where name == .boundariesType:
+      return .genericType(name: "Lines.Boundaries", arguments: [])
+    case .genericType("SourceLayout", _) where name == .newline:
+      return .sourceLayout(.newline)
+    case .genericType("SourceLayout", _) where name == .blankLine:
+      return .sourceLayout(.blankLine)
+    case .genericType("SourceLayout", _) where name == .softBreak:
+      return .sourceLayout(.softBreak)
+    case let .sourceScope(scope) where name == .replacement:
+      return .sourceReplacement(scope.replacement)
+    case .sourceLayout where name == .layout: return receiver
+    case let .sourceList(list):
+      if name == .source {
+        do { return .sourceSlice(try list.source.source) }
+        catch { throw RuntimeError(wrapping: error, at: location) }
+      }
+      return try await member(
+        named: name,
+        of: .array(list.elements),
+        at: location,
+        state: &state
+      )
     case let .sourceSpacing(value):
       if name == .before { return .sourceSlice(value.before) }
       if name == .after { return .sourceSlice(value.after) }
@@ -204,7 +229,8 @@ extension RuntimeEvaluator {
             checkedCount: check.checkedCount,
             fixes: check.proposedFixes,
             codebase: check.codebase,
-            layoutCandidates: check.layoutCandidates
+            layoutCandidates: check.layoutCandidates,
+            correctionFailures: check.storedCorrectionFailures
           ))
         })
       case .violations:
@@ -215,7 +241,8 @@ extension RuntimeEvaluator {
           checkedCount: violations.checkedCount,
           fixes: violations.proposedFixes,
           codebase: violations.codebase,
-          layoutCandidates: violations.layoutCandidates
+          layoutCandidates: violations.layoutCandidates,
+          correctionFailures: violations.storedCorrectionFailures
         ))
       case .warnings:
         return .array(findings.warnings.map { .model(.check(.warning($0))) })
@@ -257,8 +284,23 @@ extension SupportedAPI.RuntimeMemberAPI {
 extension RuntimeValue {
   var runtimeReceiver: SupportedAPI.RuntimeReceiver? {
     switch self {
+    case .sourceCorrection: .sourceCorrection
+    case .layoutCorrection: .layoutCorrection
+    case .sourceFix: .sourceFix
+    case .sourceEdit: .sourceEdit
+    case .genericType("SourceCorrection", _): .staticType("SourceCorrection")
+    case .genericType("SourceLayout", _): .staticType("SourceLayout")
+    case .genericType(
+      "SourceLayoutCondition",
+      _
+    ): .staticType("SourceLayoutCondition")
+    case .genericType("Lines", _): .staticType("Lines")
+    case .genericType("LayoutContent", _): .staticType("LayoutContent")
+    case .sourceLayout: .sourceLayout
     case .layoutGroup: .layoutGroup
+    case .sourceScope: .sourceScope
     case .sourceSlice: .sourceSlice
+    case .sourceList: .sourceList
     case .sourceSpacing: .sourceSpacing
     case .fixContext: .fixContext
     case .url: .url

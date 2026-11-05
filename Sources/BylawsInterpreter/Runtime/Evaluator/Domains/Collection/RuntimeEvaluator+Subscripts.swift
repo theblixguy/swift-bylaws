@@ -17,6 +17,8 @@ extension RuntimeEvaluator {
       return try element(in: values, at: key, location: location)
     case let .arraySlice(values):
       return try element(in: values, at: key, location: location)
+    case let .sourceList(list):
+      return try element(in: list.elements, at: key, location: location)
     case let .selection(selection):
       return .model(try element(
         in: selection.elements, at: key, location: location

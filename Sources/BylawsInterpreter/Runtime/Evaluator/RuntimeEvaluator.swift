@@ -137,6 +137,12 @@ struct RuntimeEvaluator: Sendable {
         in: environment,
         state: &state
       )
+      if case .genericType("SourceLayout", _) = receiver,
+         literal.owners.contains(.sourceLayout)
+      {
+        return try .sourceLayout(SourceLayout(node: RuntimeValue.member(literal)
+            .layoutNode(at: expression.location)))
+      }
       guard case let .genericType(typeName, _) = receiver,
             let owner = SupportedAPI.StaticMemberType(rawValue: typeName)?
               .owner,
@@ -161,6 +167,15 @@ struct RuntimeEvaluator: Sendable {
         value: value,
         at: expression.location
       )
+    case let .postfix(operatorName, operand):
+      let value = try await evaluate(operand, in: environment, state: &state)
+      guard operatorName == "...", case let .integer(bound) = value else {
+        throw failure(
+          "'\(operatorName)' does not apply to this value",
+          expression
+        )
+      }
+      return .integerRangeFrom(bound...)
     case let .binary(left, operatorName, right):
       return try await binary(
         left: left,

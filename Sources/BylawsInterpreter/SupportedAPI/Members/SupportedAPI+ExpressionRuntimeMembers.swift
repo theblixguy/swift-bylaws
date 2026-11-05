@@ -1,6 +1,11 @@
 extension SupportedAPI {
   static let expressionRuntimeMembers: [RuntimeMemberAPI] = [
     property(
+      .elements,
+      on: [.model(.sourceExpression)],
+      result: .fixed(.optional(.array(.model(.sourceNode))))
+    ),
+    property(
       .expressions,
       on: [.model(.sourceFile)],
       result: .fixed(.array(.model(.sourceExpression)))

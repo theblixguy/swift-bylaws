@@ -2,7 +2,11 @@ extension SupportedAPI {
   package static let runtimeMembers =
     lexicalRuntimeMembers
       + correctionRuntimeMembers
+      + correctionOutcomeRuntimeMembers
+      + replacementRuntimeMembers
+      + sourceListRuntimeMembers
       + layoutRuntimeMembers
+      + layoutContentRuntimeMembers
       + collectionRuntimeMembers
       + pathRuntimeMembers
       + dictionaryRuntimeMembers
@@ -27,7 +31,7 @@ extension SupportedAPI {
       + bazelRuntimeMembers
 
   static let collectionReceivers: Set<RuntimeReceiver> = [
-    .array, .arraySlice, .set, .selection,
+    .array, .arraySlice, .set, .selection, .sourceList,
   ]
 
   static let declarationReceivers: Set<RuntimeReceiver> = [

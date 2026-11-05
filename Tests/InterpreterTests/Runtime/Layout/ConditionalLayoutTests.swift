@@ -41,7 +41,7 @@ struct ConditionalLayoutTests {
       rules: """
       Rule("statements") {
         try await app.syntaxNodes(of: .codeBlock).violations("Separate statements") { block in
-          try block.statements.replacement {
+          try Layout(block.statements) {
             BlankLine(between: { $0.kind == .variableDeclaration }, and: { $0.call != nil })
             BlankLine(between: { $0.contains(.tryExpression) }, and: {
               $0.kind == .variableDeclaration || $0.call != nil
@@ -78,7 +78,7 @@ struct ConditionalLayoutTests {
       rules: """
       Rule("statements") {
         try await app.syntaxNodes(of: .codeBlock).violations("Separate calls") { block in
-          try block.statements.replacement {
+          try Layout(block.statements) {
             \(operation)
           }
         }
@@ -106,7 +106,7 @@ struct ConditionalLayoutTests {
       rules: """
       Rule("statements") {
         try await app.syntaxNodes(of: .codeBlock).violations("Separate statements") { block in
-          try block.statements.replacement {
+          try Layout(block.statements) {
             BlankLine(before: { $0.text })
           }
         }
@@ -120,12 +120,42 @@ struct ConditionalLayoutTests {
     #expect(program.errors.contains { $0.message.contains("must be Bool") })
   }
 
+  @Test("Grouping and conditional spacing combine")
+  func combinedPolicies() async throws {
+    let project = try rulesProject(
+      rules: """
+      Rule("statements") {
+        try await app.syntaxNodes(of: .codeBlock).violations("Separate statements") { block in
+          try Layout(block.statements) {
+            Group { true }
+            BlankLine(before: { true })
+          }
+        }
+      }
+      """,
+      sources: ["Sources/Calls.swift": "func run() {\n  first()\n  second()\n}"]
+    )
+    let program = try await loadedProgram(in: project)
+    let findings = try await #require(program.rules.first).findings()
+    let fix = try #require(findings.violations.fixes.first ?? nil)
+
+    #expect(
+      try correctedSource(applying: fix) == """
+      func run() {
+        first()
+
+        second()
+      }
+      """
+    )
+  }
+
   @Test(
     "Automatic layouts reject mixed source emission and conflicting policies",
     arguments: [
       (
-        "Group(where: { true }); block.statements",
-        "must contain groups and separators"
+        "Group { true }; block.statements",
+        "must use explicit source or automatic policies"
       ),
       (
         "Newline(before: { true }); BlankLine(after: { true })",
@@ -138,7 +168,7 @@ struct ConditionalLayoutTests {
       rules: """
       Rule("statements") {
         try await app.syntaxNodes(of: .codeBlock).violations("Separate statements") { block in
-          try block.statements.replacement {
+          try Layout(block.statements) {
             \(policy)
           }
         }

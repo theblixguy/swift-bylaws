@@ -10,7 +10,7 @@ extension RuntimeTypeResolver {
     case let .optional(wrapped):
       return resolveSubscript(receiver: wrapped, key: key, at: location)
         .optionalChained
-    case .array, .arraySlice, .selection:
+    case .array, .arraySlice, .selection, .sourceList:
       require(
         resolve(key, expected: .integer), toMatch: .integer,
         subject: "the collection index", at: key.location

@@ -19,6 +19,10 @@ indirect enum RuntimeValue: Sendable {
   case model(RuntimeModelValue)
   case integer(Int)
   case integerRange(Range<Int>)
+  case integerClosedRange(ClosedRange<Int>)
+  case integerRangeFrom(PartialRangeFrom<Int>)
+  case integerRangeThrough(PartialRangeThrough<Int>)
+  case integerRangeUpTo(PartialRangeUpTo<Int>)
   case keyPath([SupportedAPI.Member], DeclarationLocation)
   case layering(Layering)
   case layer(Layer)
@@ -34,11 +38,18 @@ indirect enum RuntimeValue: Sendable {
   case string(String)
   case regex(RuntimeRegex)
   case sourceSlice(SourceSlice)
+  case sourceList(RuntimeSourceList)
+  case sourceListPosition(SourceListPosition)
   case sourceEdit(SourceFix.Edit)
   case sourceFix(SourceFix)
+  case sourceCorrection(SourceCorrection)
+  case layoutCorrection(SourceCorrection)
+  case sourceReplacement(SourceReplacement)
+  case sourceScope(Scope)
   case sourceLayout(SourceLayout)
+  case sourceLayoutCondition(SourceLayoutCondition)
   case layoutPlan([RuntimeLayoutOperation])
-  case layoutGroup(predicate: RuntimeValue, comparison: RuntimeValue?)
+  case layoutGroup(RuntimeLayoutGroup)
   case sourceSpacing(SourceSpacing)
   case fixContext(RuntimeFixContext)
   case url(URL)
@@ -51,9 +62,12 @@ extension RuntimeValue {
     switch self {
     case let .array(values), let .set(values): AnySequence(values)
     case let .arraySlice(values): AnySequence(values)
+    case let .sourceList(list): AnySequence(list.elements)
     case let .selection(selection):
       AnySequence(selection.elements.lazy.map(RuntimeValue.model))
     case let .integerRange(range):
+      AnySequence(range.lazy.map(RuntimeValue.integer))
+    case let .integerClosedRange(range):
       AnySequence(range.lazy.map(RuntimeValue.integer))
     default: nil
     }
@@ -63,6 +77,7 @@ extension RuntimeValue {
     switch self {
     case let .array(values), let .set(values): values
     case let .arraySlice(values): Array(values)
+    case let .sourceList(list): list.elements
     case let .selection(selection): selection.elements.map(RuntimeValue.model)
     default: nil
     }
@@ -98,6 +113,8 @@ extension RuntimeValue {
       values.allSatisfy { $0.hasRuntimeType(element) }
     case let (.arraySlice(element), .arraySlice(values)):
       values.allSatisfy { $0.hasRuntimeType(element) }
+    case let (.sourceList(element), .sourceList(list)):
+      list.elements.allSatisfy { $0.hasRuntimeType(element) }
     case let (.manifestList(element), .manifestList(value)):
       value.possibleValues.allSatisfy { $0.hasRuntimeType(element) }
     case let (.set(element), .set(values)):
@@ -108,6 +125,8 @@ extension RuntimeValue {
       value.modelType == type
     case let (.staticMember(owners), .member(literal)):
       !owners.isDisjoint(with: literal.owners)
+    case let (.staticMember(owners), .sourceListPosition):
+      owners.contains(.sourceListPosition)
     case let (.matcher(subject), .matcher(matcher)):
       subject == nil || matcher.subjectType == nil
         || matcher.subjectType == subject
@@ -116,9 +135,28 @@ extension RuntimeValue {
         || violations.offenders.allSatisfy { $0.modelType == subject }
     case (.sourceSlice, .sourceSlice), (.sourceEdit, .sourceEdit): true
     case (.sourceFix, .sourceFix): true
+    case (.sourceCorrection, .sourceCorrection), (
+      .layoutCorrection,
+      .layoutCorrection
+    ): true
+    case (.sourceReplacement, .sourceReplacement),
+         (.sourceScope, .sourceScope): true
     case (.sourceLayout, .sourceLayout): true
+    case (.sourceLayoutCondition, .sourceLayoutCondition): true
+    case (.integerClosedRange, .integerClosedRange),
+         (.integerRangeFrom, .integerRangeFrom),
+         (.integerRangeThrough, .integerRangeThrough),
+         (.integerRangeUpTo, .integerRangeUpTo): true
+    case (.layoutContent, .sourceLayout), (.layoutContent, .layoutGroup), (
+      .layoutContent,
+      .layoutPlan
+    ): true
+    case let (.sourceLayout, .member(literal)): literal.owners
+      .contains(.sourceLayout)
     case (.sourceLayout, .layoutPlan), (.layoutGroup, .layoutGroup): true
-    case (.conditionalLayoutOperation, .layoutPlan): true
+    case (.conditionalLayoutOperation, .layoutPlan),
+         (.layoutOperation(.newline), .layoutPlan),
+         (.layoutOperation(.blankLine), .layoutPlan): true
     case (.layoutOperation, .sourceLayout): true
     case (.sourceSpacing, .sourceSpacing): true
     case let (.fixContext(subject), .fixContext(context)):

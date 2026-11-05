@@ -96,7 +96,7 @@ struct SupportedAPIRegistryTests {
     )
   }
 
-  @Test("Every registered matcher has an adapter for each declaration family")
+  @Test("Every query matcher has an adapter for each declaration family")
   func matcherAdaptersCoverTheRegistry() async throws {
     let rules = try Self.registeredMatcherRules()
     let project = try TemporaryProject(files: [
@@ -161,9 +161,11 @@ struct SupportedAPIRegistryTests {
   private static func registeredMatcherRules() throws -> [String] {
     var rules: [String] = []
     for matcher in SupportedAPI.matchers {
-      for declarationFamily in matcher.declarationFamilies.sorted(
-        by: { $0.rawValue < $1.rawValue }
-      ) {
+      for declarationFamily in matcher.declarationFamilies
+        .intersection(SupportedAPI.queryDeclarationFamilies).sorted(
+          by: { $0.rawValue < $1.rawValue }
+        )
+      {
         let query = try #require(
           SupportedAPI.queries.first {
             $0.declarationFamily == declarationFamily

@@ -20,13 +20,27 @@ extension SupportedAPI.RuntimeType {
       case "Double": .double
       case "String": .string
       case "SourceSlice": .sourceSlice
+      case "SourceList":
+        Self.singleGenericArgument(of: reference).map {
+          .sourceList(Self(writtenType: $0.text))
+        } ?? .unknown
       case "SourceFix": .sourceFix
+      case "SourceCorrection", "Replace", "Unwrap": .sourceCorrection
+      case "SourceReplacement": .sourceReplacement
+      case "Scope": .sourceScope
       case "SourceLayout": .sourceLayout
+      case "SourceLayoutCondition": .sourceLayoutCondition
+      case "LayoutContent":
+        .layoutContent(Self.singleGenericArgument(of: reference).map {
+          Self(writtenType: $0.text)
+        } ?? .unknown)
+      case "Layout": .layoutCorrection
       case "Group":
         .layoutGroup(Self.singleGenericArgument(of: reference).map {
           Self(writtenType: $0.text)
         } ?? .unknown)
       case "Line": .layoutOperation(.line)
+      case "Lines": .layoutOperation(.lines)
       case "Newline", "BlankLine":
         if let element = Self.singleGenericArgument(of: reference),
            element.name != "Never"
@@ -79,6 +93,18 @@ extension SupportedAPI.RuntimeType {
         } else {
           .unknown
         }
+      case "ClosedRange", "PartialRangeFrom", "PartialRangeThrough",
+           "PartialRangeUpTo":
+        if let argument = Self.singleGenericArgument(of: reference),
+           argument.name == "Int"
+        {
+          switch reference.name {
+          case "ClosedRange": .integerClosedRange
+          case "PartialRangeFrom": .integerRangeFrom
+          case "PartialRangeThrough": .integerRangeThrough
+          default: .integerRangeUpTo
+          }
+        } else { .unknown }
       case "Range":
         if let argument = Self.singleGenericArgument(of: reference),
            argument.name == "Int"
@@ -147,9 +173,11 @@ extension SupportedAPI.RuntimeType {
       key.containsUnknown || value.containsUnknown
     case .unknown:
       true
-    case let .array(element), let .arraySlice(element),
+    case let .sourceList(element), let .array(element),
+         let .arraySlice(element),
          let .manifestList(element), let .set(element),
          let .optional(element), let .layoutGroup(element),
+         let .layoutContent(element),
          let .conditionalLayoutOperation(_, element):
       element.containsUnknown
     case let .constructor(_, arguments):
@@ -167,8 +195,19 @@ extension SupportedAPI.RuntimeType {
 
   var receiver: SupportedAPI.RuntimeReceiver? {
     switch self {
+    case .sourceCorrection: .sourceCorrection
+    case .layoutCorrection: .layoutCorrection
+    case .sourceFix: .sourceFix
+    case .sourceEdit: .sourceEdit
+    case .constructor(.sourceCorrection, _): .staticType("SourceCorrection")
+    case .constructor(.sourceLayout, _): .staticType("SourceLayout")
+    case .constructor(.lines, _): .staticType("Lines")
+    case .constructor(.layoutContent, _): .staticType("LayoutContent")
+    case .sourceLayout, .layoutOperation: .sourceLayout
     case .layoutGroup: .layoutGroup
+    case .sourceScope: .sourceScope
     case .sourceSlice: .sourceSlice
+    case .sourceList: .sourceList
     case .sourceSpacing: .sourceSpacing
     case .fixContext: .fixContext
     case .url: .url
@@ -201,6 +240,7 @@ extension SupportedAPI.RuntimeType {
     case .array: "Array"
     case .arraySlice: "ArraySlice"
     case .manifestList: "ManifestList"
+    case .sourceList: "SourceList"
     case .set: "Set"
     case let .selection(family):
       SupportedAPI.ModelType(declarationFamily: family)?.rawValue ?? "Selection"
@@ -213,6 +253,7 @@ extension SupportedAPI.RuntimeType {
     switch self {
     case let .layoutGroup(element): element
     case let .array(element), let .arraySlice(element): element
+    case let .sourceList(element): element
     case let .manifestList(element): element
     case let .set(element): element
     case let .selection(family):
@@ -224,8 +265,9 @@ extension SupportedAPI.RuntimeType {
 
   var sequenceElement: Self? {
     switch self {
-    case .integerRange: .integer
-    case let .array(element), let .arraySlice(element),
+    case .integerRange, .integerClosedRange: .integer
+    case let .sourceList(element), let .array(element),
+         let .arraySlice(element),
          let .set(element): element
     case .selection: collectionElement
     default: nil
@@ -271,6 +313,9 @@ extension SupportedAPI.RuntimeType {
     case let (.array(actual), .array(wanted)):
       actual.isAssignable(to: wanted)
     case let (.arraySlice(actual), .arraySlice(wanted)):
+      actual.isAssignable(to: wanted)
+    case let (.sourceList(actual), .sourceList(wanted)),
+         let (.layoutContent(actual), .layoutContent(wanted)):
       actual.isAssignable(to: wanted)
     case let (.manifestList(actual), .manifestList(wanted)):
       actual.isAssignable(to: wanted)

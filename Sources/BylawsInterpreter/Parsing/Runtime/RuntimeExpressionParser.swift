@@ -126,6 +126,14 @@ struct RuntimeExpressionParser {
         location: location
       )
     }
+    if let postfix = expression.as(PostfixOperatorExprSyntax.self),
+       let value = parse(postfix.expression, diagnostics: &diagnostics)
+    {
+      return RuntimeExpression(
+        kind: .postfix(operator: postfix.operator.text, value),
+        location: location
+      )
+    }
     if let tuple = expression.as(TupleExprSyntax.self),
        tuple.elements.count == 1,
        let element = tuple.elements.first,

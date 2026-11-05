@@ -2,28 +2,28 @@ extension SupportedAPI {
   static let collectionRuntimeMembers: [RuntimeMemberAPI] = [
     property(
       .indices,
-      on: [.array, .arraySlice, .selection],
+      on: [.array, .arraySlice, .selection, .sourceList],
       result: .fixed(.integerRange)
     ),
     property(
       .startIndex,
-      on: [.array, .arraySlice, .selection],
+      on: [.array, .arraySlice, .selection, .sourceList],
       result: .fixed(.integer)
     ),
     property(
       .endIndex,
-      on: [.array, .arraySlice, .selection],
+      on: [.array, .arraySlice, .selection, .sourceList],
       result: .fixed(.integer)
     ),
     method(
       .dropFirst,
-      on: [.array, .arraySlice, .selection],
+      on: [.array, .arraySlice, .selection, .sourceList],
       arguments: .optional(.init(nil, .exact(.integer))),
       result: .slicedCollection
     ),
     method(
       .prefix,
-      on: [.array, .arraySlice, .selection],
+      on: [.array, .arraySlice, .selection, .sourceList],
       arguments: .alternatives([
         [.init(.while, .collectionCallable(result: .boolean))],
         [.init(nil, .collectionCallable(result: .boolean))],
@@ -51,7 +51,7 @@ extension SupportedAPI {
     property(.isEmpty, on: collectionReceivers, result: .fixed(.boolean)),
     property(
       .first,
-      on: [.array, .arraySlice, .selection],
+      on: [.array, .arraySlice, .selection, .sourceList],
       result: .optionalCollectionElement
     ),
     method(

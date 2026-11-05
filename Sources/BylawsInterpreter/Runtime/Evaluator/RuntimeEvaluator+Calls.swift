@@ -48,6 +48,20 @@ extension RuntimeEvaluator {
         state: &state
       )
     case let .member(name):
+      if name ==
+        .constant(.maximumLineLength) { return try layoutCondition(arguments) }
+      if name.owners.contains(.layoutContent),
+         let method = SupportedAPI.Method(rawValue: name.rawValue)
+      {
+        return try layoutContent(method, arguments: arguments)
+      }
+      if name == .constant(.index) {
+        try arguments.requireLabels(
+          [nil] as [String?],
+          for: "SourceListPosition.index"
+        )
+        return .sourceListPosition(.index(try arguments.integer(at: 0)))
+      }
       return try prebuiltMatcher(
         named: name.rawValue,
         arguments: arguments

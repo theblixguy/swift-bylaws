@@ -9,8 +9,9 @@ Use one version at a time. Both produce corrections for `bylaws lint
 --autocorrect`. Source that matches the layout produces no violation.
 
 You can combine property grouping, statement spacing and call argument
-layouts, including inside nested calls and closures. Choose one policy for
-each list. Bylaws rejects conflicting layouts and overlapping text edits.
+layouts, including inside nested calls and closures. A grouped layout can
+also set spacing between its final adjacent elements. Bylaws rejects
+conflicting layouts and overlapping text edits.
 
 <doc:FormattingSource> explains the builder operations and supported lists.
 <doc:CorrectingSourceCookbook> covers content changes, token and comment
@@ -34,12 +35,10 @@ nonisolated let rules: [Rule] = [
     try await app.classes
       .violations("Observable precedes other attributes") { declaration in
         let attributes = declaration.attributes
-        if !attributes.isEmpty {
-          try attributes.replacement {
-            Line {
-              attributes.sorted { lhs, rhs in
-                lhs.name == "Observable" && rhs.name != "Observable"
-              }
+        try Layout(attributes) {
+          Line {
+            attributes.sorted { lhs, rhs in
+              lhs.name == "Observable" && rhs.name != "Observable"
             }
           }
         }
@@ -60,12 +59,10 @@ func observableFirst() async throws {
   let violations = try await app.classes
     .violations("Observable precedes other attributes") { declaration in
       let attributes = declaration.attributes
-      if !attributes.isEmpty {
-        try attributes.replacement {
-          Line {
-            attributes.sorted { lhs, rhs in
-              lhs.name == "Observable" && rhs.name != "Observable"
-            }
+      try Layout(attributes) {
+        Line {
+          attributes.sorted { lhs, rhs in
+            lhs.name == "Observable" && rhs.name != "Observable"
           }
         }
       }
@@ -119,32 +116,27 @@ nonisolated let rules: [Rule] = [
       .violations("Leading properties use project order") { declaration in
         let properties = declaration.members.prefix {
           $0.property != nil && $0.attributes.count <= 1
-        }
+        }.compactMap(\.property)
 
-        try properties.replacement {
-          Group(where: {
+        try Layout(properties) {
+          Group {
             $0.hasAttribute("Environment", argument: \.isKeyPath)
-          })
-          Group(where: {
-            $0.hasAttribute("Environment")
-          })
+          }
+          Group(.hasAttribute("Environment"))
 
           BlankLine()
 
-          Group(where: {
-            $0.hasAttribute("State")
-          })
+          Group(.hasAttribute("State"))
 
           BlankLine()
 
-          Group(where: {
+          Group {
             $0.attributes.isEmpty
-              && $0.property?.isConstant == true
-              && $0.property?.visibility == .private
-          })
-          Group(where: {
-            $0.attributes.isEmpty && $0.property?.isConstant == true
-          })
+              && $0.isConstant && $0.visibility == .private
+          }
+          Group {
+            $0.attributes.isEmpty && $0.isConstant
+          }
         }
       }
   },
@@ -164,31 +156,26 @@ func propertyGroups() async throws {
     .violations("Leading properties use project order") { declaration in
       let properties = declaration.members.prefix {
         $0.property != nil && $0.attributes.count <= 1
-      }
+      }.compactMap(\.property)
 
       try Layout(properties) {
         Group {
           $0.hasAttribute("Environment", argument: \.isKeyPath)
         }
-        Group {
-          $0.hasAttribute("Environment")
-        }
+        Group(.hasAttribute("Environment"))
 
         BlankLine()
 
-        Group {
-          $0.hasAttribute("State")
-        }
+        Group(.hasAttribute("State"))
 
         BlankLine()
 
         Group {
           $0.attributes.isEmpty
-            && $0.property?.isConstant == true
-            && $0.property?.visibility == .private
+            && $0.isConstant && $0.visibility == .private
         }
         Group {
-          $0.attributes.isEmpty && $0.property?.isConstant == true
+          $0.attributes.isEmpty && $0.isConstant
         }
       }
     }
@@ -203,7 +190,7 @@ condition before including them. Empty groups add no blank lines.
 
 Stored-property order can affect initialisation and memberwise initialisers.
 The rule author must decide which declarations can be reordered. You can use
-`Group` on other source lists and add `.sorted { ... }` to order the
+`Group { ... }` on other source lists and add `.sorted { ... }` to order the
 elements within a group.
 
 ## Separate adjacent statements
@@ -224,7 +211,7 @@ nonisolated let rules: [Rule] = [
   Rule("statement-gaps", "Bindings and throwing calls use blank lines") {
     try await app.syntaxNodes(of: .codeBlock, .closureExpression)
       .violations("Bindings and throwing calls use blank lines") { block in
-        try block.statements.replacement {
+        try Layout(block.statements) {
           BlankLine(
             between: { $0.kind == .variableDeclaration },
             and: { $0.call != nil }
@@ -307,11 +294,9 @@ nonisolated let app = Codebase(root: .automatic(), including: ["Sources/**"])
 nonisolated let rules: [Rule] = [
   Rule("argument-width", "Call arguments fit 80 characters") {
     try await app.calls.violations("Call arguments fit 80 characters") { call in
-      if !call.arguments.isEmpty {
-        try call.arguments.replacement {
-          Align {
-            Wrap(width: 80) { call.arguments }
-          }
+      try Layout(call.arguments) {
+        Align {
+          Wrap(call.arguments, width: 80)
         }
       }
     }
@@ -330,11 +315,9 @@ func argumentWidth() async throws {
   let app = Codebase(root: .automatic(), including: ["Sources/**"])
   let violations = try await app.calls
     .violations("Call arguments fit 80 characters") { call in
-      if !call.arguments.isEmpty {
-        try call.arguments.replacement {
-          Align {
-            Wrap(width: 80) { call.arguments }
-          }
+      try Layout(call.arguments) {
+        Align {
+          Wrap(call.arguments, width: 80)
         }
       }
     }
@@ -378,7 +361,7 @@ nonisolated let rules: [Rule] = [
               Break()
             }
           }
-          try call.arguments.replacement {
+          try Layout(call.arguments) {
             Indent {
               Newline()
               Wrap(width: 80) { layout }
@@ -409,7 +392,7 @@ func reusableArgumentLayout() async throws {
             Break()
           }
         }
-        try call.arguments.replacement {
+        try Layout(call.arguments) {
           Indent {
             Newline()
             Wrap(width: 80) { layout }
@@ -435,12 +418,12 @@ A stored layout refers to the source elements it was created from. Use it
 only in a replacement for that source list and emit each selected argument
 once.
 
-## Put call arguments on separate lines
+## Format nested call arguments
 
 This rule formats function calls with more than one argument, including
 top-level calls. It keeps leading unlabelled arguments together and starts
-each labelled argument on a new line. For labelled array and dictionary
-arguments, it also puts each element on its own line.
+each remaining argument on a new line. For an array or dictionary argument
+after that leading run, it puts each element on its own line.
 
 Nested calls use the same rule. The layouts combine, so a call inside an
 array, dictionary or another call keeps its own formatting. `Newline` followed
@@ -453,46 +436,27 @@ element must stay on one physical line.
 import Bylaws
 
 nonisolated let app = Codebase(root: .automatic(), including: ["Sources/**"])
-nonisolated let maximumWidth: Int? = nil
+nonisolated let condition: SourceLayoutCondition? = nil
 
 nonisolated let rules: [Rule] = [
   Rule("argument-lines", "Call arguments use separate lines") {
     try await app.syntaxNodes(of: .functionCall)
       .violations("Call arguments use separate lines") { node in
         if let call = node.call, call.arguments.count > 1 {
-          let leading = call.arguments.prefix { $0.label == nil }
-          try call.arguments.replacement(whenLineExceeds: maximumWidth) {
-            if !leading.isEmpty {
-              Newline()
-              leading
-            }
-            for argument in call.arguments.dropFirst(leading.count) {
-              Newline()
-              if let elements = argument.expression?.arrayElements,
-                 !elements.isEmpty
-              {
-                try elements.replacement {
-                  for element in elements {
-                    Newline()
-                    element
-                  }
-                  Newline()
-                }
-              } else if let elements = argument.expression?.dictionaryElements,
-                        !elements.isEmpty
-              {
-                try elements.replacement {
-                  for element in elements {
-                    Newline()
-                    element
-                  }
-                  Newline()
-                }
-              } else {
-                argument
-              }
-            }
+          let arguments = call.arguments
+          let leading = arguments.prefix { $0.label == nil }
+          let remaining = arguments.dropFirst(leading.count)
+          let collections = remaining.compactMap { $0.expression?.elements }
+          try Layout(arguments, when: condition) {
             Newline()
+            leading
+            Newline()
+            Lines(remaining)
+            Newline()
+          }.applying {
+            for elements in collections {
+              try Layout(elements, layout: Lines(elements, boundaries: .newline))
+            }
           }
         }
       }
@@ -509,7 +473,7 @@ import Testing
 @Test("Call arguments use separate lines")
 func argumentLines() async throws {
   let app = Codebase(root: .automatic(), including: ["Sources/**"])
-  let maximumWidth: Int? = nil
+  let condition: SourceLayoutCondition? = nil
   let violations = try await app.syntaxNodes(of: .functionCall)
     .violations("Call arguments use separate lines") { node in
       if let call = node.call, call.arguments.count > 1 {
@@ -517,7 +481,7 @@ func argumentLines() async throws {
         let leading = arguments.prefix { $0.label == nil }
         let remaining = arguments.dropFirst(leading.count)
         let collections = remaining.compactMap { $0.expression?.elements }
-        try Layout(arguments, when: maximumWidth.map { !.maximumLineLength(...$0) }) {
+        try Layout(arguments, when: condition) {
           Newline()
           leading
           Newline()
@@ -548,11 +512,15 @@ record(
 )
 ```
 
-The default `nil` width applies the layout to every selected call. Set
-`maximumWidth` to `100` to change calls only when a source line exceeds 100
-columns. A line at the limit stays unchanged, as does an existing multiline
-call whose lines all fit. The check includes the call's position on its line.
-Tabs use eight-column stops.
+The default `nil` condition applies the layout to every selected call. Set
+`condition` to `.maximumLineLength(101...)` to change calls only when a source
+line exceeds 100 columns. A line at the limit stays unchanged, as does an
+existing multiline call whose lines all fit. The check includes the call's
+position on its line. Tabs use eight-column stops.
+
+The child layouts in `.applying` apply when the containing layout's
+condition matches, including when its argument spacing matches. Each child
+layout must stay inside an element retained by the containing layout.
 
 An outer layout can move a nested call onto a shorter line. The nested width
 check uses that new position, so a compact nested call can stay compact.
@@ -577,11 +545,9 @@ nonisolated let rules: [Rule] = [
     try await app.syntaxNodes(of: .conditionList)
       .violations("Conditions fit 80 characters") { list in
         let conditions = list.elements
-        if !conditions.isEmpty {
-          try conditions.replacement {
-            Align {
-              Wrap(width: 80) { conditions }
-            }
+        try Layout(conditions) {
+          Align {
+            Wrap(conditions, width: 80)
           }
         }
       }
@@ -601,11 +567,9 @@ func conditionWidth() async throws {
   let violations = try await app.syntaxNodes(of: .conditionList)
     .violations("Conditions fit 80 characters") { list in
       let conditions = list.elements
-      if !conditions.isEmpty {
-        try conditions.replacement {
-          Align {
-            Wrap(width: 80) { conditions }
-          }
+      try Layout(conditions) {
+        Align {
+          Wrap(conditions, width: 80)
         }
       }
     }

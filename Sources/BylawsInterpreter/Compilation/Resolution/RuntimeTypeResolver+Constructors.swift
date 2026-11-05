@@ -8,7 +8,36 @@ extension RuntimeTypeResolver {
     at location: DeclarationLocation
   ) -> RuntimeType {
     switch constructor {
-    case .sourceLayout, .line, .newline, .blankLine, .indent, .wrap, .softBreak,
+    case .layoutContent:
+      diagnose(
+        "LayoutContent must use a case such as .group or .layout",
+        at: location,
+        resolvingArguments: values
+      )
+      return .layoutContent(typeArguments.first ?? .unknown)
+    case .sourceCorrection:
+      return resolveCorrectionConstructor(
+        typeArguments: typeArguments,
+        values: values,
+        at: location
+      )
+    case .replace, .unwrap, .sourceReplacement, .scope:
+      return resolveReplacementConstructor(
+        constructor,
+        typeArguments: typeArguments,
+        values: values,
+        at: location
+      )
+    case .insert, .remove:
+      return resolveListCorrection(
+        constructor,
+        typeArguments: typeArguments,
+        values: values,
+        at: location
+      )
+    case .sourceLayout, .layout, .line, .lines, .newline, .blankLine,
+         .indent,
+         .wrap, .softBreak,
          .align, .group:
       let outerElement = layoutElementType
       if !typeArguments.isEmpty {
@@ -292,7 +321,7 @@ extension RuntimeTypeResolver {
     }
   }
 
-  private mutating func diagnose(
+  mutating func diagnose(
     _ message: String,
     at location: DeclarationLocation,
     resolvingArguments values: [(String?, RuntimeExpression)]

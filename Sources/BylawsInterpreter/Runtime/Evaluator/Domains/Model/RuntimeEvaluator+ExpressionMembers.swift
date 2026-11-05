@@ -32,6 +32,9 @@ extension RuntimeEvaluator {
         value.calledExpression,
         RuntimeModelValue.sourceExpression
       )
+    case .elements:
+      .optional(value.elements
+        .map { modelArray($0, RuntimeModelValue.sourceNode) })
     case .arrayElements:
       .optional(value.arrayElements.map { modelArray(
         $0,

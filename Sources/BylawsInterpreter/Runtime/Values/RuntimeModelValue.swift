@@ -20,6 +20,7 @@ enum RuntimeModelValue: Sendable, Equatable {
   case functionCall(FunctionCall)
   case sourceToken(SourceToken)
   case sourceTrivia(SourceTrivia)
+  case sourceIfExpression(SourceIfExpression)
   case sourceNode(SourceNode)
   case callArgument(FunctionCall.Argument)
   case sourceExpression(SourceExpression)
@@ -66,6 +67,7 @@ enum RuntimeModelValue: Sendable, Equatable {
     case let .importDeclaration(value): runtimeOffender(value)
     case let .typealiasDeclaration(value): runtimeOffender(value)
     case let .functionCall(value): runtimeOffender(value)
+    case let .sourceIfExpression(value): runtimeOffender(value)
     case let .sourceNode(value): runtimeOffender(value)
     case let .sourceExpression(value): runtimeOffender(value)
     case let .sourceAssignment(value): runtimeOffender(value)
@@ -110,6 +112,7 @@ extension RuntimeModelValue {
     case .functionCall: .functionCall
     case .sourceToken: .sourceToken
     case .sourceTrivia: .sourceTrivia
+    case .sourceIfExpression: .sourceIfExpression
     case .sourceNode: .sourceNode
     case .callArgument: .callArgument
     case .sourceExpression: .sourceExpression

@@ -12,7 +12,7 @@ struct CorrectionTypeTests {
     ),
     (
       "(context: FixContext<Class>)", "String", "return \"wrong\"",
-      "the closure must be [SourceFix.Edit]"
+      "Correction takes source operations, corrections, fixes or edit arrays"
     ),
     ("()", "[SourceFix.Edit]", "return []", "the closure takes 0 arguments"),
     (
@@ -56,7 +56,7 @@ struct CorrectionTypeTests {
     ),
     (
       "_ context: FixContext<Class>", "String", "return \"wrong\"",
-      "the fix result must be [SourceFix.Edit]"
+      "Correction takes source operations, corrections, fixes or edit arrays"
     ),
   ])
   func namedSignature(
@@ -83,7 +83,7 @@ struct CorrectionTypeTests {
 
     await expectCorrectionRejection(
       in: project,
-      containing: "withFix takes SourceFix, SourceFix.Edit or edit arrays",
+      containing: "Correction takes source operations, corrections, fixes or edit arrays",
       atLine: 6
     )
   }
@@ -236,7 +236,7 @@ struct CorrectionTypeTests {
 
     await expectCorrectionRejection(
       in: project,
-      containing: "the closure must be [SourceFix.Edit], not [SourceFix.Edit]?",
+      containing: "Correction takes source operations, corrections, fixes or edit arrays",
       atLine: 5
     )
   }
@@ -246,7 +246,7 @@ struct CorrectionTypeTests {
     let project = try correctionProject(ruleBody: """
     try await app.classes.violations(matching: Matcher<Class>("match") {
       (value: Class) -> Bool in value.name == "Model"
-    }).withFix { (context: FixContext<Class>) -> [SourceFix.Edit] in
+    }).withFix { (context: FixContext<Class>) -> SourceCorrection in
       [try context.offender.nameSource.replacement(with: "Updated")]
     }
     """)

@@ -11,10 +11,14 @@ extension SupportedAPI {
     case sourceNodeKind(SourceNode.Kind)
 
     package enum Constant: String, CaseIterable, Hashable, Sendable {
+      case notApplicable, satisfied, violation, undetermined
+      case start, end, index
       case any
       case advisory
       case enforced
-      case space, newline, blankLine
+      case space, newline, blankLine, softBreak, preserved
+      case maximumLineLength
+      case layout, group, separator, sequence
 
       case `private`
       case `fileprivate`
@@ -199,7 +203,12 @@ extension SupportedAPI.MemberLiteral {
   // A name may belong to more than one owner, so `.dynamic` is a symbol role
   // and a library linkage at once.
   package enum Owner: CaseIterable, Hashable, Sendable {
+    case sourceCorrectionOutcome
+    case sourceListPosition
     case sourceWhitespace
+    case sourceLayout
+    case sourceLayoutCondition, linesBoundaries
+    case layoutContent
     case layerImportPolicy
     case enforcement
     case visibility
@@ -248,7 +257,10 @@ extension SupportedAPI.MemberLiteral {
 
 extension SupportedAPI {
   package enum StaticMemberType: String, CaseIterable, Hashable, Sendable {
+    case sourceCorrectionOutcome = "SourceCorrection.Outcome"
+    case sourceListPosition = "SourceListPosition"
     case sourceWhitespace = "SourceWhitespace"
+    case linesBoundaries = "Lines.Boundaries"
     case importKind = "ImportKind"
     case indexSymbolKind = "IndexSymbol.Kind"
     case sourceTokenKind = "SourceToken.Kind"
@@ -260,7 +272,10 @@ extension SupportedAPI {
 
     package var owner: MemberLiteral.Owner {
       switch self {
+      case .sourceCorrectionOutcome: .sourceCorrectionOutcome
+      case .sourceListPosition: .sourceListPosition
       case .sourceWhitespace: .sourceWhitespace
+      case .linesBoundaries: .linesBoundaries
       case .importKind: .importKind
       case .indexSymbolKind: .indexSymbolKind
       case .sourceTokenKind: .sourceTokenKind
@@ -302,7 +317,25 @@ extension SupportedAPI.MemberLiteral.Owner {
   // A source type that carries associated values is not CaseIterable.
   private var source: Source {
     switch self {
+    case .sourceCorrectionOutcome: .constants([
+        .notApplicable,
+        .satisfied,
+        .violation,
+        .undetermined,
+      ])
+    case .sourceListPosition: .constants([.start, .end, .index])
     case .sourceWhitespace: Source(SourceWhitespace.self)
+    case .sourceLayout: .constants([.newline, .blankLine, .softBreak])
+    case .sourceLayoutCondition: .constants([.maximumLineLength])
+    case .linesBoundaries: .constants([.preserved, .newline])
+    case .layoutContent: .constants([
+        .layout,
+        .group,
+        .separator,
+        .sequence,
+        .newline,
+        .blankLine,
+      ])
     case .enforcement: Source(Enforcement.self)
     case .layerImportPolicy: .constants([.any])
     case .visibility: Source(Visibility.self)

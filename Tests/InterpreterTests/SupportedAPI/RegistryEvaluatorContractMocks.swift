@@ -39,7 +39,7 @@ enum ContractMocks {
     public func render(
       _ value: Value, into target: inout [String]
     ) async throws -> Result<Value, any Error> {
-      print(value)
+      if count > 0 { print(value) } else { print("empty") }
       return .success(value)
     }
 

@@ -29,6 +29,41 @@ extension RuntimeEvaluator {
       }
     }
     try requireEffects(of: api, at: arguments.location, state: state)
+    if name == .maximumLineLength, case .genericType(
+      "SourceLayoutCondition",
+      _
+    ) = receiver {
+      return try layoutCondition(arguments)
+    }
+    if case .genericType("LayoutContent", _) = receiver {
+      return try layoutContent(name, arguments: arguments)
+    }
+    if let value = try correctionMethod(
+      name,
+      of: receiver,
+      arguments: arguments
+    ) {
+      return value
+    }
+    if name == .applying, case let .layoutCorrection(correction) = receiver {
+      return try await layoutApplying(
+        correction,
+        arguments: arguments,
+        state: &state
+      )
+    }
+    if name == .unwrapped { return try unwrapSource(
+      receiver,
+      arguments: arguments
+    ) }
+    if name == .removal {
+      do {
+        return .sourceCorrection(try receiver
+          .sourceProvider(at: arguments.location).removal())
+      } catch {
+        throw RuntimeError(wrapping: error, at: arguments.location)
+      }
+    }
     if name == .replacement, let elements = receiver.sequenceElements {
       return try await layoutReplacement(
         elements: elements,
@@ -46,11 +81,17 @@ extension RuntimeEvaluator {
       )
     }
     switch receiver {
-    case let .layoutGroup(predicate, _) where name == .sorted:
-      return .layoutGroup(
-        predicate: predicate,
-        comparison: try arguments.value(at: 0)
+    case let .sourceList(list):
+      if name == .inserting || name == .removing {
+        return try sourceListMethod(name, list: list, arguments: arguments)
+      }
+      return try await collectionMethod(
+        name, values: list.elements[...], preservesSet: false,
+        arguments: arguments, state: &state
       )
+    case var .layoutGroup(group) where name == .sorted:
+      group.comparison = try arguments.value(at: 0)
+      return .layoutGroup(group)
     case let .sourceSlice(value):
       if name == .replacement,
          case let .member(literal)? = arguments.values.first?.value,
@@ -59,6 +100,18 @@ extension RuntimeEvaluator {
         try requireEffects(
           of: api, canThrow: true, at: arguments.location, state: state
         )
+      }
+      if name == .replacement, arguments.hasLabels([.with]),
+         let replacement = arguments.values.first?.value
+      {
+        if case .string = replacement {} else {
+          try requireEffects(
+            of: api,
+            canThrow: true,
+            at: arguments.location,
+            state: state
+          )
+        }
       }
       if name == .replacement, arguments.hasLabels([.applying]) {
         try requireEffects(

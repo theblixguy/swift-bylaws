@@ -2,16 +2,6 @@ import BylawsSemantics
 
 struct RuntimeConstructorResolution {
   let constructors: [DeclarationLocation: SupportedAPI.Constructor]
-  let automaticLayoutClosures: Set<DeclarationLocation>
-
-  init(
-    constructors: [DeclarationLocation: SupportedAPI.Constructor],
-    automaticLayoutClosures: Set<DeclarationLocation> = []
-  ) {
-    self.constructors = constructors
-    self.automaticLayoutClosures = automaticLayoutClosures
-  }
-
   func resolve(_ expression: RuntimeExpression) -> RuntimeExpression {
     let kind: RuntimeExpression.Kind = switch expression.kind {
     case .implicitConstructor:
@@ -38,6 +28,7 @@ struct RuntimeConstructorResolution {
     case let .qualifiedMember(base, literal):
       .qualifiedMember(base: resolve(base), literal: literal)
     case let .prefix(op, value): .prefix(operator: op, resolve(value))
+    case let .postfix(op, value): .postfix(operator: op, resolve(value))
     case let .binary(left, op, right): .binary(
         left: resolve(left),
         operator: op,
@@ -95,9 +86,7 @@ struct RuntimeConstructorResolution {
     RuntimeClosureDefinition(
       parameters: closure.parameters, body: resolve(closure.body),
       location: closure.location, usesAwait: closure.usesAwait,
-      usesTry: closure.usesTry, resultType: closure.resultType,
-      isAutomaticLayout: closure.isAutomaticLayout || automaticLayoutClosures
-        .contains(closure.location)
+      usesTry: closure.usesTry, resultType: closure.resultType
     )
   }
 
