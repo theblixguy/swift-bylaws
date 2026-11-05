@@ -4,21 +4,21 @@ import Testing
 
 @Suite("Captured layout transport")
 struct SourceLayoutPlanCodingTests {
-  @Test("Edits without layout metadata retain their transport format")
+  @Test("Raw edits retain captured source and replacement")
   func plainEdit() throws {
-    let data = Data(
-      #"{"source":{"snapshot":{"filePath":"/project/Screen.swift","text":"class Screen {}","swiftLanguageMode":"6"},"range":[6,12]},"replacement":"Updated"}"#
-        .utf8
+    let file = try FileCollector.collect(
+      source: "class Screen {}", path: "/project/Screen.swift"
     )
-    let decoded = try JSONDecoder().decode(SourceFix.Edit.self, from: data)
-    let payload = try #require(JSONSerialization.jsonObject(
-      with: JSONEncoder().encode(decoded)
-    ) as? [String: Any])
+    let declaration = try #require(file.classes.first)
+    let edit = try declaration.nameSource.replacement(with: "Updated")
+    let decoded = try JSONDecoder().decode(
+      SourceFix.Edit.self, from: JSONEncoder().encode(edit)
+    )
 
     #expect(decoded.source.text == "Screen")
-    #expect(decoded.replacement == "Updated")
     #expect(decoded.layout == nil)
-    #expect(payload["layout"] == nil)
+    #expect(try file.source.replacement(applying: [decoded])
+      .replacement == "class Updated {}")
   }
 
   @Test("Standalone edits retain layout policy and exact source")
@@ -28,7 +28,7 @@ struct SourceLayoutPlanCodingTests {
       SourceFix.Edit.self, from: JSONEncoder().encode(edit)
     )
     let plan = try #require(decoded.layout)
-    let layout = try plan.thaw(snapshot: decoded.source.snapshot)
+    let layout = try plan.resolve(snapshot: decoded.source.snapshot)
     let elements = try plan.elements.map {
       try SourceSlice(snapshot: decoded.source.snapshot, range: $0)
     }
@@ -63,22 +63,25 @@ struct SourceLayoutPlanCodingTests {
     )
     let declaration = try #require(file.syntaxNodes(of: .structDeclaration)
       .first)
-    let fix = try declaration.members.replacement {
-      Group(where: { _ in true })
+    let fixLayout = try Layout(declaration.members) {
+      Group { _ in true }
     }
+    let fix = try #require(fixLayout.correction.fix)
     let edit = try #require(fix.layoutCandidates.first)
     let plan = try #require(edit.layout)
     let encoded = try JSONEncoder().encode(edit)
     let restored = try JSONDecoder().decode(SourceFix.Edit.self, from: encoded)
     #expect(restored.source.text == "func keep() {}")
     #expect(restored.replacement == "func keep() {}")
-    try #require(plan.trimmed)
+    let formatting = try #require(plan.formatting)
+    try #require(formatting.trimmed)
     let expanded = try declaration.source
     let forgedPlan = SourceLayoutPlan(
-      elements: plan.elements, node: plan.node,
-      allowsPartialList: plan.allowsPartialList,
-      baseIndentation: plan.baseIndentation, targetRange: expanded.range,
-      trimmed: true, lineWidthLimit: plan.lineWidthLimit, nested: plan.nested
+      elements: plan.elements, node: formatting.node,
+      allowsPartialList: formatting.allowsPartialList,
+      baseIndentation: formatting.baseIndentation, targetRange: expanded.range,
+      trimmed: true, condition: formatting.condition,
+      nested: formatting.nested
     )
     var payload = try #require(JSONSerialization.jsonObject(with: encoded)
       as? [String: Any])
@@ -100,12 +103,13 @@ struct SourceLayoutPlanCodingTests {
   func policyIdentity() throws {
     let edit = try attributeEdit()
     let original = try #require(edit.layout)
+    let formatting = try #require(original.formatting)
     let edits = [80, 120].map { width in
       SourceFix.Edit(
         source: edit.source, replacement: edit.replacement,
         layout: SourceLayoutPlan(
           elements: original.elements,
-          node: .wrap(width: width, original.node),
+          node: .wrap(width: width, formatting.node),
           targetRange: original.targetRange
         )
       )
@@ -130,7 +134,7 @@ struct SourceLayoutPlanCodingTests {
     let replacement = try file.classes.replacement { layout }
     let plan = try SourceLayoutPlan(
       elements: file.classes.map { try $0.source.range },
-      node: SourceLayoutPlan.freeze(
+      node: SourceLayoutPlan.capture(
         layout,
         snapshot: replacement.source.snapshot
       ),
@@ -144,8 +148,8 @@ struct SourceLayoutPlanCodingTests {
       SourceFix.Edit.self, from: JSONEncoder().encode(edit)
     )
     let restored = try #require(decoded.layout)
-    let thawed = try restored.thaw(snapshot: decoded.source.snapshot)
-    let nested = try #require(thawed.edits.first)
+    let resolved = try restored.resolve(snapshot: decoded.source.snapshot)
+    let nested = try #require(resolved.edits.first)
 
     #expect(nested.layout == inner.layout)
     #expect(nested.source.text == "@MainActor\n@Observable ")
@@ -177,7 +181,7 @@ struct SourceLayoutPlanCodingTests {
     let layout = SourceLayout { second.classes }
 
     #expect(throws: SourceError.differentSnapshots) {
-      try SourceLayoutPlan.freeze(layout, snapshot: first.source.snapshot)
+      try SourceLayoutPlan.capture(layout, snapshot: first.source.snapshot)
     }
   }
 
@@ -188,11 +192,12 @@ struct SourceLayoutPlanCodingTests {
   func foreignRange(part: RangePart) throws {
     let edit = try attributeEdit()
     let original = try #require(edit.layout)
+    let formatting = try #require(original.formatting)
     let outside = edit.source.range
       .upperBound..<(edit.source.range.upperBound + 1)
     let plan = SourceLayoutPlan(
       elements: part == .element ? [outside] : original.elements,
-      node: part == .node ? .source(outside) : original.node,
+      node: part == .node ? .source(outside) : formatting.node,
       targetRange: original.targetRange,
       nested: part == .nested ? [.init(range: outside, replacement: "")] : []
     )
@@ -206,8 +211,9 @@ struct SourceLayoutPlanCodingTests {
   func unownedNestedEdit() throws {
     let edit = try attributeEdit()
     let original = try #require(edit.layout)
+    let formatting = try #require(original.formatting)
     let plan = SourceLayoutPlan(
-      elements: original.elements, node: original.node,
+      elements: original.elements, node: formatting.node,
       targetRange: original.targetRange,
       nested: [.init(range: 10..<11, replacement: "\n\n")]
     )
@@ -240,13 +246,14 @@ struct SourceLayoutPlanCodingTests {
   func targetRange(nested: Bool) throws {
     let edit = try attributeEdit()
     let original = try #require(edit.layout)
+    let formatting = try #require(original.formatting)
     let wrong = SourceLayoutPlan(
-      elements: original.elements, node: original.node,
+      elements: original.elements, node: formatting.node,
       targetRange: 0..<1
     )
     let plan = if nested {
       SourceLayoutPlan(
-        elements: original.elements, node: original.node,
+        elements: original.elements, node: formatting.node,
         targetRange: original.targetRange,
         nested: [.init(
           range: original.targetRange, replacement: edit.replacement,
@@ -258,20 +265,6 @@ struct SourceLayoutPlanCodingTests {
     }
 
     #expect(throws: SourceError.syntaxMismatch) {
-      try decode(edit, replacingPlan: plan)
-    }
-  }
-
-  @Test("Decoded plans reject nonpositive widths", arguments: [0, -1])
-  func widthLimit(width: Int) throws {
-    let edit = try attributeEdit()
-    let original = try #require(edit.layout)
-    let plan = SourceLayoutPlan(
-      elements: original.elements, node: original.node,
-      targetRange: original.targetRange, lineWidthLimit: width
-    )
-
-    #expect(throws: SourceLayoutError.widthMustBePositive) {
       try decode(edit, replacingPlan: plan)
     }
   }
@@ -290,7 +283,7 @@ struct SourceLayoutPlanCodingTests {
     let edit = try attributes.replacement { layout }
     let plan = try SourceLayoutPlan(
       elements: attributes.map { try $0.source.range },
-      node: SourceLayoutPlan.freeze(layout, snapshot: edit.source.snapshot),
+      node: SourceLayoutPlan.capture(layout, snapshot: edit.source.snapshot),
       targetRange: edit.source.range
     )
     return SourceFix.Edit(

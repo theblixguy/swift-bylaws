@@ -59,6 +59,25 @@ extension SourceExpression {
     } ?? []
   }
 
+  /// The array or dictionary literal's elements, or `nil` for other expressions.
+  ///
+  /// Dictionary entries retain their complete key-value pairs and source order.
+  /// An element includes its trailing comma, when present.
+  /// - Complexity: O(n), where n is the number of elements.
+  public var elements: [SourceNode]? {
+    func element(_ node: some SyntaxProtocol) -> SourceNode {
+      SourceNode(Syntax(node), context: context, kind: .syntaxElement)
+    }
+    if let array = syntax.as(ArrayExprSyntax.self) {
+      return array.elements.map(element)
+    } else if let dictionary = syntax.as(DictionaryExprSyntax.self) {
+      return dictionary.content.as(DictionaryElementListSyntax.self)?
+        .map(element) ?? []
+    } else {
+      return nil
+    }
+  }
+
   /// The call's parenthesised arguments, or `nil` for other expressions.
   ///
   /// - Complexity: O(n), where n is the number of arguments.

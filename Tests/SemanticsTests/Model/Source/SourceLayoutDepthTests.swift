@@ -90,13 +90,14 @@ struct SourceLayoutDepthTests {
     try #require(calls.count == depth)
     return try calls.map { call in
       if call.name == "leaf" {
-        try call.arguments.replacement(whenLineExceeds: leafWidth) {
-          for argument in call.arguments {
+        try call.arguments
+          .replacement(when: !.maximumLineLength(...leafWidth)) {
+            for argument in call.arguments {
+              Newline()
+              argument
+            }
             Newline()
-            argument
           }
-          Newline()
-        }
       } else {
         try call.arguments.replacement { call.arguments }
       }

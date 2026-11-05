@@ -45,7 +45,7 @@ struct SourceLayoutCompositionTests {
     let declaration = try #require(file.classes.first)
     try #require(declaration.attributes.count == 2)
     let candidate = try declaration.attributes
-      .replacement(whenLineExceeds: 10) {
+      .replacement(when: !.maximumLineLength(...10)) {
         for attribute in declaration.attributes {
           Line { attribute }
         }
@@ -72,7 +72,7 @@ struct SourceLayoutCompositionTests {
     let file = try FileCollector.collect(source: original, path: "/App.swift")
     let call = try #require(file.calls.first)
     let layout = try call.arguments.replacement(
-      whenLineExceeds: maximumWidth
+      when: !.maximumLineLength(...maximumWidth)
     ) {
       for argument in call.arguments {
         Newline()
@@ -98,13 +98,14 @@ struct SourceLayoutCompositionTests {
     let calls = file.syntaxNodes(of: .functionCall).compactMap(\.call)
     let first = try #require(calls.first { $0.name == "first" })
     let second = try #require(calls.first { $0.name == "second" })
-    let candidate = try first.arguments.replacement(whenLineExceeds: 22) {
-      for argument in first.arguments {
+    let candidate = try first.arguments
+      .replacement(when: !.maximumLineLength(...22)) {
+        for argument in first.arguments {
+          Newline()
+          argument
+        }
         Newline()
-        argument
       }
-      Newline()
-    }
     try #require(candidate.source.text == candidate.replacement)
     let joining = try second.arguments.replacement { second.arguments }
     let corrected = try file.source.replacement(
@@ -162,7 +163,7 @@ struct SourceLayoutCompositionTests {
       path: "/App.swift"
     )
     let edits = try file.calls.map { call in
-      try call.arguments.replacement(whenLineExceeds: 60) {
+      try call.arguments.replacement(when: !.maximumLineLength(...60)) {
         for argument in call.arguments {
           Newline()
           argument
@@ -200,13 +201,14 @@ struct SourceLayoutCompositionTests {
       path: "/App.swift"
     )
     let edits = try file.calls.filter { $0.arguments.count > 1 }.map { call in
-      try call.arguments.replacement(whenLineExceeds: maximumWidth) {
-        for argument in call.arguments {
+      try call.arguments
+        .replacement(when: !.maximumLineLength(...maximumWidth)) {
+          for argument in call.arguments {
+            Newline()
+            argument
+          }
           Newline()
-          argument
         }
-        Newline()
-      }
     }
     try #require(edits.count == 2)
     let result = try file.source.replacement(applying: edits)
@@ -246,7 +248,7 @@ struct SourceLayoutCompositionTests {
     let inner = try #require(file.calls.first { $0.name == "inner" })
     let outerLayout = try outer.arguments.replacement { outer.arguments }
     let innerLayout = try inner.arguments
-      .replacement(whenLineExceeds: testCase.maximumWidth) {
+      .replacement(when: !.maximumLineLength(...testCase.maximumWidth)) {
         for argument in inner.arguments {
           Newline()
           argument
@@ -283,13 +285,14 @@ struct SourceLayoutCompositionTests {
         Newline()
       }
     }
-    let innerLayout = try inner.arguments.replacement(whenLineExceeds: 20) {
-      for argument in inner.arguments {
+    let innerLayout = try inner.arguments
+      .replacement(when: !.maximumLineLength(...20)) {
+        for argument in inner.arguments {
+          Newline()
+          argument
+        }
         Newline()
-        argument
       }
-      Newline()
-    }
     let result = try file.source.replacement(
       applying: [outerLayout, innerLayout]
     )
@@ -307,9 +310,10 @@ struct SourceLayoutCompositionTests {
       .joined(separator: ending)
     let file = try FileCollector.collect(source: source, path: "/App.swift")
     let call = try #require(file.calls.first)
-    let edit = try call.arguments.replacement(whenLineExceeds: 80) {
-      Wrap(width: 80) { call.arguments }
-    }
+    let edit = try call.arguments
+      .replacement(when: !.maximumLineLength(...80)) {
+        Wrap(width: 80) { call.arguments }
+      }
 
     #expect(edit.source.text.utf8.elementsEqual(edit.replacement.utf8))
     #expect(try file.source.replacement(applying: [edit]).replacement == source)
@@ -327,7 +331,7 @@ struct SourceLayoutCompositionTests {
     try #require(arguments.count == 2)
 
     #expect(throws: SourceLayoutError.widthMustBePositive) {
-      try arguments.replacement(whenLineExceeds: 100) {
+      try arguments.replacement(when: !.maximumLineLength(...100)) {
         Wrap(width: width) { arguments }
       }
     }

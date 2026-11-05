@@ -402,7 +402,7 @@ struct SourceLayoutRendererTests {
     let layout = makeLayout { value.replacement(with: "new") }
 
     #expect(try layout.sources.map { try $0.source } == [value])
-    #expect(layout.edits.map(\.replacement) == ["new"])
+    #expect(try layout.edits.map(\.replacement) == ["new"])
     #expect(try render(layout) == "new")
   }
 

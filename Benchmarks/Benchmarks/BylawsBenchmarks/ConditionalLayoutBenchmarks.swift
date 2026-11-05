@@ -30,13 +30,14 @@ func registerConditionalLayoutBenchmarks() {
         ) { benchmark in
           for _ in benchmark.scaledIterations {
             let edits = try calls.map { call in
-              try call.arguments.replacement(whenLineExceeds: width) {
-                for argument in call.arguments {
+              try call.arguments
+                .replacement(when: !.maximumLineLength(...width)) {
+                  for argument in call.arguments {
+                    Newline()
+                    argument
+                  }
                   Newline()
-                  argument
                 }
-                Newline()
-              }
             }
             precondition(edits.count == count)
             blackHole(edits)
@@ -54,7 +55,7 @@ func registerConditionalLayoutBenchmarks() {
             file.calls
           }
           let edits = try selected.map { call in
-            try call.arguments.replacement(whenLineExceeds: 100) {
+            try call.arguments.replacement(when: .maximumLineLength(101...)) {
               for argument in call.arguments {
                 Newline()
                 argument
@@ -99,13 +100,14 @@ func registerConditionalLayoutBenchmarks() {
       configuration: configuration
     ) { benchmark in
       for _ in benchmark.scaledIterations {
-        blackHole(try call.arguments.replacement(whenLineExceeds: 100) {
-          for argument in call.arguments {
+        blackHole(try call.arguments
+          .replacement(when: .maximumLineLength(101...)) {
+            for argument in call.arguments {
+              Newline()
+              argument
+            }
             Newline()
-            argument
-          }
-          Newline()
-        })
+          })
       }
     }
   }

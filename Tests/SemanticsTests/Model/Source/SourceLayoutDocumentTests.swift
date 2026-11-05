@@ -24,7 +24,7 @@ struct SourceLayoutDocumentTests {
     let inner = try #require(file.calls.first { $0.name == "inner" })
     let outerLayout = try outer.arguments.replacement { outer.arguments }
     let innerLayout = try inner.arguments
-      .replacement(whenLineExceeds: testCase.maximumWidth) {
+      .replacement(when: !.maximumLineLength(...testCase.maximumWidth)) {
         for argument in inner.arguments {
           Newline()
           argument
@@ -56,13 +56,14 @@ struct SourceLayoutDocumentTests {
     let inner = try #require(file.calls.first { $0.name == "inner" })
     let wrapLayout = try wrap.arguments.replacement { wrap.arguments }
     let outerLayout = try outer.arguments.replacement { outer.arguments }
-    let innerLayout = try inner.arguments.replacement(whenLineExceeds: 48) {
-      for argument in inner.arguments {
+    let innerLayout = try inner.arguments
+      .replacement(when: !.maximumLineLength(...48)) {
+        for argument in inner.arguments {
+          Newline()
+          argument
+        }
         Newline()
-        argument
       }
-      Newline()
-    }
     let result = try file.source.replacement(
       applying: [innerLayout, wrapLayout, outerLayout]
     )
@@ -96,13 +97,14 @@ struct SourceLayoutDocumentTests {
     let contentEdit = try sibling.expressionSource
       .replacement(with: replacement)
     let outerLayout = try outer.arguments.replacement { outer.arguments }
-    let innerLayout = try inner.arguments.replacement(whenLineExceeds: 36) {
-      for argument in inner.arguments {
+    let innerLayout = try inner.arguments
+      .replacement(when: !.maximumLineLength(...36)) {
+        for argument in inner.arguments {
+          Newline()
+          argument
+        }
         Newline()
-        argument
       }
-      Newline()
-    }
     let result = try file.source.replacement(
       applying: [outerLayout, contentEdit, innerLayout]
     )
@@ -121,13 +123,14 @@ struct SourceLayoutDocumentTests {
     let contentEdit = try argument.expressionSource
       .replacement(with: "longSibling")
     let siblingLayout = try send.arguments.replacement { contentEdit }
-    let innerLayout = try inner.arguments.replacement(whenLineExceeds: 38) {
-      for argument in inner.arguments {
+    let innerLayout = try inner.arguments
+      .replacement(when: !.maximumLineLength(...38)) {
+        for argument in inner.arguments {
+          Newline()
+          argument
+        }
         Newline()
-        argument
       }
-      Newline()
-    }
     try #require(innerLayout.source.text == innerLayout.replacement)
     let result = try file.source.replacement(
       applying: [siblingLayout], layoutCandidates: [innerLayout]
@@ -147,13 +150,14 @@ struct SourceLayoutDocumentTests {
     let outer = try #require(file.calls.first { $0.name == "outer" })
     let inner = try #require(file.calls.first { $0.name == "inner" })
     let outerLayout = try outer.arguments.replacement { outer.arguments }
-    let innerLayout = try inner.arguments.replacement(whenLineExceeds: 29) {
-      for argument in inner.arguments {
+    let innerLayout = try inner.arguments
+      .replacement(when: !.maximumLineLength(...29)) {
+        for argument in inner.arguments {
+          Newline()
+          argument
+        }
         Newline()
-        argument
       }
-      Newline()
-    }
     let result = try file.source.replacement(
       applying: [outerLayout, innerLayout]
     )
@@ -177,16 +181,18 @@ struct SourceLayoutDocumentTests {
     let file = try FileCollector.collect(source: source, path: "/App.swift")
     let outer = try #require(file.calls.first { $0.name == "outer" })
     let inner = try #require(file.calls.first { $0.name == "inner" })
-    let outerLayout = try outer.arguments.replacement(whenLineExceeds: 100) {
-      outer.arguments
-    }
-    let innerLayout = try inner.arguments.replacement(whenLineExceeds: 100) {
-      for argument in inner.arguments {
-        Newline()
-        argument
+    let outerLayout = try outer.arguments
+      .replacement(when: !.maximumLineLength(...100)) {
+        outer.arguments
       }
-      Newline()
-    }
+    let innerLayout = try inner.arguments
+      .replacement(when: !.maximumLineLength(...100)) {
+        for argument in inner.arguments {
+          Newline()
+          argument
+        }
+        Newline()
+      }
     let result = try file.source.replacement(
       applying: [innerLayout], layoutCandidates: [outerLayout]
     )
@@ -226,13 +232,14 @@ struct SourceLayoutDocumentTests {
       source: "a\t(1, 2)", path: "/App.swift"
     )
     let call = try #require(file.syntaxNodes(of: .functionCall).first?.call)
-    let layout = try call.arguments.replacement(whenLineExceeds: 10) {
-      for argument in call.arguments {
+    let layout = try call.arguments
+      .replacement(when: !.maximumLineLength(...10)) {
+        for argument in call.arguments {
+          Newline()
+          argument
+        }
         Newline()
-        argument
       }
-      Newline()
-    }
     let source = try file.source
     let session = SourceLayoutComposition.Session(snapshot: source.snapshot)
     let content = try session.prepareContent(source, applying: [layout])
@@ -292,7 +299,7 @@ struct SourceLayoutDocumentTests {
 
   @Test("Line uses configured tab stops before nested width check")
   func lineTabPlacement() throws {
-    let arguments = try preparedArguments(whenLineExceeds: 20)
+    let arguments = try preparedArguments(when: !.maximumLineLength(...20))
     let document = SourceLayoutDocument(events: [.line([
       .text("abcdefgh"), .boundary(.soft), .text("\t🦊"), .boundary(.soft),
       .layout(arguments, originalText: nil), .text(")"),
@@ -306,7 +313,7 @@ struct SourceLayoutDocumentTests {
 
   @Test("Line rejects nested wrapping after wider tab stops")
   func lineTabWrapping() throws {
-    let arguments = try preparedArguments(whenLineExceeds: 20)
+    let arguments = try preparedArguments(when: !.maximumLineLength(...20))
     let document = SourceLayoutDocument(events: [.line([
       .text("abcdefgh"), .boundary(.soft), .text("\t🦊"), .boundary(.soft),
       .layout(arguments, originalText: nil), .text(")"),
@@ -319,14 +326,14 @@ struct SourceLayoutDocumentTests {
     }
   }
 
-  private func preparedArguments(whenLineExceeds maximumWidth: Int) throws
+  private func preparedArguments(when condition: SourceLayoutCondition) throws
     -> SourceLayoutPrepared
   {
     let file = try FileCollector.collect(
       source: "send(1, 2)", path: "/App.swift"
     )
     let call = try #require(file.syntaxNodes(of: .functionCall).first?.call)
-    let layout = try call.arguments.replacement(whenLineExceeds: maximumWidth) {
+    let layout = try call.arguments.replacement(when: condition) {
       for argument in call.arguments {
         Newline()
         argument

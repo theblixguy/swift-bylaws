@@ -6,11 +6,12 @@ struct SourceListSpacingTests {
   @Test("Empty spacing selections produce no edits")
   func emptySelection() throws {
     let statements: [SourceNode] = []
-    let fix: SourceFix = try statements.replacement {
+    let layout = try Layout(statements) {
       BlankLine(before: { _ in true })
     }
 
-    #expect(fix.edits.isEmpty)
+    #expect(layout.correction.outcome == .notApplicable)
+    #expect(layout.correction.fix == nil)
   }
 
   @Test(
@@ -23,12 +24,13 @@ struct SourceListSpacingTests {
     let file = try collect("func work() async {\n  \(first)\n  \(second)\n}")
     let statements = try #require(file.syntaxNodes(of: .codeBlock).first)
       .statements
-    let fix: SourceFix = try statements.replacement {
+    let fixLayout = try Layout(statements) {
       BlankLine(
         between: { $0.kind == .variableDeclaration },
         and: { $0.call != nil }
       )
     }
+    let fix: SourceFix = try #require(fixLayout.correction.fix)
 
     #expect(try applying(fix, to: file) ==
       "func work() async {\n  \(first)\n\n  \(second)\n}")
@@ -42,13 +44,14 @@ struct SourceListSpacingTests {
     let file = try collect("func work() {\n  first()\n  middle()\n  last()\n}")
     let statements = try #require(file.syntaxNodes(of: .codeBlock).first)
       .statements
-    let fix: SourceFix = try statements.replacement {
+    let fixLayout = try Layout(statements) {
       if before {
         BlankLine(before: { $0.call?.references("middle") == true })
       } else {
         BlankLine(after: { $0.call?.references("middle") == true })
       }
     }
+    let fix: SourceFix = try #require(fixLayout.correction.fix)
 
     #expect(try applying(fix, to: file) == (before
         ? "func work() {\n  first()\n\n  middle()\n  last()\n}"
@@ -60,9 +63,10 @@ struct SourceListSpacingTests {
     let file = try collect("func work() {\n  first()\n\n\n  second()\n}")
     let statements = try #require(file.syntaxNodes(of: .codeBlock).first)
       .statements
-    let fix: SourceFix = try statements.replacement {
+    let fixLayout = try Layout(statements) {
       Newline(between: { $0.call != nil }, and: { $0.call != nil })
     }
+    let fix: SourceFix = try #require(fixLayout.correction.fix)
 
     #expect(try applying(fix, to: file) ==
       "func work() {\n  first()\n  second()\n}")
@@ -77,9 +81,10 @@ struct SourceListSpacingTests {
     let file = try collect(source)
     let statements = try #require(file.syntaxNodes(of: .codeBlock).first)
       .statements
-    let fix: SourceFix = try statements.replacement {
+    let fixLayout = try Layout(statements) {
       BlankLine(before: { $0.call?.references("send") == true })
     }
+    let fix: SourceFix = try #require(fixLayout.correction.fix)
     let corrected = try applying(fix, to: file)
 
     #expect(corrected ==
@@ -87,9 +92,10 @@ struct SourceListSpacingTests {
     let parsed = try collect(corrected)
     let correctedStatements = try #require(parsed.syntaxNodes(of: .codeBlock)
       .first).statements
-    let second: SourceFix = try correctedStatements.replacement {
+    let secondLayout = try Layout(correctedStatements) {
       BlankLine(before: { $0.call?.references("send") == true })
     }
+    let second: SourceFix = try #require(secondLayout.correction.fix)
     #expect(second.edits.isEmpty)
   }
 
@@ -98,10 +104,11 @@ struct SourceListSpacingTests {
     let file = try collect("func work() {\n  first()\n  second()\n}")
     let statements = try #require(file.syntaxNodes(of: .codeBlock).first)
       .statements
-    let fix: SourceFix = try statements.replacement {
+    let fixLayout = try Layout(statements) {
       BlankLine(before: { $0.call?.references("second") == true })
       BlankLine(after: { $0.call?.references("first") == true })
     }
+    let fix: SourceFix = try #require(fixLayout.correction.fix)
 
     #expect(fix.edits.count == 1)
     #expect(try applying(fix, to: file) ==
@@ -115,10 +122,11 @@ struct SourceListSpacingTests {
       .statements
 
     #expect(throws: SourceListLayoutError.conflictingSeparators) {
-      let _: SourceFix = try statements.replacement {
+      let layout = try Layout(statements) {
         BlankLine(after: { _ in true })
         Newline(before: { _ in true })
       }
+      let _: SourceFix = try #require(layout.correction.fix)
     }
   }
 

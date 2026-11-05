@@ -3,6 +3,47 @@ import Testing
 
 @Suite("Continuation width")
 struct SourceLayoutContinuationWidthTests {
+  @Test("Maximum columns and tab widths do not overflow", arguments: [
+    ("a", Int.max, 4),
+    ("\t", Int.max, Int.max),
+    ("a\t", 1, Int.max),
+  ])
+  func maximumColumns(text: String, column: Int, tabWidth: Int) {
+    let following = continuation([])
+
+    #expect(following.matches(
+      .maximumLineLength(Int.max...Int.max), after: text,
+      startingAt: column, tabWidth: tabWidth
+    ))
+    #expect(!following.matches(
+      !.maximumLineLength(...Int.max), after: text,
+      startingAt: column, tabWidth: tabWidth
+    ))
+  }
+
+  @Test(
+    "Bounded conditions measure complete graphemes and tab stops",
+    arguments: [
+      ("e", ["\u{0301}"], 4),
+      ("👩", ["\u{200D}", "🔬"], 4),
+      ("x", ["\t", "z"], 9),
+      ("x\r\n", ["unrelatedLongLine"], 4),
+      ("abcdef\r\nx", ["y"], 9),
+    ]
+  )
+  func boundedLength(prefix: String, segments: [String], length: Int) {
+    let following = continuation(segments)
+
+    #expect(following.matches(
+      .maximumLineLength(length...length), after: prefix,
+      startingAt: 3, tabWidth: 4
+    ))
+    #expect(!following.matches(
+      .maximumLineLength(..<length), after: prefix,
+      startingAt: 3, tabWidth: 4
+    ))
+  }
+
   @Test(
     "Width retains graphemes across source and continuation segments",
     arguments: [
@@ -19,8 +60,9 @@ struct SourceLayoutContinuationWidthTests {
   ) {
     let following = continuation(segments)
 
-    #expect(following.exceeds(
-      maximumWidth, after: prefix, startingAt: 3, tabWidth: 4
+    #expect(following.matches(
+      !.maximumLineLength(...maximumWidth), after: prefix, startingAt: 3,
+      tabWidth: 4
     ) == expected)
   }
 
@@ -31,8 +73,9 @@ struct SourceLayoutContinuationWidthTests {
   func tabs(tabWidth: Int, maximumWidth: Int, expected: Bool) {
     let following = continuation(["\t", "z"])
 
-    #expect(following.exceeds(
-      maximumWidth, after: "a", startingAt: 1, tabWidth: tabWidth
+    #expect(following.matches(
+      !.maximumLineLength(...maximumWidth), after: "a", startingAt: 1,
+      tabWidth: tabWidth
     ) == expected)
   }
 
@@ -45,8 +88,9 @@ struct SourceLayoutContinuationWidthTests {
   ) {
     let following = continuation([ending, "unreasonablyLongSuffix"])
 
-    #expect(following.exceeds(
-      testCase.maximumWidth, after: "ab", startingAt: 1, tabWidth: 4
+    #expect(following.matches(
+      !.maximumLineLength(...testCase.maximumWidth), after: "ab", startingAt: 1,
+      tabWidth: 4
     ) == testCase.expected)
   }
 
@@ -59,8 +103,9 @@ struct SourceLayoutContinuationWidthTests {
   ) {
     let following = continuation(["z", "z"])
 
-    #expect(following.exceeds(
-      testCase.maximumWidth, after: "a\(ending)xy", startingAt: 1, tabWidth: 4
+    #expect(following.matches(
+      !.maximumLineLength(...testCase.maximumWidth), after: "a\(ending)xy",
+      startingAt: 1, tabWidth: 4
     ) == testCase.expected)
   }
 
@@ -73,8 +118,9 @@ struct SourceLayoutContinuationWidthTests {
   ) {
     let following = continuation(["z"])
 
-    #expect(following.exceeds(
-      testCase.maximumWidth, after: "abcd\(ending)x", startingAt: 1,
+    #expect(following.matches(
+      !.maximumLineLength(...testCase.maximumWidth), after: "abcd\(ending)x",
+      startingAt: 1,
       tabWidth: 4
     ) == testCase.expected)
   }
@@ -88,8 +134,9 @@ struct SourceLayoutContinuationWidthTests {
   ) {
     let following = continuation(["unreasonablyLongSuffix"])
 
-    #expect(following.exceeds(
-      testCase.maximumWidth, after: "ab\(ending)", startingAt: 1,
+    #expect(following.matches(
+      !.maximumLineLength(...testCase.maximumWidth), after: "ab\(ending)",
+      startingAt: 1,
       tabWidth: 4
     ) == testCase.expected)
   }
@@ -108,8 +155,9 @@ struct SourceLayoutContinuationWidthTests {
       )
     )
 
-    #expect(following.exceeds(
-      testCase.maximumWidth, after: "x", startingAt: 1, tabWidth: 4
+    #expect(following.matches(
+      !.maximumLineLength(...testCase.maximumWidth), after: "x", startingAt: 1,
+      tabWidth: 4
     ) == testCase.expected)
   }
 
@@ -128,8 +176,9 @@ struct SourceLayoutContinuationWidthTests {
       )
     )
 
-    #expect(following.exceeds(
-      testCase.maximumWidth, after: "x", startingAt: 1, tabWidth: 4
+    #expect(following.matches(
+      !.maximumLineLength(...testCase.maximumWidth), after: "x", startingAt: 1,
+      tabWidth: 4
     ) == testCase.expected)
   }
 
@@ -137,8 +186,8 @@ struct SourceLayoutContinuationWidthTests {
   func emptySource() {
     let following = continuation(["unreasonablyLongSuffix"])
 
-    #expect(!following.exceeds(
-      1, after: "", startingAt: 0, tabWidth: 4
+    #expect(!following.matches(
+      !.maximumLineLength(...1), after: "", startingAt: 0, tabWidth: 4
     ))
   }
 

@@ -213,7 +213,7 @@ struct SwiftTestingRuleReportCodingTests {
     let replacement = try attributes.replacement { layout }
     let plan = try SourceLayoutPlan(
       elements: attributes.map { try $0.source.range },
-      node: SourceLayoutPlan.freeze(
+      node: SourceLayoutPlan.capture(
         layout,
         snapshot: replacement.source.snapshot
       ),

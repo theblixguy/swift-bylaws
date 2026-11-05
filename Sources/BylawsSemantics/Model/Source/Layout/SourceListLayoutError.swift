@@ -2,18 +2,22 @@
 public enum SourceListLayoutError: Error, Sendable, Equatable,
   CustomStringConvertible
 {
-  /// Grouping and conditional spacing occur in the same replacement.
-  case mixedPolicies
+  /// Explicit source emission and automatic policies occur in the same layout.
+  case mixedContent
+  /// A list separator is neither a newline nor a blank line.
+  case unsupportedSeparator
   /// Conditional separators request different whitespace for one gap.
   case conflictingSeparators
 
   /// The policy constraint and the action that permits a correction.
   public var description: String {
     switch self {
-    case .mixedPolicies:
-      "SourceListLayout must use grouping or conditional spacing in one replacement. Define separate replacements for these policies."
+    case .mixedContent:
+      "Layout must use explicit source or automatic policies. Use one form for each list."
+    case .unsupportedSeparator:
+      "Layout must use a newline or blank line between groups. Use .newline or .blankLine."
     case .conflictingSeparators:
-      "SourceListLayout must use one separator for each gap. Remove the conflicting separator conditions."
+      "Layout must use one separator for each gap. Remove the conflicting separator conditions."
     }
   }
 }

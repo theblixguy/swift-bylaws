@@ -3,25 +3,6 @@ import Testing
 
 @Suite("Source list safety")
 struct SourceListSafetyTests {
-  @Test(
-    "Mixed grouping and conditional separators reject correction",
-    arguments: [false, true]
-  )
-  func mixedPolicies(empty: Bool) throws {
-    let file =
-      try collect("struct Store {\n  let first = 1\n  let second = 2\n}")
-    let members = try #require(file.syntaxNodes(of: .structDeclaration).first)
-      .members
-    let selection = empty ? [] : members
-
-    #expect(throws: SourceListLayoutError.mixedPolicies) {
-      let _: SourceFix = try selection.replacement {
-        Group(where: { _ in true })
-        BlankLine(before: { _ in true })
-      }
-    }
-  }
-
   @Test("Attached documentation moves with grouped declaration")
   func attachedDocumentation() throws {
     let file = try collect("""
@@ -34,9 +15,10 @@ struct SourceListSafetyTests {
     """)
     let members = try #require(file.syntaxNodes(of: .structDeclaration).first)
       .members
-    let fix: SourceFix = try members.replacement {
-      Group(where: { _ in true }).sorted { ($0.name ?? "") < ($1.name ?? "") }
+    let fixLayout = try Layout(members) {
+      Group { _ in true }.sorted { ($0.name ?? "") < ($1.name ?? "") }
     }
+    let fix: SourceFix = try #require(fixLayout.correction.fix)
 
     #expect(try applying(fix, to: file) == """
     struct Store {
@@ -62,9 +44,10 @@ struct SourceListSafetyTests {
       .members
 
     #expect(throws: SourceLayoutReplacementError.ambiguousTrivia) {
-      let _: SourceFix = try members.replacement {
-        Group(where: { _ in true }).sorted { ($0.name ?? "") < ($1.name ?? "") }
+      let layout = try Layout(members) {
+        Group { _ in true }.sorted { ($0.name ?? "") < ($1.name ?? "") }
       }
+      let _: SourceFix = try #require(layout.correction.fix)
     }
   }
 
@@ -76,9 +59,10 @@ struct SourceListSafetyTests {
       .statements
 
     #expect(throws: SourceLayoutReplacementError.ambiguousTrivia) {
-      let _: SourceFix = try statements.replacement {
+      let layout = try Layout(statements) {
         BlankLine(before: { $0.call?.references("second") == true })
       }
+      let _: SourceFix = try #require(layout.correction.fix)
     }
   }
 
@@ -90,9 +74,10 @@ struct SourceListSafetyTests {
       )
     let statements = try #require(file.syntaxNodes(of: .codeBlock).first)
       .statements
-    let fix: SourceFix = try statements.replacement {
+    let fixLayout = try Layout(statements) {
       BlankLine(before: { $0.call?.references("third") == true })
     }
+    let fix: SourceFix = try #require(fixLayout.correction.fix)
 
     #expect(try applying(fix, to: file) ==
       "func work() {\n  first() // Keep here.\n  second()\n\n  third()\n}")
@@ -113,9 +98,10 @@ struct SourceListSafetyTests {
       .members
 
     #expect(throws: SourceLayoutReplacementError.conditionalCompilation) {
-      let _: SourceFix = try members.replacement {
-        Group(where: { _ in true }).sorted { ($0.name ?? "") < ($1.name ?? "") }
+      let layout = try Layout(members) {
+        Group { _ in true }.sorted { ($0.name ?? "") < ($1.name ?? "") }
       }
+      let _: SourceFix = try #require(layout.correction.fix)
     }
   }
 
@@ -129,9 +115,10 @@ struct SourceListSafetyTests {
       .first?.members.first)
 
     #expect(throws: SourceLayoutReplacementError.differentSnapshots) {
-      let _: SourceFix = try [firstMember, secondMember].replacement {
-        Group(where: { _ in true })
+      let layout = try Layout([firstMember, secondMember]) {
+        Group { _ in true }
       }
+      let _: SourceFix = try #require(layout.correction.fix)
     }
   }
 
@@ -147,9 +134,10 @@ struct SourceListSafetyTests {
       .members
 
     #expect(throws: SourceLayoutReplacementError.noncontiguousElements) {
-      let _: SourceFix = try [members[0], members[2]].replacement {
+      let layout = try Layout([members[0], members[2]]) {
         BlankLine(before: { _ in false })
       }
+      let _: SourceFix = try #require(layout.correction.fix)
     }
   }
 

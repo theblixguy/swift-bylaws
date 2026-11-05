@@ -128,10 +128,6 @@ struct ConditionalLayoutTests {
         "must contain groups and separators"
       ),
       (
-        "Group(where: { true }); BlankLine(before: { true })",
-        "must use grouping or conditional spacing"
-      ),
-      (
         "Newline(before: { true }); BlankLine(after: { true })",
         "must use one separator for each gap"
       ),

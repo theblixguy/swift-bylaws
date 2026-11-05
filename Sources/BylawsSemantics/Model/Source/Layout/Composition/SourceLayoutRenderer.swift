@@ -88,7 +88,7 @@ package enum SourceLayoutRenderer {
       source: { try content($0.source) },
       edit: { content($0.source, edit: $0) }
     )
-    guard !layout.sources.isEmpty else { return "" }
+    guard try !layout.sources.isEmpty else { return "" }
     return try render(document, context: context)
   }
 
@@ -134,7 +134,12 @@ package enum SourceLayoutRenderer {
     _ prepared: SourceLayoutPrepared, at placement: Placement?,
     followedBy following: SourceLayoutContinuation?, tabWidth: Int
   ) throws -> Request {
-    let position = placement ?? prepared.originalPlacement
+    let position = placement ?? (prepared.trimmed
+      ? Placement(
+        column: prepared.context.initialColumn,
+        indentation: prepared.context.initialIndentation,
+        lineIndentation: prepared.context.initialIndentation
+      ) : prepared.originalPlacement)
     let following = following ?? .init(text: SourceLayoutText.lineSuffix(
       after: prepared.source
     ))
@@ -143,11 +148,20 @@ package enum SourceLayoutRenderer {
       lineIndentation: position.lineIndentation,
       originalText: position.originalText
     )
-    if let maximumWidth = prepared.maximumWidth {
-      let text = try prepared.content
-        .measuredText(indentation: unchanged.indentation)
-      if !following.exceeds(
-        maximumWidth, after: text, startingAt: unchanged.column,
+    if let condition = prepared.condition {
+      let text = if prepared.trimmed {
+        try SourceLayoutText(
+          SourceLayoutPrepared.trim(prepared.content.baseline),
+          originalIndentation: prepared.context.initialIndentation,
+          indentation: unchanged.indentation
+        ).text
+      } else {
+        try prepared.content.measuredText(indentation: unchanged.indentation)
+      }
+      if !following.matches(
+        condition,
+        after: prepared.trimmed ? SourceLayoutPrepared.trim(text) : text,
+        startingAt: unchanged.column,
         tabWidth: tabWidth
       ) {
         if prepared.content.changes.isEmpty {

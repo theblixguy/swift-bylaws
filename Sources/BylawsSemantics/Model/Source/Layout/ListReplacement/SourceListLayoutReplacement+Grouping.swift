@@ -4,7 +4,8 @@ extension SourceListLayoutReplacement {
   static func groups(
     elements: [any SourceProviding], items: [SourceLayoutReplacement.Item],
     operations: [SourceListLayoutOperation], tree: SourceFileSyntax,
-    context: SourceLayoutReplacement.Context
+    context: SourceLayoutReplacement.Context,
+    when condition: SourceLayoutCondition? = nil
   ) throws -> SourceFix {
     var membership = [Int?](repeating: nil, count: elements.count)
     for (group, operation) in operations.enumerated() {
@@ -27,63 +28,36 @@ extension SourceListLayoutReplacement {
         groupsByRegion[regionIDs[index]][group, default: []].append(index)
       }
     }
-    var edits: [SourceFix.Edit] = []
-    var candidates: [SourceFix.Edit] = []
+    var order = Array(elements.indices)
+    var requests = try separatorRequests(operations)
     for (regionID, region) in regions.enumerated() {
-      var nodes: [SourceLayout.Node] = []
+      var destination = region.lowerBound
       var pending: SourceWhitespace?
       for (group, operation) in operations.enumerated() {
         switch operation {
         case .group:
           guard let included = groupsByRegion[regionID][group] else { continue }
-          if !nodes.isEmpty, let pending {
-            nodes.append(pending == .blankLine ? .blankLine : .newline)
+          if destination > region.lowerBound, let pending {
+            if let requested = requests[destination], requested != pending {
+              throw SourceListLayoutError.conflictingSeparators
+            }
+            requests[destination] = pending
           }
-          nodes.append(contentsOf: included.map { .source(elements[$0]) })
+          for index in included {
+            order[destination] = index
+            destination += 1
+          }
           pending = nil
         case let .separator(whitespace):
           if whitespace == .blankLine || pending == nil { pending = whitespace }
-        case .conditionalSeparator: throw SourceListLayoutError.mixedPolicies
+        case .conditionalSeparator: break
         }
       }
-      let edit = try SourceLayoutReplacement.make(
-        elements: Array(elements[region]),
-        layout: SourceLayout(node: .sequence(nodes)),
-        parsedTree: tree, allowsPartialList: true,
-        sourceContext: context,
-        baseIndentation: context.indentation(
-          before: items[region.lowerBound].contentRange.lowerBound
-        )
-      )
-      let content = edit.replacement.drop(while: isWhitespace).reversed()
-        .drop(while: isWhitespace).reversed()
-      let source = try SourceSlice(
-        snapshot: items[region.lowerBound].source.snapshot,
-        range: items[region.lowerBound].contentRange
-          .lowerBound..<items[region.upperBound - 1].node
-          .endPositionBeforeTrailingTrivia.utf8Offset
-      )
-      let replacement = String(content)
-      let plan = edit.layout.map {
-        SourceLayoutPlan(
-          elements: $0.elements, node: $0.node,
-          allowsPartialList: $0.allowsPartialList,
-          baseIndentation: $0.baseIndentation,
-          targetRange: source.range, trimmed: true,
-          lineWidthLimit: $0.lineWidthLimit, nested: $0.nested
-        )
-      }
-      let grouped = SourceFix.Edit(
-        source: source,
-        replacement: replacement,
-        layout: plan
-      )
-      if source.text.utf8.elementsEqual(replacement.utf8) {
-        candidates.append(grouped)
-      } else {
-        edits.append(grouped)
-      }
     }
-    return SourceFix(edits: edits, layoutCandidates: candidates)
+    return try layoutRegions(
+      elements: elements, items: items, order: order,
+      regions: regions, requests: requests,
+      tree: tree, context: context, condition: condition
+    )
   }
 }

@@ -46,20 +46,36 @@ struct SourceLayoutDocument {
     source: (any SourceProviding) throws -> Event,
     edit: (SourceFix.Edit) throws -> Event
   ) throws {
+    try self.init(
+      node, separator: separator,
+      sourceEvents: { provider, _ in CollectionOfOne(try source(provider)) },
+      editEvents: { value, _ in CollectionOfOne(try edit(value)) }
+    )
+  }
+
+  init(
+    _ node: SourceLayout.Node,
+    separator: SourceLayoutRenderer.Separator,
+    sourceEvents: (any SourceProviding, SourceLayoutRenderer.Separator) throws
+      -> some Collection<Event>,
+    editEvents: (SourceFix.Edit, SourceLayoutRenderer.Separator) throws
+      -> some Collection<Event>
+  ) throws {
     func lower(
       _ node: SourceLayout.Node,
       separator: SourceLayoutRenderer.Separator,
       into events: inout [Event]
     ) throws -> Bool {
       switch node {
+      case let .failure(error): throw error
       case let .source(provider):
-        let event = try source(provider)
-        events.append(event)
-        return event.hasText
+        let contents = try sourceEvents(provider, separator)
+        events.append(contentsOf: contents)
+        return contents.contains(where: \.hasText)
       case let .edit(value):
-        let event = try edit(value)
-        events.append(event)
-        return event.hasText
+        let contents = try editEvents(value, separator)
+        events.append(contentsOf: contents)
+        return contents.contains(where: \.hasText)
       case let .sequence(children):
         let start = events.count
         var hasText = false
@@ -84,6 +100,16 @@ struct SourceLayoutDocument {
           return false
         }
         events.append(.line(contents))
+        return true
+      case let .lines(child):
+        return try lower(child, separator: .newline, into: &events)
+      case let .boundedLines(child):
+        var contents: [Event] = []
+        guard try lower(child, separator: .newline, into: &contents)
+        else { return false }
+        events.append(.lineBoundary)
+        events.append(contentsOf: contents)
+        events.append(.lineBoundary)
         return true
       case .blankLine:
         events.append(.boundary(.blankLine))

@@ -20,20 +20,29 @@ extension Collection where Element: SourceProviding {
   /// spaces used when none can be inferred. Tabs use one tab per level.
   /// Wrapping defaults to 100 characters.
   ///
-  /// A non-nil `whenLineExceeds` value must be positive. The layout applies
-  /// when a complete source line touched by the list exceeds that width.
-  /// The default `nil` applies the layout unconditionally. A nested layout uses
-  /// its new position in the containing layout for the width check.
+  /// The default `nil` condition applies the layout unconditionally. A nested
+  /// layout checks its condition at its new position in the containing layout.
   /// - Throws: ``SourceError`` when captured source cannot be read,
   ///   ``SourceLayoutReplacementError`` for unsupported input or source
   ///   ownership, or ``SourceLayoutError`` for a layout that cannot be rendered.
   ///   Errors from `layout` also propagate to the caller.
   public func replacement(
-    whenLineExceeds maximumWidth: Int? = nil,
+    when condition: SourceLayoutCondition? = nil,
     @SourceLayoutBuilder _ layout: () throws -> SourceLayout
   ) throws -> SourceFix.Edit {
     try SourceLayoutReplacement.make(
-      elements: map(\.self), layout: layout(), whenLineExceeds: maximumWidth
+      elements: map(\.self), layout: layout(), when: condition
+    )
+  }
+
+  /// Returns a replacement using a stored layout and an optional condition.
+  public func replacement(
+    layout: SourceLayout, when condition: SourceLayoutCondition? = nil
+  ) throws -> SourceFix.Edit {
+    try SourceLayoutReplacement.make(
+      elements: map(\.self),
+      layout: layout,
+      when: condition
     )
   }
 }
@@ -41,11 +50,11 @@ extension Collection where Element: SourceProviding {
 package enum SourceLayoutReplacement {
   package static func make(
     elements: [any SourceProviding], layout: SourceLayout,
-    whenLineExceeds maximumWidth: Int? = nil
+    when condition: SourceLayoutCondition? = nil
   ) throws -> SourceFix.Edit {
     try make(
       elements: elements, layout: layout, parsedTree: nil,
-      whenLineExceeds: maximumWidth
+      when: condition
     )
   }
 
@@ -53,14 +62,14 @@ package enum SourceLayoutReplacement {
     elements: [any SourceProviding], layout: SourceLayout,
     parsedTree: SourceFileSyntax?, allowsPartialList: Bool = false,
     sourceContext: Context? = nil, baseIndentation: String? = nil,
-    whenLineExceeds maximumWidth: Int? = nil,
+    when condition: SourceLayoutCondition? = nil,
     lineEnding: String? = nil
   ) throws -> SourceFix.Edit {
     let prepared = try prepare(
       elements: elements, layout: layout, parsedTree: parsedTree,
       allowsPartialList: allowsPartialList, sourceContext: sourceContext,
       baseIndentation: baseIndentation,
-      whenLineExceeds: maximumWidth, lineEnding: lineEnding
+      when: condition, lineEnding: lineEnding
     )
     return SourceFix.Edit(
       source: prepared.source,

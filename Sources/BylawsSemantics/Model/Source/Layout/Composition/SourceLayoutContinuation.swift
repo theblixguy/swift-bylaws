@@ -17,22 +17,24 @@ indirect enum SourceLayoutContinuation {
     return result
   }
 
-  func exceeds(
-    _ maximumWidth: Int, after text: String, startingAt column: Int,
-    tabWidth: Int
+  func matches(
+    _ condition: SourceLayoutCondition, after text: String,
+    startingAt column: Int, tabWidth: Int
   ) -> Bool {
     guard !text.isEmpty else { return false }
-    guard column <= maximumWidth else { return true }
+    let limit = condition.largestBound
+    guard column <= limit
+    else { return condition.matches(maximumLineLength: column) }
     var measurement = WidthMeasurement(
-      maximumWidth: maximumWidth, startingAt: column, tabWidth: tabWidth
+      limit: limit, startingAt: column, tabWidth: tabWidth
     )
-    guard measurement.append(text, stoppingAtNewline: false)
-    else { return true }
-    if text.last.map(SourceLayoutText.isNewline) != true {
+    if measurement.append(text, stoppingAtNewline: false),
+       text.last.map(SourceLayoutText.isNewline) != true
+    {
       readFirstLine { measurement.append($0, stoppingAtNewline: true) }
     }
     measurement.finish()
-    return measurement.exceeded
+    return condition.matches(maximumLineLength: measurement.maximumLength)
   }
 
   private func readFirstLine(_ append: (String) -> Bool) {
@@ -87,16 +89,19 @@ indirect enum SourceLayoutContinuation {
   }
 
   private struct WidthMeasurement {
-    let maximumWidth: Int
+    let limit: Int
     let tabWidth: Int
     var column: Int
     var pendingGrapheme: Character?
-    var exceeded = false
+    var maximumLength: Int
 
-    init(maximumWidth: Int, startingAt column: Int, tabWidth: Int) {
-      self.maximumWidth = maximumWidth
+    var exceeded: Bool { maximumLength > limit }
+
+    init(limit: Int, startingAt column: Int, tabWidth: Int) {
+      self.limit = limit
       self.tabWidth = max(tabWidth, 1)
       self.column = column
+      maximumLength = column
     }
 
     mutating func append(_ text: String, stoppingAtNewline: Bool) -> Bool {
@@ -158,11 +163,9 @@ indirect enum SourceLayoutContinuation {
         return
       }
       let advance = character == "\t" ? tabWidth - column % tabWidth : 1
-      if advance > maximumWidth - column {
-        exceeded = true
-      } else {
-        column += advance
-      }
+      let (nextColumn, overflow) = column.addingReportingOverflow(advance)
+      column = overflow ? .max : nextColumn
+      maximumLength = max(maximumLength, column)
     }
   }
 }

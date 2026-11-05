@@ -14,13 +14,14 @@ struct SourceListGroupingTests {
     """)
     let members = try #require(file.syntaxNodes(of: .structDeclaration).first)
       .members
-    let fix: SourceFix = try members.replacement {
-      Group(where: { $0.name == "apple" })
-      Group(where: {
+    let fixLayout = try Layout(members) {
+      Group { $0.name == "apple" }
+      Group {
         if $0.name == "apple" { throw MockError.claimedElement }
         return true
-      })
+      }
     }
+    let fix: SourceFix = try #require(fixLayout.correction.fix)
 
     #expect(try applying(fix, to: file) == """
     struct Store {
@@ -43,11 +44,12 @@ struct SourceListGroupingTests {
     """)
     let members = try #require(file.syntaxNodes(of: .structDeclaration).first)
       .members
-    let fix: SourceFix = try members.replacement {
-      Group(where: { $0.property?.isConstant == true })
+    let fixLayout = try Layout(members) {
+      Group { $0.property?.isConstant == true }
       BlankLine()
-      Group(where: { _ in true })
+      Group { _ in true }
     }
+    let fix: SourceFix = try #require(fixLayout.correction.fix)
 
     #expect(try applying(fix, to: file) == """
     struct Store {
@@ -79,8 +81,8 @@ struct SourceListGroupingTests {
     """)
     let members = try #require(file.syntaxNodes(of: .structDeclaration).first)
       .members
-    let fix: SourceFix = try members.replacement {
-      Group(where: { _ in true }).sorted {
+    let fixLayout = try Layout(members) {
+      Group { _ in true }.sorted {
         let left = $0.name ?? ""
         let right = $1.name ?? ""
         return switch order {
@@ -90,6 +92,7 @@ struct SourceListGroupingTests {
         }
       }
     }
+    let fix: SourceFix = try #require(fixLayout.correction.fix)
     let expected = switch order {
     case .ascending:
       "struct Store {\n  let a = 2\n  let kiwi = 4\n  let pear = 3\n  let zebra = 1\n}"
@@ -102,8 +105,8 @@ struct SourceListGroupingTests {
     let parsed = try collect(corrected)
     let declaration = try #require(parsed.syntaxNodes(of: .structDeclaration)
       .first)
-    let second: SourceFix = try declaration.members.replacement {
-      Group(where: { _ in true }).sorted {
+    let secondLayout = try Layout(declaration.members) {
+      Group { _ in true }.sorted {
         let left = $0.name ?? ""
         let right = $1.name ?? ""
         return switch order {
@@ -113,6 +116,7 @@ struct SourceListGroupingTests {
         }
       }
     }
+    let second: SourceFix = try #require(secondLayout.correction.fix)
 
     #expect(corrected == expected)
     #expect(second.edits.isEmpty)
@@ -122,9 +126,10 @@ struct SourceListGroupingTests {
   func attributeGroups() throws {
     let file = try collect("@Zebra @Apple class Store {}")
     let attributes = try #require(file.classes.first).attributes
-    let fix: SourceFix = try attributes.replacement {
-      Group(where: { _ in true }).sorted { $0.name < $1.name }
+    let fixLayout = try Layout(attributes) {
+      Group { _ in true }.sorted { $0.name < $1.name }
     }
+    let fix: SourceFix = try #require(fixLayout.correction.fix)
 
     #expect(try applying(fix, to: file) == "@Apple @Zebra class Store {}")
   }
@@ -136,10 +141,11 @@ struct SourceListGroupingTests {
         "let value = send(zebra: 1, apple: 2, marker: 0, pear: 3, banana: 4)"
       )
     let arguments = try #require(file.calls.first).arguments
-    let fix: SourceFix = try arguments.replacement {
-      Group(where: { $0.label != "marker" })
+    let fixLayout = try Layout(arguments) {
+      Group { $0.label != "marker" }
         .sorted { ($0.label ?? "") < ($1.label ?? "") }
     }
+    let fix: SourceFix = try #require(fixLayout.correction.fix)
 
     #expect(try applying(fix, to: file) ==
       "let value = send(apple: 2, zebra: 1, marker: 0, banana: 4, pear: 3)")
@@ -162,10 +168,11 @@ struct SourceListGroupingTests {
     let file = try collect(source)
     let members = try #require(file.syntaxNodes(of: .structDeclaration).first)
       .members
-    let fix: SourceFix = try members.replacement {
-      Group(where: { $0.property?.isConstant == true })
+    let fixLayout = try Layout(members) {
+      Group { $0.property?.isConstant == true }
         .sorted { ($0.name ?? "") < ($1.name ?? "") }
     }
+    let fix: SourceFix = try #require(fixLayout.correction.fix)
 
     #expect(try applying(fix, to: file) == """
     struct Store {
@@ -195,8 +202,8 @@ struct SourceListGroupingTests {
     let members = try #require(file.syntaxNodes(of: .structDeclaration).first)
       .members
     let firstRun = ["zebra", "apple"]
-    let fix = try members.replacement {
-      Group(where: { $0.property?.isConstant == true }).sorted {
+    let fixLayout = try Layout(members) {
+      Group { $0.property?.isConstant == true }.sorted {
         let left = $0.name ?? ""
         let right = $1.name ?? ""
         guard firstRun.contains(left) == firstRun.contains(right) else {
@@ -205,6 +212,7 @@ struct SourceListGroupingTests {
         return left < right
       }
     }
+    let fix = try #require(fixLayout.correction.fix)
 
     #expect(try applying(fix, to: file) == """
     struct Store {
@@ -227,17 +235,18 @@ struct SourceListGroupingTests {
     """)
     let members = try #require(file.syntaxNodes(of: .structDeclaration).first)
       .members
-    let fix: SourceFix = try members.replacement {
+    let fixLayout = try Layout(members) {
       BlankLine()
-      Group(where: { _ in false })
+      Group { _ in false }
       BlankLine()
-      Group(where: { $0.name == "apple" })
+      Group { $0.name == "apple" }
       BlankLine()
-      Group(where: { _ in false })
+      Group { _ in false }
       BlankLine()
-      Group(where: { _ in true })
+      Group { _ in true }
       BlankLine()
     }
+    let fix: SourceFix = try #require(fixLayout.correction.fix)
 
     #expect(try applying(fix, to: file) == """
     struct Store {
@@ -251,11 +260,12 @@ struct SourceListGroupingTests {
   @Test("Empty selections produce no edits")
   func emptySelection() throws {
     let members: [SourceNode] = []
-    let fix: SourceFix = try members.replacement {
-      Group(where: { _ in true })
+    let layout = try Layout(members) {
+      Group { _ in true }
     }
 
-    #expect(fix.edits.isEmpty)
+    #expect(layout.correction.outcome == .notApplicable)
+    #expect(layout.correction.fix == nil)
   }
 
   @Test("Predicate and comparison errors propagate")
@@ -266,16 +276,18 @@ struct SourceListGroupingTests {
       .members
 
     #expect(throws: MockError.claimedElement) {
-      let _: SourceFix = try members.replacement {
-        Group(where: { _ in throw MockError.claimedElement })
+      let layout = try Layout(members) {
+        Group { _ in throw MockError.claimedElement }
       }
+      let _: SourceFix = try #require(layout.correction.fix)
     }
     #expect(throws: MockError.claimedElement) {
-      let _: SourceFix = try members.replacement {
-        Group(where: { _ in true }).sorted { _, _ in
+      let layout = try Layout(members) {
+        Group { _ in true }.sorted { _, _ in
           throw MockError.claimedElement
         }
       }
+      let _: SourceFix = try #require(layout.correction.fix)
     }
   }
 

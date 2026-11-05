@@ -13,7 +13,7 @@ struct SourceEditCompositionTests {
     )
     let call = try #require(file.syntaxNodes(of: .functionCall).first?.call)
     let layout = try call.arguments.replacement(
-      whenLineExceeds: maximumWidth
+      when: !.maximumLineLength(...maximumWidth)
     ) {
       for argument in call.arguments {
         Newline()
@@ -44,13 +44,14 @@ struct SourceEditCompositionTests {
     let calls = file.syntaxNodes(of: .functionCall).compactMap(\.call)
     let inner = try #require(calls.first { $0.name == "send" })
     let outer = try #require(calls.first { $0.name == "outer" })
-    let layout = try inner.arguments.replacement(whenLineExceeds: 33) {
-      for argument in inner.arguments {
+    let layout = try inner.arguments
+      .replacement(when: !.maximumLineLength(...33)) {
+        for argument in inner.arguments {
+          Newline()
+          argument
+        }
         Newline()
-        argument
       }
-      Newline()
-    }
 
     let partial = try outer.source.replacement(applying: [layout])
     let corrected = try file.source.replacement(applying: [partial])
