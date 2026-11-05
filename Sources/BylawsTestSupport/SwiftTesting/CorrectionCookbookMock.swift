@@ -256,6 +256,20 @@ package struct CorrectionCookbookMock: Sendable, CustomTestStringConvertible {
       """]
     ),
     Self(
+      ruleIDs: ["separate-arguments"], article: "FormattingCookbook",
+      sources: ["Sources/Publish.swift": """
+      let entry = publish(title: "A delivery report for the current account", detail: "The latest recorded delivery is ready")
+      publish(title: "Ready", detail: "Sent")
+      """],
+      expected: ["Sources/Publish.swift": """
+      let entry = publish(
+        title: "A delivery report for the current account",
+        detail: "The latest recorded delivery is ready"
+      )
+      publish(title: "Ready", detail: "Sent")
+      """]
+    ),
+    Self(
       ruleIDs: ["argument-lines"], article: "FormattingCookbook",
       sources: ["Sources/Log.swift": """
       let entry = logger.write(.info, "Ready", category: "Transfer", tags: ["ready", "cached"])
@@ -270,6 +284,40 @@ package struct CorrectionCookbookMock: Sendable, CustomTestStringConvertible {
         ]
       )
       """]
+    ),
+    Self(
+      ruleIDs: ["argument-lines"], article: "FormattingCookbook",
+      sources: ["Sources/Collections.swift": """
+      record(
+        .info, "Ready",
+        values: [1, 2],
+        metadata: ["first": 1, "last": 2]
+      )
+      emit(.info, category: "Transfer", [1, 2], count: 2)
+      """],
+      expected: ["Sources/Collections.swift": """
+      record(
+        .info, "Ready",
+        values: [
+          1,
+          2
+        ],
+        metadata: [
+          "first": 1,
+          "last": 2
+        ]
+      )
+      emit(
+        .info,
+        category: "Transfer",
+        [
+          1,
+          2
+        ],
+        count: 2
+      )
+      """],
+      testDescription: "Array and dictionary contents change inside matching call layout"
     ),
     Self(
       ruleIDs: ["condition-width"], article: "FormattingCookbook",

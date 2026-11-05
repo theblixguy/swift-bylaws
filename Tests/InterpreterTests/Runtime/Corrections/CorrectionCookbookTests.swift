@@ -10,7 +10,7 @@ struct CorrectionCookbookTests {
   @Test(
     "Portable recipe corrects source and passes on second run",
     arguments: CorrectionCookbookMock.cases + CorrectionCookbookMock
-      .formattingCases
+      .formattingCases + CorrectionCookbookMock.structuralCases
   )
   func portableRecipe(mock: CorrectionCookbookMock) async throws {
     let source = try mock.bylawsSource()

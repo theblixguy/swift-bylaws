@@ -24,6 +24,7 @@ and conditions.
 | Logging, keychain access, authentication code and security settings | <doc:SecurityCookbook> |
 | Corrections to literals, tokens, comments or code in several files | <doc:CorrectingSourceCookbook> |
 | Attribute order, property groups, statement spacing or nested layouts | <doc:FormattingCookbook> |
+| Inserting list elements, flattening else-if branches or retaining code from a wrapper | <doc:StructuralCorrections> |
 | Compiler-resolved symbols, source text or other Swift syntax | <doc:AdvancedRules> |
 
 ## Set up and run a recipe

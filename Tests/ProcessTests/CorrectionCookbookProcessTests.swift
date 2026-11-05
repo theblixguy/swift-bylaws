@@ -84,7 +84,11 @@
         .deletingLastPathComponent().deletingLastPathComponent()
         .deletingLastPathComponent()
       var blocks: [String] = []
-      for article in ["CorrectingSourceCookbook", "FormattingCookbook"] {
+      for article in [
+        "CorrectingSourceCookbook",
+        "FormattingCookbook",
+        "StructuralCorrections",
+      ] {
         let path = root.appendingPathComponent(
           "Sources/Bylaws/Bylaws.docc/\(article).md"
         )
@@ -93,16 +97,17 @@
           .compactMap { $0.components(separatedBy: "\n```").first }
           .filter { $0.contains("import Testing") }
       }
-      try #require(blocks.count == 13)
+      try #require(blocks.count == 17)
       let functions: [String] = blocks.flatMap { block in
         block.components(separatedBy: "\n").compactMap { line in
           line.hasPrefix("func ") ? line.dropFirst(5).split(separator: "(")
             .first.map(String.init) : nil
         }
       }
-      try #require(functions.count == 13)
+      try #require(functions.count == 17)
       let batch = try CorrectionCookbookBatch(
-        CorrectionCookbookMock.cases + CorrectionCookbookMock.formattingCases
+        CorrectionCookbookMock.cases + CorrectionCookbookMock
+          .formattingCases + CorrectionCookbookMock.structuralCases
       )
       let consumer = try await SwiftTestingReportConsumer(
         additionalTests: blocks.joined(separator: "\n\n") + "\n\n" + batch
@@ -117,7 +122,7 @@
         $0.kind == "event" && $0.payload.kind == "testEnded"
       }.compactMap(\.payload.testID)
 
-      #expect(completed.count == 13)
+      #expect(completed.count == 17)
       #expect(records.last?.payload.kind == "runEnded")
       for function in functions {
         #expect(completed.contains { $0.contains(function) }, "\(function)")
