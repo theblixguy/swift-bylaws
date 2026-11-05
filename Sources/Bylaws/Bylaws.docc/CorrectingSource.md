@@ -14,7 +14,8 @@ the rules again and reports the result.
 
 <doc:CorrectingSourceCookbook> has complete recipes for text, token and comment
 edits, changes across files and correction tests. <doc:FormattingCookbook>
-covers ordering, spacing and nested layouts.
+covers ordering, spacing and nested layouts. <doc:StructuralCorrections>
+shows how to insert list elements and retain code when removing a wrapper.
 
 ## Define a correction
 
@@ -56,10 +57,11 @@ plain `swift test` runs also prepare corrections. Keep the violation checks
 outside the fix closure so they run in each case.
 
 When corrections are prepared, the fix closure runs once for each offender.
-You can write individual edits, arrays of edits, `if` and `for` statements in
-the result builder. All edits for one offender form one correction, including
-edits in several files. An empty result leaves that offender without a
-correction.
+You can mix `Replace`, `Insert`, `Remove`, `Unwrap` and `Layout` with individual
+edits, arrays and corrections returned by helpers. The result builder supports
+`if` and `for` statements. All edits for one offender form one correction,
+including edits in several files. An empty result leaves that offender without
+a correction.
 
 You can also propose corrections directly with
 `selection.violations("Requirement") { element in ... }`. Bylaws reports each
@@ -67,6 +69,17 @@ selected element whose edits change its original source.
 The CLI runs this closure during normal checks because its edits determine
 which elements fail.
 <doc:FormattingSource> shows how to describe a layout with a result builder.
+
+An operation can report that the source fails the rule but its fix is
+unavailable, for example when removing code would discard a comment. The
+violation includes the reason and the whole correction is withheld. If an
+operation cannot establish whether the rule applies, the check stops with a
+reason so the run cannot report that check as passing.
+
+You can inspect an operation's `correction.outcome`, `correction.reason` and
+`correction.fix` in a helper. Use `SourceCorrection.unavailable(reason)` for a
+known violation without a fix, or `.undetermined(reason)` when applicability
+is unknown. `SourceCorrection(combining:)` combines stored correction values.
 
 If you want to give the correction a title, use
 `.withFix("Use uppercase hex digits") { ... }`.
@@ -264,9 +277,10 @@ An imported library can contain both application code and rule helpers,
 so the CLI cannot identify its helpers for protection automatically. Keep
 matcher and fix helpers in test targets when they must be protected.
 
-The CLI combines identical replacements and compatible nested layouts. It
-rejects every correction involved in a conflict, including other edits in a
-correction that spans several files. Independent corrections can proceed.
+The CLI combines identical replacements, compatible list changes and nested
+layouts or retained-source replacements. It rejects every correction involved
+in a conflict, including other edits in a correction that spans several files.
+Independent corrections can proceed.
 The CLI parses each proposed file with its selected Swift language mode and
 rejects a correction that produces syntax errors. Every rule that proposes
 corrections for a file must use the same `swiftLanguageMode`.

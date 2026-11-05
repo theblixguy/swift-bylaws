@@ -5,17 +5,17 @@ Describe a layout with captured source elements and apply it as a correction.
 ## Overview
 
 You can write formatting rules in `Bylaws.swift` or Swift Testing. Use a
-selection's `violations` closure to propose the desired source. Bylaws reports
-a violation when a proposal changes the original bytes and attaches the edit
-as its correction. A normal run keeps the files unchanged.
+selection's `violations` closure and `Layout` to describe the desired source.
+Bylaws reports a violation when a proposal changes the source and attaches the
+edit as its correction. A normal run keeps the files unchanged.
 
 <doc:FormattingCookbook> has complete recipes for custom ordering, property
 groups, statement spacing, wrapping and nested layouts in both rule forms.
 
 ## Arrange attributes
 
-This portable rule sorts attributes alphabetically and puts them together on
-the line before the class declaration:
+You can sort attributes alphabetically and put them together on the line before
+the class declaration:
 
 ```swift
 import Bylaws
@@ -26,10 +26,8 @@ nonisolated let rules: [Rule] = [
   Rule("attributes", "Class attributes use alphabetical order") {
     try await app.classes.violations("Order attributes on one line") { declaration in
       let attributes = declaration.attributes
-      if !attributes.isEmpty {
-        try attributes.replacement {
-          Line { attributes.sorted { $0.name < $1.name } }
-        }
+      try Layout(attributes) {
+        Line(attributes.sorted { $0.name < $1.name })
       }
     }
   },
@@ -48,19 +46,19 @@ give a consistent order. Elements that compare equally keep their original
 order. The builder also takes collections returned by `filter` and source
 elements emitted by `if` and `for` statements.
 
-To put each attribute on its own line, change the replacement body to:
+To put each attribute on its own line, use `Lines` and request a break at each
+end of the list:
 
 ```swift
-for attribute in attributes.sorted(by: { $0.name < $1.name }) {
-  Line { attribute }
-}
+Lines(attributes.sorted { $0.name < $1.name }, boundaries: .newline)
 ```
 
-An explicit layout must emit every input element exactly once. Filtering a
-group inside the builder is useful when the remaining groups emit the other
-elements. An omitted or repeated element throws an error.
+When an explicit layout emits source, it must include every input element
+exactly once. You can filter a collection inside the builder if its other
+expressions emit the remaining elements. An omitted or repeated element throws
+an error.
 
-Use `Group(where:)` to assign each input element to the first matching group.
+Use `Group { ... }` to assign each input element to the first matching group.
 Groups appear in the written order and retain source order within each group.
 Add `.sorted { ... }` to give a group its own comparison. An unmatched element
 stays in place and divides the list into separate regions. Each region keeps
@@ -68,16 +66,22 @@ its elements on the same side of that element.
 
 A grouped layout emits its input elements automatically. Use `BlankLine()` or
 `Newline()` between groups to set their separation. Empty groups add no blank
-lines. Keep explicit element emission and groups in separate replacements.
+lines. A layout uses either explicit elements or automatic groups.
+
+Use `Group(\.property) { $0.isConstant }` to group members through an optional
+projection. A missing property leaves the member for later groups. For a list
+of properties, `Group(\.isConstant)` uses the Boolean property directly.
+You can also pass a matcher, such as `Group(.hasAttribute("State"))`.
 
 ## Control the layout
 
 | Operation | Behaviour |
 | --- | --- |
+| `Lines(elements)` | Separates the elements with line breaks and permits multiline elements. Pass `boundaries: .newline` to start and end the list on separate lines. |
 | `Line { ... }` | Puts the enclosed source on one physical line, separate from surrounding code. Rejects source with physical line breaks. |
 | `Newline()` | Requests a line break between source elements or at a list boundary. |
 | `BlankLine()` | Separates non-empty output with an empty line. Repeated requests collapse, and empty sections add no leading or trailing blank lines. |
-| `Group(where:)` | Assigns each input element to its first matching group. Retains source order within the group unless `.sorted { ... }` supplies a comparison. |
+| `Group { ... }` | Assigns each input element to its first matching group. Retains source order within the group unless `.sorted { ... }` supplies a comparison. |
 | `Indent { ... }` | Adds one indentation level after a line break, including a requested break before the first element. |
 | `Wrap(width: 100) { ... }` | Wraps at permitted boundaries when the next element would exceed the width. |
 | `Break()` | Adds an optional break, rendered as a space when the content fits. |
@@ -93,8 +97,41 @@ indentation from source outside the replaced list, with two spaces used when
 none can be inferred. Tabs use one tab per level. A grouped layout retains
 each region's original indentation. Line endings retain the source's LF, CRLF
 or CR spelling. Width counts characters and expands tabs to eight-column stops.
-Use `SourceLayout { ... }` to construct a layout value that another builder
-can emit.
+Each operation takes a collection or a builder closure. Use `SourceLayout { ... }`
+to combine operations in a layout value. An empty input or empty layout leaves
+the source unchanged, including when `Lines` requests outer line breaks.
+
+## Use stored layouts
+
+You can construct the same layout with values, then pass it to `Layout`:
+
+```swift
+let line = Line(attributes.sorted { $0.name < $1.name })
+try Layout(attributes, layout: line)
+```
+
+`Line`, `Lines`, `Indent`, `Wrap` and `Align` also take a `layout:` value. You can
+combine stored layouts with `SourceLayout([first, second])` and add `.newline`,
+`.blankLine` or `.softBreak` where you want a boundary.
+
+A `LayoutContent` value can hold grouping and spacing policies:
+
+```swift
+let groups: LayoutContent<SourceNode> = .sequence([
+  .group(Group(\.property) { $0.isConstant && $0.visibility == .private }),
+  .group(Group(\.property) { $0.isConstant })
+])
+
+try Layout(declaration.members) {
+  groups
+  BlankLine(before: { $0.name == "refresh" })
+}
+```
+
+You can pass `groups` directly as `layout: groups`. A builder can include a
+stored value alongside its own operations, as the spacing condition above
+shows. Collection `.replacement { ... }` calls can also appear in a correction
+closure.
 
 ## Wrap call arguments
 
@@ -107,15 +144,12 @@ Rule("call-arguments", "Call arguments use separate lines") {
     .violations("Wrap labelled arguments") { node in
       if let call = node.call, call.arguments.count > 1 {
         let leading = call.arguments.prefix { $0.label == nil }
-        try call.arguments.replacement(whenLineExceeds: 100) {
-          if !leading.isEmpty {
-            Newline()
-            leading
-          }
-          for argument in call.arguments.dropFirst(leading.count) {
-            Newline()
-            argument
-          }
+        let remaining = call.arguments.dropFirst(leading.count)
+        try Layout(call.arguments, when: .maximumLineLength(101...)) {
+          Newline()
+          leading
+          Newline()
+          Lines(remaining)
           Newline()
         }
       }
@@ -123,35 +157,71 @@ Rule("call-arguments", "Call arguments use separate lines") {
 }
 ```
 
-The list supplies the commas and indentation. Use `Align` with `Wrap` to
-preserve the first argument's position and align the continuation lines:
+The list supplies the commas and indentation. To give every argument its own
+line, use `Lines(call.arguments, boundaries: .newline)` as the layout body.
+
+Use `Align` with `Wrap` to preserve the first argument's position and align the
+continuation lines:
 
 ```swift
-try call.arguments.replacement {
+try Layout(call.arguments) {
   Align {
-    Wrap(width: 80) { call.arguments }
+    Wrap(call.arguments, width: 80)
   }
 }
 ```
 
-A nested list replacement can appear in the outer builder in place of its
-containing element. For example, an edit to array elements can wrap the array
-within its argument. Each containing element must appear once, including
-when it contains a nested edit. Use `Newline()` before the first element when
-the list must start on a new line, or after the last element when the closing
-parenthesis must start on a new line.
+Use `.applying` to attach corrections inside the selected elements. For example,
+you can expand array and dictionary arguments along with the call:
+
+```swift
+try Layout(call.arguments) {
+  Lines(call.arguments, boundaries: .newline)
+}.applying {
+  for elements in call.arguments.compactMap({ $0.expression?.elements }) {
+    try Layout(elements, layout: Lines(elements, boundaries: .newline))
+  }
+}
+```
+
+An expression's `elements` projection returns an array's elements or a
+dictionary's complete key-value entries. Other expressions return `nil`.
+Empty arrays and dictionaries remain unchanged.
+
+Attached corrections follow the containing layout's condition. They can change
+the contents even when the containing layout's spacing already matches. Each
+correction must stay inside an element retained by that layout. A grouping or
+spacing policy retains its matched regions, so corrections outside those
+regions must be separate operations. You can also pass a stored correction to
+`.applying`.
 
 Layouts from different rules can format a nested call and its containing
 statement or declaration together. Use `Newline()` before an element that
 can span several lines. Use `Line` when the whole element must stay on one
 physical line.
 
-`whenLineExceeds: 100` applies the layout only when a containing source line
-exceeds 100 columns. A nested layout uses its position after the outer layout
-moves it, so a call that fits can stay compact. A line at the limit stays
-unchanged. Omit the argument, or pass `nil`, to apply the
-layout unconditionally. To check a captured region directly, use
-`source.hasLine(exceeding: 100, tabWidth: 8)`.
+## Set a layout condition
+
+`when: .maximumLineLength(101...)` applies a layout when the longest affected
+source line exceeds 100 columns. You can use Swift ranges for other conditions:
+
+| Condition | Longest affected line |
+| --- | --- |
+| `.maximumLineLength(50...)` | At least 50 columns |
+| `.maximumLineLength(...50)` | At most 50 columns |
+| `.maximumLineLength(..<50)` | Fewer than 50 columns |
+| `.maximumLineLength(50..<100)` | Between 50 and 99 columns |
+
+Use `!`, `&&` and `||` to negate or combine conditions. For a configurable strict
+limit, use `when: !.maximumLineLength(...maximumWidth)`. Omit `when:`, or pass
+`nil`, to apply the layout unconditionally. `Wrap(width:)` sets the desired
+wrapping width independently of the condition.
+
+The measurement includes surrounding text and the layout's position after any
+containing layout moves it, before applying its own correction. A nested call
+that fits on its new line can stay compact. A grouping or spacing policy
+checks each affected region separately. To check the captured source directly,
+use `source.hasLine(exceeding: 100, tabWidth: 8)`.
 
 ## Select source and whitespace
 
@@ -159,7 +229,8 @@ You can use the same operations on attributes, modifiers, members, statements,
 parameters, enum case elements and array or dictionary elements. Use a
 complete list for attributes, modifiers and comma-separated elements. Member
 and statement lists can be consecutive regions within a larger list. A
-collection of properties or functions from several files is not one editable list.
+collection of properties or functions from several files is not one editable
+list.
 
 You can select other syntax lists with `file.syntaxNodes(of:)` and use each
 node's `elements` projection. For example,
@@ -189,14 +260,10 @@ other properties in your ordering logic. An attribute's `argument` projection
 returns its single unlabelled expression, and
 `hasAttribute("Environment", argument: \.isKeyPath)` checks that form directly.
 
-An empty collection produces no edit for a grouped layout or conditional
-separator. Check `isEmpty` before proposing an explicit layout that emits
-source elements.
-
 You can set whitespace between adjacent list elements with a condition:
 
 ```swift
-try block.statements.replacement {
+try Layout(block.statements) {
   BlankLine(
     between: { $0.kind == .variableDeclaration },
     and: { $0.call != nil }
@@ -208,8 +275,12 @@ try block.statements.replacement {
 element and `after:` checks the preceding element. `Newline` takes the same
 conditions. These forms keep every element in source order and preserve gaps
 that do not match. Repeated requests for a gap combine, while conflicting
-requests throw an error. Keep grouping and conditional spacing in separate
-replacements.
+requests throw an error.
+
+You can combine these conditions with groups in one `Layout`. Bylaws groups
+and sorts the elements first, then checks the conditions against the resulting
+adjacent pairs. Gaps outside the affected regions retain their original
+whitespace.
 
 A node's `call` projection recognises calls enclosed by `try`, `await` or
 parentheses. A call inside a binding or nested body does not make the
@@ -229,7 +300,7 @@ inside a line comment.
 
 ## Report from Swift Testing
 
-Use the same selection and replacement body in a test, then report the result:
+Use the same selection and layout body in a test, then report the result:
 
 ```swift
 import Bylaws
@@ -240,10 +311,8 @@ func orderedAttributes() async throws {
   let app = Codebase(root: .automatic(), including: ["Sources/**"])
   let violations = try await app.classes.violations("Order attributes on one line") { declaration in
     let attributes = declaration.attributes
-    if !attributes.isEmpty {
-      try attributes.replacement {
-        Line { attributes.sorted { $0.name < $1.name } }
-      }
+    try Layout(attributes) {
+      Line(attributes.sorted { $0.name < $1.name })
     }
   }
 
@@ -256,14 +325,16 @@ See <doc:CorrectingSource> for previewing edits and selecting rules or tests.
 
 ## Limits
 
-A layout preserves captured source elements. Use the source replacement API
-to change a name, literal or other content. Layout checks reject foreign source,
-missing elements and unclear comment ownership. Conditional-compilation
-boundaries and formatting-control comments also stop rearrangement.
+A layout preserves captured source elements. You can combine `Layout` with
+`Replace`, `Insert`, `Remove` or `Unwrap` in the same correction closure. See
+<doc:CorrectingSource> for changes to names, literals and other content.
+Layout checks reject foreign source, missing elements and unclear comment
+ownership. Conditional-compilation boundaries and formatting-control comments
+also stop rearrangement.
 Each element must appear once in a layout builder. Conflicting captured
 layouts and overlapping raw text replacements are rejected.
-Use `argument.expressionSource.replacement(applying:)` to combine edits to
-parts of one argument before emitting it in the outer layout.
+A child `Layout` or `Replace` can sit beside the containing `Layout` in the
+correction closure. Bylaws combines compatible edits before applying the fix.
 
 The CLI applies one set of corrections before verification. If a separate
 layout joins lines and makes another call too long, verification reports the

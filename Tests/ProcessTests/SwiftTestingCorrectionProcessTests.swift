@@ -65,12 +65,12 @@
     }
 
     @Test(
-      "Native formatting recipes correct together and pass second run",
+      "Native formatting and structural recipes correct and pass second run",
       .timeLimit(.minutes(10))
     )
-    func cookbookFormattingLifecycle() async throws {
+    func cookbookLifecycle() async throws {
       let batch = try CorrectionCookbookBatch(CorrectionCookbookMock
-        .formattingCases)
+        .formattingCases + CorrectionCookbookMock.structuralCases)
       let consumer = try await SwiftTestingReportConsumer(additionalTests: batch
         .source)
       try batch.writeSources(in: consumer)
@@ -85,7 +85,7 @@
         "\(correction.standardOutput)\n\(correction.standardError)"
       )
       try expectReport(correction, violations: 0, ruleIDs: batch.ruleIDs)
-      #expect(correction.standardError.contains("Corrected 3 files:"))
+      #expect(correction.standardError.contains("Corrected 6 files:"))
       for recipe in batch.recipes {
         for (path, expected) in recipe.mock.expected {
           #expect(try String(

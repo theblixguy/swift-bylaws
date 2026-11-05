@@ -148,6 +148,8 @@ extension CorrectionCookbookMock {
           alpha(first: "xxxxxxxxxxxxxxxxxxxxxxx", payload: pair(first: 1, second: 2))
           bravo(first: "xxxxxxxxxxxxxxxxxxxxxxxx", payload: pair(first: 1, second: 2))
           delta(first: "xxxxxxxxxxxxxxxxxxxxxxxxx", payload: pair(first: 1, second: 2))
+          small(first: 1, values: [1, 2])
+          offer(first: "All registered destinations for the current delivery report", values: [1, 2])
           keep(
             first: 1, second: 2
           )
@@ -168,6 +170,14 @@ extension CorrectionCookbookMock {
           delta(
             first: "xxxxxxxxxxxxxxxxxxxxxxxxx",
             payload: pair(first: 1, second: 2)
+          )
+          small(first: 1, values: [1, 2])
+          offer(
+            first: "All registered destinations for the current delivery report",
+            values: [
+              1,
+              2
+            ]
           )
           keep(
             first: 1, second: 2

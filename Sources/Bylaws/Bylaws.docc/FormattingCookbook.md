@@ -418,6 +418,60 @@ A stored layout refers to the source elements it was created from. Use it
 only in a replacement for that source list and emit each selected argument
 once.
 
+## Put call arguments on separate lines
+
+You can put every argument on its own line when a call exceeds 100 columns.
+The syntax query includes top-level and nested calls.
+
+### Bylaws.swift
+
+```swift
+import Bylaws
+
+nonisolated let app = Codebase(root: .automatic(), including: ["Sources/**"])
+
+nonisolated let rules: [Rule] = [
+  Rule("separate-arguments", "Long calls use separate argument lines") {
+    try await app.syntaxNodes(of: .functionCall)
+      .violations("Long calls use separate argument lines") { node in
+        if let call = node.call, call.arguments.count > 1 {
+          try Layout(call.arguments, when: .maximumLineLength(101...)) {
+            Lines(call.arguments, boundaries: .newline)
+          }
+        }
+      }
+  },
+]
+```
+
+### Swift Testing
+
+```swift
+import Bylaws
+import Testing
+
+@Test("Long calls use separate argument lines")
+func separateArguments() async throws {
+  let app = Codebase(root: .automatic(), including: ["Sources/**"])
+  let violations = try await app.syntaxNodes(of: .functionCall)
+    .violations("Long calls use separate argument lines") { node in
+      if let call = node.call, call.arguments.count > 1 {
+        try Layout(
+          call.arguments,
+          layout: Lines(call.arguments, boundaries: .newline),
+          when: .maximumLineLength(101...)
+        )
+      }
+    }
+
+  violations.report(ruleID: "separate-arguments")
+}
+```
+
+The range includes 101, so a line at 100 columns stays unchanged. Omit `when:`
+to apply the layout to every selected call. The builder and value forms have
+the same behaviour.
+
 ## Format nested call arguments
 
 This rule formats function calls with more than one argument, including
