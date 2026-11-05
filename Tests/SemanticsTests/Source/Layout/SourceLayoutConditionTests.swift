@@ -95,7 +95,7 @@ struct SourceLayoutConditionTests {
   @Test("Negated conditions leave empty lists alone")
   func emptyList() throws {
     let file = try collect("let x = f()")
-    let arguments = try #require(file.calls.first).arguments
+    let arguments = try #require(file.calls.first).argumentList
     let layout = try Layout(arguments, when: !.maximumLineLength(0..<0)) {
       Newline()
       Lines { arguments }

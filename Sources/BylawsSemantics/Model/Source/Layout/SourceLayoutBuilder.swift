@@ -20,6 +20,15 @@ public enum SourceLayoutBuilder {
     SourceLayout(node: .sequence(sources.map { .source($0) }))
   }
 
+  /// Emits the elements of a captured source list.
+  public static func buildExpression(
+    _ sources: SourceList<some SourceProviding>
+  )
+    -> SourceLayout
+  {
+    SourceLayout(node: .sequence(sources.map { .source($0) }))
+  }
+
   /// Emits a source replacement within the enclosing layout.
   public static func buildExpression(_ edit: SourceFix.Edit) -> SourceLayout {
     SourceLayout(node: .edit(edit))

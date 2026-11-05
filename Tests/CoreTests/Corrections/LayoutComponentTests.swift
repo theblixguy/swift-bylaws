@@ -27,7 +27,7 @@ struct LayoutComponentTests {
       """,
     ]))
     let call = try #require(await app.calls.named("send").first)
-    let arguments = call.arguments
+    let arguments = try call.argumentList
     let operation = try Layout(
       arguments,
       layout: Lines(arguments, boundaries: .newline)

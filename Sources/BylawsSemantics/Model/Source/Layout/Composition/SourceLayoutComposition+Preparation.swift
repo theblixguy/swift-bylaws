@@ -4,11 +4,25 @@ extension SourceLayoutComposition.Session {
   func contentEdits(in edits: [SourceFix.Edit]) throws -> [SourceFix.Edit] {
     if edits
       .contains(where: {
-        $0.layout?.replacement != nil
+        $0.layout?.replacement != nil || $0.layout?.listMutation != nil
       })
     {
       return try composeTree(edits: edits, validating: false).flatMap { root in
         guard let plan = root.edit.layout else { return [root.edit] }
+        if let mutation = plan.listMutation {
+          let prepared = try prepareListMutation(
+            root.edit, plan: plan,
+            mutation: .init(
+              mutations: mutation.mutations,
+              formatsElements: false
+            ),
+            children: root.children
+          )
+          return [SourceFix.Edit(
+            source: root.edit.source,
+            replacement: try SourceLayoutRenderer.render(prepared)
+          )]
+        }
         if let replacement = plan.replacement {
           let changes = try contentEdits(in: root.children
             .flatMap(\.flattenedEdits))
@@ -76,6 +90,13 @@ extension SourceLayoutComposition.Session {
     let children = key.children
     guard let plan = edit.layout else { throw SourceError.syntaxMismatch }
     let prepared = switch plan.mode {
+    case let .listMutation(mutation, _):
+      try prepareListMutation(
+        edit,
+        plan: plan,
+        mutation: mutation,
+        children: children
+      )
     case let .replacement(replacement):
       try prepareReplacement(
         edit,

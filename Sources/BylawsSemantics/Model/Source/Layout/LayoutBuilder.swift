@@ -1,6 +1,15 @@
 /// Builds an arrangement or grouping and spacing policy for a source list.
 @resultBuilder
 public enum LayoutBuilder<Element: SourceProviding> {
+  /// Emits the elements of a captured source list.
+  public static func buildExpression(
+    _ sources: SourceList<some SourceProviding>
+  )
+    -> LayoutContent<Element>
+  {
+    .layout(SourceLayout(node: .sequence(sources.map { .source($0) })))
+  }
+
   /// Combines components in their written order.
   public static func buildBlock(_ components: LayoutContent<Element>...)
     -> LayoutContent<Element>

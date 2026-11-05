@@ -35,6 +35,11 @@ public struct SourceLayout: Sendable {
     node = .sequence(sources.map { .source($0) })
   }
 
+  /// Creates a layout containing the elements of a captured source list.
+  public init(_ sources: SourceList<some SourceProviding>) {
+    node = .sequence(sources.map { .source($0) })
+  }
+
   /// Creates a layout that includes an edit within its containing source element.
   public init(_ edit: SourceFix.Edit) {
     node = .edit(edit)
