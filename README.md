@@ -47,6 +47,10 @@ check where files and types belong, compare a `Package.swift` manifest with the
 imports in its source, find dependency cycles or restrict references between
 files, folders or modules.
 
+You can also attach source corrections to a rule or describe a formatting
+convention, such as member ordering or how call arguments wrap. The CLI can
+apply those corrections and check the rules again.
+
 Most rules only need access to the source code and project files. You can run
 portable source rules before a build with `bylaws lint --skip-tests`, while
 Swift Testing compiles its rules as part of the usual test run. If a rule needs
@@ -320,6 +324,32 @@ Bylaws reports warnings for targets it cannot check.
 The [rule cookbook] also covers protocol requirements, SwiftUI state, lifecycle
 calls and compiler-resolved references.
 
+### Define formatting and source corrections
+
+You can describe a layout for captured source elements and report a violation
+when their arrangement differs. This rule sorts class attributes alphabetically
+and puts them on one line:
+
+```swift
+Rule("attributes", "Class attributes use alphabetical order") {
+  try await app.classes.violations("Order attributes on one line") { declaration in
+    let attributes = declaration.attributes
+    try Layout(attributes) {
+      Line(attributes.sorted { $0.name < $1.name })
+    }
+  }
+}
+```
+
+A rule can also use `withFix` to attach a correction to an existing violation.
+You can replace a name or literal, add an attribute or change a list of
+arguments, and combine those changes with a layout in the same correction.
+
+Run `bylaws lint --autocorrect --dry-run` to review the proposed changes, then
+`bylaws lint --autocorrect` to apply them and rerun the rules. The same APIs
+work in `Bylaws.swift` and Swift Testing. The [source correction guide] and
+[formatting cookbook] have complete examples for both rule forms.
+
 ## Get started
 
 ### Requirements
@@ -377,7 +407,7 @@ Add the package and the `Bylaws` product to a test target:
 dependencies: [
   .package(
     url: "https://github.com/theblixguy/swift-bylaws.git",
-    from: "0.6.1",
+    from: "0.7.0",
     traits: []
   )
 ],
@@ -503,7 +533,7 @@ macOS and Linux.
 Add the dependency from the Bazel Central Registry to `MODULE.bazel`:
 
 ```starlark
-bazel_dep(name = "swift-bylaws", version = "0.6.1")
+bazel_dep(name = "swift-bylaws", version = "0.7.0")
 ```
 
 Put `Bylaws.swift` at the workspace root, then run:
@@ -652,6 +682,8 @@ projects. The times below are in seconds and exclude compilation.
 - [Getting started]
 - [Rule cookbook]
 - [Correcting source][source correction guide]
+- [Formatting cookbook]
+- [Change source structure][structural correction guide]
 - [Combine checks and match declaration members]
 - [Running rules from the CLI]
 - [Inspect a rule's selections]
@@ -702,6 +734,10 @@ Bylaws is available under the MIT licence. See [LICENSE].
   https://theblixguy.github.io/swift-bylaws/documentation/bylaws/correctingsource#Use-compiler-index-queries
 [source correction guide]:
   https://theblixguy.github.io/swift-bylaws/documentation/bylaws/correctingsource
+[formatting cookbook]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/formattingcookbook
+[structural correction guide]:
+  https://theblixguy.github.io/swift-bylaws/documentation/bylaws/structuralcorrections
 [test discovery]:
   https://theblixguy.github.io/swift-bylaws/documentation/bylaws/runningrulesfromthecli#Run-a-rules-file-as-tests
 [Build-tool plugin setup]:

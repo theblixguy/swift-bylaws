@@ -33,7 +33,7 @@ Add the package and the `Bylaws` product to a test target:
 dependencies: [
   .package(
     url: "https://github.com/theblixguy/swift-bylaws.git",
-    from: "0.6.1"
+    from: "0.7.0"
   )
 ],
 targets: [
@@ -52,7 +52,7 @@ editor tools. If you only use Bylaws in tests, omit the default traits:
 ```swift
 .package(
   url: "https://github.com/theblixguy/swift-bylaws.git",
-  from: "0.6.1",
+  from: "0.7.0",
   traits: []
 )
 ```
@@ -182,7 +182,7 @@ alongside the project's other packages:
 ```swift
 .package(
   url: "https://github.com/theblixguy/swift-bylaws.git",
-  from: "0.6.1"
+  from: "0.7.0"
 )
 ```
 
